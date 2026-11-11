@@ -29,6 +29,7 @@ const context={module,exports:module.exports,console,crypto,Date:TestDate,Reques
  if(name==='./approval-policy')return{isHqStaff:a=>!!a.ok&&!a.isTeacher&&['hq','staff'].includes(a.role),isExec:a=>a.username==='admin'};
  if(name==='./once-per-isolate')return{oncePerIsolate:f=>f};
  if(name==='./handover-routing')return{approvalHints:()=>[],APPROVAL_PROMPT_RULE:''};
+ if(name==='./handover-board'){const m={exports:{}};vm.runInNewContext(ts.transpileModule(readFileSync('cloudflare-deploy/src/handover-board.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{module:m,exports:m.exports});return m.exports;} // 팀 보고판 모양(순수 함수) — 자체 하니스(handover_board)가 따로 본다
  if(name==='./auth-admin')return{PH_MANAGERS:[]};
  if(name==='./web-push')return{broadcastWebPush:async eps=>{broadcastCalls.push([...eps]);return broadcastImpl(eps);}};
  throw new Error(name);
@@ -376,7 +377,9 @@ for(const route of ['/ack','/return']){
   assert.equal(events().length,0);assert.deepEqual(queued(),oldQueue,'failed transaction does not clean up notifications');
   statementHook=null;db.exec('DROP TRIGGER fail_response_event');
   assert.equal((await api(route,body,'bob')).ok,true);oneResponse(r,route,feedback);
-  assert.equal(queued().length,3);assert.ok(queued().every(q=>q.tag.endsWith(`:${r.version+1}`)),'response cleanup leaves newer revision tags');
+  const reviewQueue=queued().filter(q=>!q.tag.startsWith('handover-reply:'));
+  assert.equal(reviewQueue.length,3);assert.ok(reviewQueue.every(q=>q.tag.endsWith(`:${r.version+1}`)),'response cleanup leaves newer revision tags');
+  assert.equal(queued().filter(q=>q.tag.startsWith('handover-reply:')).length,route==='/return'?1:0,'change requests notify the author separately');
   const committed=report(r), savedHistory=revisions(r), savedEvents=events();
   now+=1000;
   for(let i=0;i<3;i++){
@@ -421,10 +424,10 @@ for(const route of ['/ack','/return'])for(const failure of ['handover-read','han
   }};
   assert.equal((await api(route,body,'bob')).ok,true);oneResponse(r,route,'Checked');
   assert.equal(cleanupAttempts.length,3,'each cleanup is attempted even after another fails');
-  assert.equal(queued().length,failure==='all'?6:4);
+  assert.equal(queued().filter(q=>!q.tag.startsWith('handover-reply:')).length,failure==='all'?6:4);
   statementHook=null;
   const retry=await api(route,body,'bob');assert.equal(retry.ok,true);assert.equal(retry.duplicate,true);
-  oneResponse(r,route,'Checked');assert.equal(queued().length,3);assert.ok(queued().every(q=>q.tag.endsWith(':2')));
+  oneResponse(r,route,'Checked');const remaining=queued().filter(q=>!q.tag.startsWith('handover-reply:'));assert.equal(remaining.length,3);assert.ok(remaining.every(q=>q.tag.endsWith(':2')));
 }
 // A matching row without its committed event is not sufficient evidence of an exact retry.
 for(const route of ['/ack','/return']){

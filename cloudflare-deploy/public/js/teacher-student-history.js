@@ -28,7 +28,9 @@
       // Holidays: KR = light red cell + red pill, PH = light blue (same colours as the manager's calendar).
       + '#teacher-history .history-cal .cal-hol{background:#fef2f2}#teacher-history .history-cal .cal-hol.cal-hol-ph{background:#eff6ff}#teacher-history .history-cal .cal-hpill{display:block;margin-top:2px;padding:1px 4px;border-radius:3px;font-size:10px;font-weight:700;line-height:1.3;color:#fff;background:#dc2626;overflow-wrap:anywhere}#teacher-history .history-cal .cal-hpill.ph{color:#1e40af;background:#dbeafe}'
       + 'html[data-t="dark"] #teacher-history .history-cal .cal-hol{background:#3b1f27}html[data-t="dark"] #teacher-history .history-cal .cal-hol.cal-hol-ph{background:#1e2c4a}'
-      + '@media(max-width:600px){#teacher-history .history-view{margin-left:0}#teacher-history .history-cal .cal-day{min-height:60px;padding:2px}#teacher-history .history-cal button.cal-chip{font-size:10px;padding:2px}#teacher-history .cal-chip .cal-detail{display:none}#teacher-history .history-cal .cal-hpill{font-size:9px;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}';
+      // ✎ Write feedback (2026-11-11): only on MY past lessons without a report (server: can_write). Phone = icon only.
+      + '#teacher-history button.cal-write{display:block;width:100%;min-height:32px;margin:2px 0 0;padding:3px 4px;font-size:11px;font-weight:700;color:#1d4ed8;background:#eff6ff;border:1px solid #93c5fd;border-radius:4px;cursor:pointer}#teacher-history .history-lesson button.cal-write{display:inline-block;width:auto;font-size:13px;padding:6px 12px}html[data-t="dark"] #teacher-history button.cal-write{color:#bfdbfe;background:#1e2c4a;border-color:#3b82f6}'
+      + '@media(max-width:600px){#teacher-history .history-cal button.cal-write .cal-wt{display:none}#teacher-history .history-view{margin-left:0}#teacher-history .history-cal .cal-day{min-height:60px;padding:2px}#teacher-history .history-cal button.cal-chip{font-size:10px;padding:2px}#teacher-history .cal-chip .cal-detail{display:none}#teacher-history .history-cal .cal-hpill{font-size:9px;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}';
     document.head.appendChild(style);
     dialog = element('dialog'); dialog.id = 'teacher-history'; dialog.setAttribute('aria-labelledby', 'teacher-history-title');
     var header = element('header'); title = element('h2'); title.id = 'teacher-history-title'; header.appendChild(title);
@@ -74,6 +76,18 @@
     var text = document.documentElement.lang === 'ko' ? (report.note_ko || report.note_en) : (report.note_en || report.note_ko);
     var body = element('div', text || t('No written note', '작성된 내용 없음')); body.className = 'history-note'; details.appendChild(body); parent.appendChild(details);
   }
+  // ✎ The server decided (row.can_write); the page that opened the history writes it in its own class-log window.
+  function writeButton(row) {
+    if (row.can_write !== true || !context || typeof context.onWrite !== 'function') return null;
+    var label = t('Write feedback', '피드백 작성'), b = button('', function () {
+      // Open the class log only after the dialog's own close handler ran (it returns focus to the opener first).
+      dialog.addEventListener('close', function () { context.onWrite(row); }, { once: true }); dialog.close();
+    });
+    b.className = 'cal-write'; b.appendChild(document.createTextNode('✎ '));
+    var text = element('span', label); text.className = 'cal-wt'; b.appendChild(text);
+    b.setAttribute('aria-label', label + ' · ' + row.date + (row.start ? ' ' + row.start : ''));
+    return b;
+  }
   function teacherText(row) {
     return t('Teacher: ', '담당 교사: ') + (row.teacher_name || t('Not recorded', '기록 없음'))
       + (row.teacher_source === 'feedback' ? t(' · Feedback record', ' · 피드백 기록 기준')
@@ -102,7 +116,7 @@
       var time = row.start && window.MangoiClassDisplay ? window.MangoiClassDisplay.range({start_time:row.start,duration_min:row.duration_min}) : row.start || t('Time not recorded','시간 기록 없음');
       lesson.appendChild(element('b', time)); lesson.appendChild(element('p', teacherText(row)));
       lesson.appendChild(element('p', (document.documentElement.lang === 'ko' ? row.label_ko : row.label_en) + (row.teacher_changed ? t(' · Teacher changed', ' · 교사 변경') : '')));
-      note(lesson, row.feedback); section.appendChild(lesson);
+      note(lesson, row.feedback); var wb = writeButton(row); if (wb) lesson.appendChild(wb); section.appendChild(lesson);
     });
     if (!data.items || !data.items.length) content.appendChild(element('p', t('No class records for this month.', '이 달의 수업 기록이 없습니다.')));
     focusDay = null;
@@ -165,7 +179,7 @@
         pill.setAttribute('title', (h.country === 'PH' ? t('PH holiday: ', '필리핀 공휴일: ') : t('KR holiday: ', '한국 공휴일: ')) + name);
         cell.appendChild(pill);
       });
-      (byDate[date] || []).forEach(function (row) { cell.appendChild(lessonChip(row, date)); });
+      (byDate[date] || []).forEach(function (row) { cell.appendChild(lessonChip(row, date)); var wb = writeButton(row); if (wb) cell.appendChild(wb); });
       grid.appendChild(cell);
     }
     while (grid.children.length % 7) { var tail = element('div'); tail.className = 'cal-day cal-empty'; grid.appendChild(tail); }

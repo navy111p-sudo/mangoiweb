@@ -10,7 +10,7 @@ test('only marked server request identity enables pilot contract',()=>{const r=n
 test('pilot audience is explicit without changing shared audience defaults',()=>{assert.match(ELEADER_EXPANSION_RULE,/lower-primary children aged 6-9/);assert.match(ELEADER_EXPANSION_RULE,/beginner pre-A1\/A1/);const s=readFileSync(root+'cloudflare-deploy/src/eleader-live.ts','utf8');assert.match(s,/difficulty:1,age_group:'kid'/);const shared=readFileSync(root+'cloudflare-deploy/src/warmup-audience.ts','utf8');assert.match(shared,/DEFAULT_WARMUP_AGE: WarmupAge = 'child'/);assert.match(shared,/10~15세/);});
 
 const {normalizeEleaderExpansion,normalizeEleaderReply}=await import(handoffURL(out));
-const {ELEADER_UNITS}=await (async()=>{const p=(handoffTmp()+'/eleader-pack-')+process.pid+'.mjs';await require('esbuild').build({entryPoints:[root+'cloudflare-deploy/src/eleader-pack.ts'],bundle:true,platform:'node',format:'esm',outfile:p});return import(p);})();
+const {ELEADER_UNITS}=await (async()=>{const p=(handoffTmp()+'/eleader-pack-')+process.pid+'.mjs';await require('esbuild').build({entryPoints:[root+'cloudflare-deploy/src/eleader-pack.ts'],bundle:true,platform:'node',format:'esm',outfile:p});return import(handoffURL(p));})();
 const context={question:'Do you like cats?',answer:'cats',vocabulary:ELEADER_UNITS[0].questions.map(q=>q.question+' '+q.model).join(' ')};
 const reported=JSON.parse(readFileSync(new URL('./fixtures/pc-v4-reported-response.json',import.meta.url)));
 test('replay exact parent-reported PC reply without inventing missing help contents',()=>{

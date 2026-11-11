@@ -115,7 +115,7 @@ check('friend canonical correction is applied before persistence', () => {
   assert.equal(FL.finishFriendReply(question, { mode: 'focused', verified: fix, shown: fix, msg: fix.was, fallback: true }), question);
 });
 
-const uiFunctions = ['stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline, n)).join('\n');
+const uiFunctions = ['stmClearPreview', 'stmRead', 'stmSpeak', 'stmReset', 'sayThrice', 'sendMsg'].map(n => named(inline, n)).join('\n');
 async function uiTurn(mode, stream, { sound = true, pron = false, replaced = false, unavailable = false } = {}) {
   const said = [], events = [], payloads = [];
   const response = { ok: true, reply: mode === 'focused' ? final : question,
@@ -193,15 +193,29 @@ const DB = { prepare(sql) {
   catch { const z = { all: async () => ({ results: [] }), first: async () => null, run: async () => ({ meta: { changes: 0 } }) }; return { ...z, bind: () => z }; }
 }, exec: d1ExecLikeProd(raw), batch: async ss => Promise.all(ss.map(s => s.run())) };
 const cache = new Map();
+let holdHistory;
 let routeFix = fix;
-let scenario = 'normal', modelCalls = 0, rechecks = 0;
+let scenario = 'normal', modelCalls = 0, rechecks = 0, timingMajor = false;
+let delayMain = false, mainInflight = 0, recheckOverlapped = false;
+let rfMainModels = [];
 const env = { DB, ROOM_JWT_SECRET: 'focused-local-fixture-only',
-  SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => cache.set(k, String(v)), list: async () => ({ keys: [] }) },
+  SESSION_STATE: { get: async k => cache.get(k) ?? null, put: async (k, v) => {
+    if (holdHistory && k.startsWith('warmup:early-')) await holdHistory;
+    cache.set(k, String(v));
+  }, list: async () => ({ keys: [] }) },
   AI: { run: async (_model, opts) => {
     modelCalls++;
     const recheck = opts.messages?.[0]?.content.includes('FOCUSED_CORRECTION_CHECK');
     if (recheck) rechecks++;
-    const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: 'minor' };
+    if (recheck && mainInflight > 0) recheckOverlapped = true;
+    if (delayMain && !recheck) { mainInflight++; try { await new Promise(r => setTimeout(r, 30)); } finally { mainInflight--; } }
+    if (scenario === 'rf-reject' && !recheck) rfMainModels.push(_model);
+    if (scenario === 'rf-reject' && opts.response_format) {   // 제약 거절 — 다시 묻기가 먼저 실패하고, 본 호출은 늦게 실패한다
+      if (!recheck) await new Promise(r => setTimeout(r, 30));
+      throw new Error('response_format is not supported');
+    }
+    if (scenario === 'rf-reject') return { response: recheck ? JSON.stringify({ reply: 'Checked.', fix: null }) : JSON.stringify({ reply: 'What do you like?', fix: null }) };
+    const fullFix = { ...routeFix, why_ko: '문법에 맞게 고쳐요', tag: 'other', severity: timingMajor ? 'major' : 'minor' };
     let response = JSON.stringify({ reply: question, fix: fullFix, grade: 'partial' });
     if (scenario === 'repeated') response = JSON.stringify({ reply: H.ensureFocusedFixSpoken(question, 'focused', 'partial', routeFix), fix: fullFix });
     if (scenario === 'missing' || scenario === 'invalid') response = JSON.stringify({ reply: 'You can say... "' + routeFix.now + '"', fix: scenario === 'invalid' ? { ...fullFix, was: 'Invented text' } : null });
@@ -241,8 +255,138 @@ for (const kind of ['avatar', 'friend']) for (const stream of [0, 1]) {
     assert.equal(speech, final);
     assert.equal(events.filter(e => e.t).length, 0);
     if (kind === 'friend') assert.equal(raw.prepare("SELECT content FROM ai_friend_chats WHERE student_uid=? AND role='assistant'").get(uid)?.content, final);
+    /* ⚡ (2026-11-06) A.i 친구 스트리밍은 저장·포인트 «전» 에 final 로 같은 정본을 먼저 보낸다 — done 보다 앞, 같은 답·같은 교정. */
+    if (kind === 'friend' && stream) {
+      const fi = events.findIndex(e => e.final), di = events.findIndex(e => e.done);
+      assert.ok(fi >= 0 && fi < di, 'final event precedes done');
+      assert.equal(events[fi].reply, body.reply);
+      assert.equal(events[fi].fix?.now, body.fix?.now);
+      assert.equal(events[fi].repeat, body.repeat);
+      assert.equal(events[fi].replaced, body.replaced);
+      assert.equal(events[fi].gam, undefined, 'points stay on done');
+    }
   });
 }
+const keyLead='Let\'s say it like this: "'+fix.now+'."';
+for(const timing of ['immediate','after-lesson','key-mistakes']) for(const stream of [0,1]){
+ timingMajor=true;
+ const sid='timing-'+timing+'-'+stream;
+ const reply=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,stream,difficulty:3});
+ const events=stream?(await reply.text()).split('\n').filter(s=>s.startsWith('data:')).map(s=>JSON.parse(s.slice(5))):[];
+ const body=stream?events.find(e=>e.done):await reply.json();
+ check('actual warmup timing and observed results '+timing+'/'+stream,()=>{
+  assert.equal(body.correction_timing,timing);assert.equal(body.progress.source,'warmup-verified-turn');assert.equal(body.progress.correction.now,fix.now);assert.deepEqual(body.progress.skills,{});assert.ok(body.progress.spokenWords.includes('park'));
+  if(timing==='after-lesson'){assert.equal(body.fix,null);assert.equal(body.repeat,false);assert.ok(!body.ai_response.includes('You can say'));}
+  if(timing==='immediate')assert.equal(body.fix.now,fix.now);
+  /* ⏱️ (2026-11-09 사장님 B안) 주요 실수 — 카드가 뜬 턴엔 고친 문장을 질문보다 먼저 «한 번» 말한다(집중교정의 세 번이 아님) */
+  if(timing==='key-mistakes'){assert.equal(body.fix?.now,fix.now);assert.equal(body.ai_response,keyLead+' '+question);assert.ok(!body.ai_response.includes('You can say'));}
+ });
+ if(timing==='key-mistakes'){
+  const seen=[];
+  for(let i=0;i<4;i++){const r=await post('/api/warmup/chat',{session_id:sid,student_input:fix.was,correction_mode:'focused',correction_timing:timing,difficulty:3});const d=await r.json();seen.push([d.fix?.now||null,d.ai_response]);if(i>=2)assert.equal(d.fix,null);}
+  check('warmup key-mistakes speaks the fix once only while the card is shown (max 3) / '+stream,()=>{
+   for(const [now,said] of seen){
+    if(now){assert.equal(now,fix.now);assert.equal(said,keyLead+' '+question);}
+    else assert.equal(said,question);   // 3번을 넘긴 턴 — 카드도 말도 없음(짝)
+   }
+   assert.equal(seen.filter(x=>x[0]).length,2);   // 첫 턴 1 + 여기 2 = 최대 3
+  });
+ }
+ timingMajor=false;
+}
+for(const timing of ['immediate','after-lesson','key-mistakes']) for(const stream of [0,1]){
+ timingMajor=true;
+ const auth=await(await post('/api/ai/chat-guest-token',{})).json();
+ const r=await post('/api/ai/chat-friend',{uid:auth.uid,msg:fix.was,level:'S3',correction_mode:'focused',correction_timing:timing,practice_session:'friend-timing-'+timing+'-'+stream,stream},auth.token);
+ const events=stream?(await r.text()).split('\n').filter(s=>s.startsWith('data:')).map(s=>JSON.parse(s.slice(5))):[];
+ const d=stream?events.find(e=>e.done):await r.json();
+ check('actual friend timing and observed results '+timing+'/'+stream,()=>{assert.equal(d.progress.sessionId,'friend-timing-'+timing+'-'+stream);assert.equal(d.progress.correction.now,fix.now);assert.deepEqual(d.progress.skills,{});if(timing==='after-lesson'){assert.equal(d.fix,null);assert.equal(d.repeat,false);assert.ok(!d.reply.includes('You can say'));}
+  // AI 친구는 주요 실수 시점을 «균형» 으로 받아 이미 고친 문장을 한 번 먼저 말한다 — 웜업이 이제 같은 약속(2026-11-09 B안)
+  if(timing==='key-mistakes'){assert.equal(d.fix?.now,fix.now);assert.equal(d.reply,keyLead+' '+question);}});
+ timingMajor=false;
+}
+const quickFixes = [
+  ["Yeah, it's really helpful for me understand", "Yeah, it's really helpful for me to understand"],
+  ["It is difficult for us speak clearly.", "It is difficult for us to speak clearly."],
+  ['Yesterday I go to the park with my sister.', 'Yesterday I went to the park with my sister.'],
+  ['I eat pizza yesterday.', 'I ate pizza yesterday.'],
+  ['My favorite animal is lion.', 'My favorite animal is a lion.'],
+  ['I saw elephant.', 'I saw an elephant.'],
+  ['She like cats.', 'She likes cats.'],
+  ['They is ready.', 'They are ready.'],
+  ['I am interested on music.', 'I am interested in music.'],
+  ["She's responsible of the project.", "She's responsible for the project."],
+];
+for (const mode of ['focused', 'free_talk']) {
+  let release;
+  holdHistory = new Promise(resolve => { release = resolve; });
+  const key = 'early-' + mode;
+  try {
+    const r = await post('/api/warmup/chat', { session_id: key, student_input: fix.was,
+      correction_mode: mode, guided: 1, difficulty: 3, stream: 1, final_reply: 1 });
+    const reader = r.body.getReader();
+    const first = JSON.parse(new TextDecoder().decode((await reader.read()).value).slice(6));
+    check('avatar ' + mode + ' sends only the verified reply while history is held', () => {
+      assert.equal(first.final, 1);
+      assert.equal(first.ok, true);
+      assert.equal(cache.has('warmup:' + key), false);
+      assert.equal(first.ai_response, mode === 'focused' ? final : question);
+    });
+    release();
+    const done = JSON.parse(new TextDecoder().decode((await reader.read()).value).slice(6));
+    check('avatar ' + mode + ' done carries the same reply after history is saved', () => {
+      assert.equal(done.done, 1);
+      assert.equal(done.ai_response, first.ai_response);
+      assert.deepEqual(done.fix, first.fix);
+      assert.equal(cache.has('warmup:' + key), true);
+    });
+    await reader.read();
+  } finally {
+    release();
+    holdHistory = null;
+  }
+}
+for (const [i, [studentInput, corrected]] of quickFixes.entries()) {
+  modelCalls = 0;
+  const r = await post('/api/warmup/chat', { session_id: 'infinitive-' + i, student_input: studentInput,
+    correction_mode: 'focused', guided: 1, difficulty: 3, stream: 1, final_reply: 1 });
+  const events = (await r.text()).split('\n').filter(s => s.startsWith('data:')).map(s => JSON.parse(s.slice(5)));
+  const done = events.find(e => e.done);
+  check('avatar guided verified correction ' + i + ' needs zero model calls', () => {
+    assert.equal(modelCalls, 0);
+    assert.deepEqual(events.filter(e => e.t), []);
+    assert.equal(done.fix.was, studentInput);
+    assert.equal(done.fix.now, corrected);
+    assert.equal(done.ai_response, H.ensureFocusedFixSpoken(question, 'focused', 'partial', { now: corrected }));
+    assert.equal(done.speaking_help, null);
+  });
+}
+check('fast rules leave ambiguous, complex and already-correct forms for the model', () => {
+  for (const input of ['Yesterday I go park.', 'I go there every week but yesterday I stayed home.',
+    'Yesterday I went to the park.', 'I play the game today.', 'I play chess after work yesterday.']) {
+    assert.equal(F.focusedPastTenseFix(input), null, input);
+  }
+  for (const input of ['My favorite animal is a lion.', 'My favorite animal is lions.',
+    'My favorite food is rice.', 'This is elephant habitat.']) {
+    assert.equal(F.focusedArticleFix(input), null, input);
+  }
+  for (const input of ['She likes cats.', 'They are ready.', 'My friends likes music.',
+    'She go park yesterday.', 'She like cats and we like dogs.', 'Does she like cats?']) {
+    assert.equal(F.focusedAgreementFix(input), null, input);
+  }
+  for (const input of ['I am interested in music.', 'She is afraid of spiders.', 'I am good in class.',
+    'I am interested on Monday.', 'I am interested on music because I sing.']) {
+    assert.equal(F.focusedPrepositionFix(input), null, input);
+  }
+});
+check('infinitive rule leaves correct clauses, modals, unrelated phrases and long input alone', () => {
+  for (const input of ["It's helpful for me to understand.", "It's helpful for me, understand?",
+    "It is important for me tomorrow.", "It's hard for us can speak.", "I am happy for you",
+    "It's hard for me read " + 'many different books '.repeat(7)]) {
+    assert.equal(F.focusedInfinitiveFix(input), null, input);
+  }
+});
+scenario = 'normal';
 routeFix = { was: 'What you do? I go park yesterday.', now: 'What did you do? I went to the park yesterday.' };
 const complex = await (await post('/api/warmup/chat', { session_id: 'focused-complex', student_input: routeFix.was,
   correction_mode: 'focused', difficulty: 3 })).json();
@@ -272,8 +416,11 @@ for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balance
         assert.equal(spoken, H.ensureFocusedFixSpoken(question, mode, 'partial', routeFix));
         assert.equal(events.filter(e => e.t).length, 0);
         const needsCheck = ['omitted', 'invalid'].includes(variant);
-        assert.equal(rechecks, needsCheck ? 1 : 0);
-        assert.equal(modelCalls, needsCheck ? 2 : 1);
+        /* ⚡ 다시 묻기를 본 호출과 «동시에» 미리 시작한다 — A.i 친구(2026-11-06 api-ai.ts focusedRecoverP)·웜업(2026-11-08 index.ts focusedRecoverP).
+           모델이 교정을 줘서 결과를 안 쓰는 턴에도 한 번은 불린다(호출 하나와 바꾼 기다림). */
+        const startsEarly = true;
+        assert.equal(rechecks, needsCheck || startsEarly ? 1 : 0);
+        assert.equal(modelCalls, needsCheck || startsEarly ? 2 : 1);
       } else if (mode === 'focused') {
         assert.equal(body.fix, null);
         assert.ok(!spoken.includes('You can say'));
@@ -284,6 +431,47 @@ for (const kind of ['avatar', 'friend']) for (const mode of ['focused', 'balance
     });
   }
 }
+// ⚡ (2026-11-08) 웜업 집중교정 다시 묻기는 본 호출이 «아직 도는 동안» 시작해야 한다(차례로 부르면 맞는 문장마다 왕복 하나가 더 붙는다).
+// omitted 은 final_reply 없이 — 화면 경로(final_reply:1)에선 관사 규칙이 모델 «전» 에 잡아 모델을 아예 안 부른다.
+for (const [variant, input, needs, finalReply] of [['correct', routeFix.now, 1, 1], ['omitted', routeFix.was, 1, 0]]) {
+  scenario = variant; modelCalls = 0; rechecks = 0; delayMain = true; recheckOverlapped = false;
+  const ev = (await (await post('/api/warmup/chat', { session_id: 'overlap-' + variant, student_input: input,
+    correction_mode: 'focused', stream: 1, final_reply: finalReply, difficulty: 1 })).text()).split('\n').filter(x => x.startsWith('data:')).map(x => JSON.parse(x.slice(5)));
+  delayMain = false;
+  const done = ev.find(e => e.done);
+  check('avatar focused recheck overlaps the main call: ' + variant, () => {
+    assert.equal(rechecks, needs);
+    assert.equal(recheckOverlapped, true, 'recheck must start while the main reply is still in flight');
+    if (variant === 'correct') assert.equal(done.fix, null);
+    else assert.equal(done.fix?.now, routeFix.now);
+  });
+}
+// 🔴 동시에 도는 다시 묻기가 response_format 거절로 공유 플래그를 먼저 꺼도, 본 호출은 자기 폴백(제약 없이 다시)을 한다 — 502 가 아니다.
+scenario = 'rf-reject'; modelCalls = 0; rechecks = 0;
+const rfRes = await post('/api/warmup/chat', { session_id: 'overlap-rf', student_input: routeFix.now, correction_mode: 'focused', difficulty: 1 });
+const rfBody = await rfRes.json();
+check('avatar main call still falls back when the concurrent recheck disabled response_format first', () => {
+  assert.equal(rfRes.status, 200);
+  assert.equal(rfBody.ai_response, 'What do you like?');
+});
+// 🔴 A.i 친구도 같은 공유 플래그 모양이었다 — 그때는 502 가 아니라 «첫 모델 실패 → 다른 모델로 넘어감»(답이 바뀌고 늦어짐).
+{
+  scenario = 'rf-reject'; rfMainModels = [];
+  const auth = await (await post('/api/ai/chat-guest-token', {})).json();
+  const fr = await post('/api/ai/chat-friend', { uid: auth.uid, msg: routeFix.now, correction_mode: 'focused', stream: 0, level: 'S1' }, auth.token);
+  const fb = await fr.json();
+  check('friend main call keeps its own model when the concurrent recheck disabled response_format first', () => {
+    assert.equal(fr.status, 200);
+    assert.equal(fb.reply, 'What do you like?');
+    assert.ok(rfMainModels.length >= 2, 'main call retried: ' + rfMainModels.join(','));
+    assert.equal(new Set(rfMainModels).size, 1, 'no fallback to another model: ' + rfMainModels.join(','));
+  });
+}
+// 과거형 보완 규칙이 잡는 문장이면 결과를 안 쓰므로 다시 묻기를 시작하지도 않는다(헛 호출 0).
+scenario = 'omitted'; modelCalls = 0; rechecks = 0;
+await (await post('/api/warmup/chat', { session_id: 'overlap-backfill', student_input: 'I play soccer yesterday with my friends.',
+  correction_mode: 'focused', stream: 1, difficulty: 1 })).text();
+check('avatar focused recheck is skipped when the past-tense rule already supplies the correction', () => assert.equal(rechecks, 0));
 check('quoted correction recovery requires explicit framing, source overlap and a real change', () => {
   assert.equal(F.focusedReplyFix('You can say... "My favorite animal is a lion"', routeFix.was)?.now, routeFix.now);
   for (const reply of ['What is your favorite animal?', 'You can say... "I drove to the moon"', 'You can say... "' + routeFix.was + '"']) {

@@ -18,6 +18,9 @@ const J = p => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { ret
 const CFG = J(join(ROOT, 'tools/mouth-scale.json')), REP = J(join(ROOT, 'tools/mouth-scale-report.json'));
 const OC = J(join(ROOT, 'tools/o-mouth-clean-report.json')), OCC = J(join(ROOT, 'tools/o-mouth-clean.json'));
 const SF = J(join(ROOT, 'tools/smile-folds-report.json')), TR = J(join(PUB, 'img/visemes/transitions.json'));
+// 2026-11-11: tools/heal-cheek-seams.py 가 이 사슬의 끝을 다시 받았습니다 — 그 출력이 있으면 그것이 지금 파일.
+const CS = J(join(ROOT, 'tools/cheek-seams-report.json'));
+const last = (a, rel, s) => { const c = CS && CS.actors[a] && CS.actors[a].files[rel]; return c && c.sourceSha256 === s ? c.sha256 : s; };
 const AV = readFileSync(join(PUB, 'js/mango-avatar.js'), 'utf8');
 ok(!!CFG && !!REP && !!SF && !!TR, '설정·보고서를 읽었다');
 if (!CFG || !REP || !SF || !TR) { console.log(`\n결과: PASS ${pass} / FAIL ${fail}`); process.exit(1); }
@@ -31,7 +34,7 @@ for (const [a, act] of Object.entries(REP.actors)) {
   for (const [rel, f] of Object.entries(act.files)) {
     const abs = join(PUB, rel);
     const oc = OC && OC.actors[a] && OC.actors[a].files[rel];
-    ok(existsSync(abs) && (sha(abs) === f.sha256 || (!!oc && oc.sourceSha256 === f.sha256 && sha(abs) === oc.sha256)),
+    ok(existsSync(abs) && (sha(abs) === last(a, rel, f.sha256) || (!!oc && oc.sourceSha256 === f.sha256 && sha(abs) === last(a, rel, oc.sha256))),
       `${a}: ${rel} == 도구 출력${oc ? ' (→ clean-o-mouths 출력)' : ''}`);
     const sf = SF.actors[a] && SF.actors[a].files[rel];
     ok(!!sf && sf.sha256 === f.sourceSha256, `${a}: ${rel} 입력 == 주름 제거 출력(사슬)`);
@@ -62,7 +65,7 @@ for (const a of ['lily', 'noah']) {
   const rel = `img/visemes/${a}-mouths.webp`, f = OC && OC.actors[a] && OC.actors[a].files[rel];
   const ms = REP.actors[a].files[rel];
   ok(!!f && f.sourceSha256 === ms.sha256, `${a}: «오» 정리의 입력 == 입 줄이기 출력(사슬)`);
-  ok(!!f && sha(join(PUB, rel)) === f.sha256, `${a}: 커밋된 입모양 묶음 == «오» 정리 출력`);
+  ok(!!f && sha(join(PUB, rel)) === last(a, rel, f.sha256), `${a}: 커밋된 입모양 묶음 == «오» 정리 출력(→ 볼 이음매 정리)`);
   const T = f ? f.tiles : [];
   ok(T.length === 9 && T.every(t => t.borderMaxChange === 0), `${a}: 아홉 칸 모두 테두리 0 변화(이음매 없음)`);
   const sub = (OCC.actors[a] || {}).substitute || {};

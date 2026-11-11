@@ -191,9 +191,9 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     + cutLines(AIF, 'const decided = decideWarmupFixShow(verified, memoIn, turnNo', "else if (friendMode === 'focused') offerRepeat");
   ok(wSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('warmupShouldOfferRepeat(') && fSnip.includes('const immediateFix'), 'wiring: decide→repeat lines cut out of src/index.ts (warmup) and src/api-ai.ts (AI friend)');
   let wire = ''; try { wire = stripTypeScriptTypes(
-    'export async function warm(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnCount, honest, ctxUserId) {\n'
-    + "  let showFix = null, traceTag = '', traceReason = 'shown', offerRepeat = false;\n" + wSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'
-    + 'export async function friend(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnNo, friendMode, logAiFriendFix, env, uid) {\n'
+    'export async function warm(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnCount, honest, ctxUserId, timing = "") {\n'
+    + "  const focusedNow = true; const env = {SESSION_STATE:{}};\n  let showFix = null, traceTag = '', traceReason = 'shown', offerRepeat = false;\n" + wSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'
+    + 'export async function friend(decideWarmupFixShow, warmupShouldOfferRepeat, gateFixForMode, verified, memoIn, turnNo, friendMode, logAiFriendFix, env, uid, timing = "") {\n'
     + '  let showFix = null, offerRepeat = false;\n' + fSnip + '\n  return { showFix, offerRepeat, memo: decided.memo };\n}\n'); } catch (e) { wire = ''; }
   fs.writeFileSync(path.join(tmp, 'wire.mjs'), wire);
   let W = null; try { if (!wire) throw new Error('strip failed'); W = await import(pathToFileURL(path.join(tmp, 'wire.mjs')).href); } catch (e) { W = null; }
@@ -239,7 +239,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   const run = (lang, corr) => {
     const a = tags.map(attrs);
     const buttons = a.map(o => ({ getAttribute: k => (k in o ? o[k] : null), setAttribute: (k, v) => { o[k] = String(v); } }));
-    const el = { corrState: { textContent: '' }, setLevel: { innerHTML: '' } };
+    const el = { corrState: { textContent: '' }, setLevel: { innerHTML: '' }, setTiming: { value: '' } };
     const document = {
       getElementById: id => el[id] || null,
       querySelectorAll: sel => (sel === '[data-corr]' ? buttons : []),
@@ -261,6 +261,64 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(run('en', 'focused').text !== run('ko', 'focused').text, 'ko and en lines differ (catches a swapped language)');
   ok(/aria-describedby="corrState"/.test(hub), 'the button group is described by the hint line');
   console.log('PASS: correction hint line (A안 · ①설명형) — ' + n + ' checks, server run + page function run');
+}
+// 2026-11-08 9차: the two settings read as «how much» (교정 강도) vs «when» (피드백 타이밍), and the timing select
+// gets its own meaning line (#timingState). renderSettings is cut out and RUN on a fake DOM, like the line above.
+{
+  let n = 0; const ok = (v, m) => { n++; assert.ok(v, m); };
+  const attrs = tag => Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2]]));
+  ok(/data-ko="교정 강도" data-en="Correction strength"/.test(hub) && !/data-ko="교정 정도"/.test(hub), 'strength label renamed (KO/EN)');
+  ok(/data-ko="피드백 타이밍" data-en="Feedback timing"/.test(hub) && !/data-ko="교정 시점"/.test(hub), 'timing label renamed (KO/EN)');
+  const s0 = hub.indexOf('<select id="setTiming"');
+  const opts = [...hub.slice(s0, hub.indexOf('</select>', s0)).matchAll(/<option[^>]*>/g)].map(m => attrs(m[0]));
+  ok(s0 > 0 && opts.map(o => o.value).join() === ',immediate,key-mistakes,after-lesson', 'timing options are the four known values (precondition) → ' + opts.map(o => o.value));
+  for (const o of opts) for (const l of ['ko', 'en']) {
+    const h = o['data-hint-' + l] || '', who = (o.value || '(default)') + ' ' + l;
+    ok(h.length > 0 && !/\p{Extended_Pictographic}/u.test(h), who + ' hint exists, no emoji');
+    if (l === 'ko') ok([...h].length <= 24, who + ' hint stays one short line on phones');
+  }
+  ok(new Set(opts.map(o => o['data-hint-ko'])).size === 4 && new Set(opts.map(o => o['data-hint-en'])).size === 4, 'each timing has its own hint');
+  ok(/<select id="setTiming" aria-describedby="timingState">/.test(hub) && /<small class="state" id="timingState"><\/small>/.test(hub), 'the select is described by the hint line');
+  // «up to 3» is the server's cap — src/index.ts (practice/situations) and src/api-ai.ts (AI friend) must both still say 3
+  const km = opts.find(o => o.value === 'key-mistakes');
+  for (const f of ['index.ts', 'api-ai.ts']) {
+    const cap = /timing === 'key-mistakes' && [^;]{0,120}?shown >= (\d+)/.exec(readFileSync(new URL('../src/' + f, pub), 'utf8'));
+    ok(cap && km['data-hint-ko'].includes(cap[1] + '번') && km['data-hint-en'].includes(cap[1] + ' times'), 'key-mistakes hint number matches the server cap in ' + f + ' → ' + (cap && cap[1]));
+  }
+  const fnSrc = name => {
+    const s = hub.indexOf('function ' + name + '(');
+    if (s < 0) return '';
+    let d = 0, i = hub.indexOf('{', s);
+    for (; i < hub.length; i++) { if (hub[i] === '{') d++; else if (hub[i] === '}' && --d === 0) break; }
+    return hub.slice(s, i + 1);
+  };
+  const body = ['T', 'esc', 'renderSettings', 'renderOk', 'draftMissing'].map(fnSrc);
+  ok(body[2].includes('timingState'), 'renderSettings draws the timing line (cut out of the page)');
+  const run = (lang, timing, withLine = true) => {
+    const el = { corrState: { textContent: '' }, setLevel: { innerHTML: '' }, setTiming: { value: 'x' } };
+    if (withLine) el.timingState = { textContent: '?' };
+    const document = {
+      getElementById: id => el[id] || null,
+      querySelectorAll: () => [],
+      querySelector: sel => {
+        const m = /^#setTiming option\[value="([^"]*)"\]$/.exec(sel), o = m && opts.find(x => x.value === m[1]);
+        return o ? { getAttribute: k => (k in o ? o[k] : null) } : null;
+      }
+    };
+    const SET = { read: () => { throw new Error('renderSettings must draw the draft, not storage'); }, LEVELS: [], CORR: [] };
+    new Function('document', 'SET', 'LS', 'ui', 'draft', 'okState', body.join('\n') + '\nrenderSettings();')(document, SET, {}, lang, { level: 0, corr: '', timing }, '');
+    return { line: el.timingState ? el.timingState.textContent : null, value: el.setTiming.value };
+  };
+  for (const lang of ['ko', 'en']) for (const o of opts) {
+    const r = run(lang, o.value), who = lang + '/' + (o.value || '(default)');
+    ok(r.line === o['data-hint-' + lang], who + ': the line is that option\'s hint in the screen language → ' + JSON.stringify(r.line));
+    ok(r.value === o.value, who + ': the select shows the picked value');
+  }
+  ok(run('ko', 'after-lesson').line !== run('en', 'after-lesson').line, 'ko and en lines differ (catches a swapped language)');
+  ok(run('ko', 'immediate').line !== run('ko', 'after-lesson').line, 'the line follows the picked value (not one fixed text)');
+  ok(run('ko', 'bogus').line === '', 'an unknown value clears the line instead of crashing');
+  ok(run('ko', 'immediate', false).line === null, 'a page without the line still renders');
+  console.log('PASS: label rename + timing hint line (9차) — ' + n + ' checks, page function run');
 }
 // 2026-11-04 owner: the «✅ 저장했어요 — 세 가지 연습에 함께 적용돼요» line and the note under it were removed and a
 // «확인» button added. Picking language / level / corrections only changes the on-screen choice (draft); «확인»
@@ -321,7 +379,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
     const ls = mkLS(init, opts);
     const corr = CORR.map(id => mkEl(attrs(hub.match(new RegExp('<button[^>]*data-corr="' + id + '"[^>]*>'))[0])));
     const lang = ['ko', 'en'].map(l => mkEl({ 'data-lang': l }));
-    const els = { setLevel: mkEl(), corrState: mkEl(), setOk: mkEl(), setOkTxt: mkEl(), setMsg: mkEl(),
+    const els = { setTiming: mkEl(), setLevel: mkEl(), corrState: mkEl(), setOk: mkEl(), setOkTxt: mkEl(), setMsg: mkEl(),
       leaveAsk: mkEl(), leaveTitle: mkEl(), leaveBody: mkEl(), leavePick: mkEl(), leaveGo: mkEl(), leaveSkip: mkEl(), leaveStay: mkEl() };
     els.leaveAsk.hidden = true;   // markup: <div class="leave" id="leaveAsk" hidden>
     const wrap = mkEl(); active = null;
@@ -360,12 +418,12 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   // A) empty storage: nothing is written until «확인»; the button says what is missing
   let s = boot({});
   ok(s.ls.writes.length === 0, 'A: opening the page writes nothing');
-  ok(s.btn().disabled && s.btn().text === '수준·교정 정도를 골라 주세요', 'A: nothing picked -> locked, asks for both → ' + JSON.stringify(s.btn()));
+  ok(s.btn().disabled && s.btn().text === '수준·교정 강도를 골라 주세요', 'A: nothing picked -> locked, asks for both → ' + JSON.stringify(s.btn()));
   // level 0 (not set) must show the «not set» header — otherwise «1단계» looks picked and choosing 1 fires no change
   ok(/^<option value="" selected>아직 안 정함/.test(s.els.setLevel.innerHTML) && !/value="1" selected/.test(s.els.setLevel.innerHTML), 'A: unset level shows the «not set» header selected, not level 1');
   s.level(4);
   ok(s.ls.writes.length === 0, 'A: picking a level does not save');
-  ok(s.btn().disabled && s.btn().text === '교정 정도를 골라 주세요', 'A: level picked -> still locked, asks for corrections');
+  ok(s.btn().disabled && s.btn().text === '교정 강도를 골라 주세요', 'A: level picked -> still locked, asks for corrections');
   s.click('focused');
   ok(s.ls.writes.length === 0, 'A: picking a correction does not save');
   ok(!s.btn().disabled && s.btn().text === '확인' && s.btn().state === '', 'A: both picked -> «확인» enabled');
@@ -397,13 +455,13 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   s.level(6); s.confirm();
   ok(s.ls.getItem('mangoi_warmup_level') === '6' && s.ls.getItem('mangoi_aifriend_level') === 'S6', 'C: after picking, 확인 unifies both screens');
   s = boot({ mangoi_warmup_level: '2', mangoi_warmup_correction: 'focused', mangoi_aifriend_correction: 'free_talk' });
-  ok(s.btn().disabled && s.btn().text === '교정 정도를 골라 주세요', 'C: mixed correction -> locked, asks for corrections');
+  ok(s.btn().disabled && s.btn().text === '교정 강도를 골라 주세요', 'C: mixed correction -> locked, asks for corrections');
 
   // D) language: saved the moment it is tapped (owner 2026-11-04), independent of «확인»
   s = boot({});
   s.lang[1].fire('click');
   ok(s.document.documentElement.lang === 'en' && s.ls.getItem('mangoi_lang') === 'en' && s.ls.getItem('mangoi_lang_by') === 'user', 'D: tapping English saves it at once — even with level/corrections not picked (button locked)');
-  ok(s.btn().disabled && s.btn().text === 'Choose a level and corrections', 'D: …the confirm button stays about level/corrections, in English');
+  ok(s.btn().disabled && s.btn().text === 'Choose a level and correction strength', 'D: …the confirm button stays about level/corrections, in English');
   ok(!s.ls.writes.some(k => /level|correction/.test(k)), 'D: a language tap writes no level/correction');
   s = boot({ mangoi_lang: 'ko', mangoi_warmup_level: '5', mangoi_aifriend_level: 'S5', mangoi_warmup_correction: 'balanced', mangoi_aifriend_correction: 'balanced' });
   s.confirm();
@@ -428,7 +486,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   ok(/저장이 안 돼요/.test(s.els.setMsg.textContent), 'E: screen-reader status says it failed');
   // F) storage that throws on access (page swaps in a dead store): page still boots, picks work, 확인 reports failure
   s = boot({}, { unavailable: true });
-  ok(s.btn().disabled && s.btn().text === '수준·교정 정도를 골라 주세요', 'F: storage unavailable -> page still boots, locked');
+  ok(s.btn().disabled && s.btn().text === '수준·교정 강도를 골라 주세요', 'F: storage unavailable -> page still boots, locked');
   s.level(3); s.click('free_talk'); s.confirm();
   ok(s.btn().state === 'fail' && !s.btn().disabled, 'F: storage unavailable -> 확인 says it could not save');
   console.log('PASS: confirm button (확인) — ' + n + ' checks, the page\'s own inline script booted and clicked on a fake DOM');
@@ -514,7 +572,7 @@ console.log('PASS: unified speaking menu, both destinations, return links, passi
   // G7 only one of the two picked (확인 locked) -> says what is missing; «고르러 가기» stays and points at it
   s = boot({}); s.level(4);
   e = s.clickLink('/ai-friend.html');
-  ok(e.defaultPrevented && s.leave().open && /교정 정도를 골라야/.test(s.leave().body) && s.leave().go === '고르러 가기' && s.leave().stayHidden && s.leave().pick === '고른 설정: 수준 4단계', 'G7: level picked, corrections not -> explains, «고르러 가기» → ' + JSON.stringify(s.leave()));
+  ok(e.defaultPrevented && s.leave().open && /교정 강도를 골라야/.test(s.leave().body) && s.leave().go === '고르러 가기' && s.leave().stayHidden && s.leave().pick === '고른 설정: 수준 4단계', 'G7: level picked, corrections not -> explains, «고르러 가기» → ' + JSON.stringify(s.leave()));
   s.els.leaveGo.fire('click');
   ok(!s.leave().open && s.nav() === '' && s.ls.writes.length === 0 && s.active() === s.corr[0], 'G7: «고르러 가기» stays and focuses the corrections');
   s = boot({}); s.click('balanced'); s.clickLink('/');

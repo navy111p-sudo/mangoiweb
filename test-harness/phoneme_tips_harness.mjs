@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — «어느 소리가 약했나» 음소 피드백 (개선안 1순위 ①)
 //   js/phoneme-tips.js 를 실제로 돌리고, 음소를 «버리지 않는가» 를 두 경로(브라우저 SDK·서버 REST)에서 실행해 봅니다.
 //   그리고 speech-coach.html 의 renderWordMap 을 오려 내 가짜 DOM 에 그려 «한 줄이 실제로 나오는가» 를 봅니다.
@@ -7,7 +8,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const P = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const MOD = P('cloudflare-deploy/public/js/phoneme-tips.js', 'PT_SRC');
 const SDKJS = P('cloudflare-deploy/public/js/speech-azure.js', 'SA_SRC');
@@ -81,8 +82,11 @@ if (M) {
   const num = (v) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
   check('서버: 음소를 남긴다', phonemesOf && JSON.stringify(phonemesOf({ Phonemes: [{ Phoneme: 'th', PronunciationAssessment: { AccuracyScore: 40 } }] }, num)) === '[{"p":"th","acc":40}]');
   check('서버: 이상한 값은 버리고 던지지 않는다', phonemesOf && phonemesOf(null, num).length === 0 && phonemesOf({ Phonemes: [{}] }, num).length === 0);
-  const calls = (AZ.match(/phonemes: phonemesOf\(w, (n2|num)\)/g) || []).length;
-  check('서버: 두 응답 경로(정상·재시도) 모두 음소를 싣는다', calls === 2, calls);
+  // 2026-11-08: 결과 조립이 toResult 한 곳으로 모였다 — «조립하는 자리마다 음소를 싣고, 성공 응답(정상·재시도)은 전부 그 자리를 지난다» 로 묻는다
+  const calls = (AZ.match(/phonemes: phonemesOf\(w, \w+\)/g) || []).length;
+  const builders = (AZ.match(/words: Array\.isArray\(/g) || []).length;
+  const viaToResult = (AZ.match(/return toResult\(/g) || []).length;
+  check('서버: 두 응답 경로(정상·재시도) 모두 음소를 싣는다', calls >= 1 && calls === builders && (calls === 2 || viaToResult === 2), { calls, builders, viaToResult });
 }
 
 // ── 화면: renderWordMap 을 오려 내 실제로 그린다 ──

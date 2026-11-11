@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile, adminIfStatement } from './_srcbundle.mjs';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
@@ -71,10 +72,9 @@ assert(care.total>100);assert.equal(care.rows.length,100,'display capped, counts
 console.log('PASS: forecast calculations, KST ledger filters, retention joins, unknown/stale data, care persistence and cycle reset');
 
 // Execute the actual route branch with stub actors; denial must happen before DB reads/writes.
-const apiSource=readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts',import.meta.url),'utf8');
-const start=apiSource.indexOf("    if (path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn'");
-assert(start >= 0, 'forecast route branch must exist');
-const wrapped=stripTypeScriptTypes('async function branch(){'+apiSource.slice(start,apiSource.indexOf('    // [Phase FAM]',start))+'}');
+const apiSource=readAdminSourceFromFile(new URL('../cloudflare-deploy/src/api-admin.ts',import.meta.url));
+const routeSource=adminIfStatement(apiSource, condition=>condition.startsWith("path === '/api/admin/forecast/revenue' || path === '/api/admin/forecast/churn'"));
+const wrapped=stripTypeScriptTypes('async function branch(){'+routeSource+'}');
 const branch=wrapped.slice(wrapped.indexOf('{')+1,wrapped.lastIndexOf('}')); 
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const route=new AsyncFunction('request','url','env','getAdminActor','readScopeType','orgScopeVerdict','orgScopeDenyResponse','json','loadRevenue','loadCare','saveCare','notSeedSql','parseJsonBody',"const path=url.pathname,method=request.method;"+branch);

@@ -6,7 +6,7 @@ let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n); } };
 const ROOT = new URL('../cloudflare-deploy/', import.meta.url);
 const H = readFileSync(new URL('public/ai-write.html', ROOT), 'utf8');
-const A = readFileSync(new URL('src/api-ai.ts', ROOT), 'utf8');
+const A = readFileSync(new URL('src/api-ai-writing.ts', ROOT), 'utf8');
 
 console.log('[ ① 판정 함수를 실제로 돌림 ]');
 const m = H.match(/function awPointsView\(d\)\{([\s\S]*?)\n    \}\n    function awPointsHtml/);

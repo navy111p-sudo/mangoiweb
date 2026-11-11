@@ -33,7 +33,7 @@ window._vcLoadTextbookByName = async function(book){
   window._libSequence = seq; window._libSeqIdx = 0;               // ◀▶ 페이지 화살표도 동작하게
   try { if (typeof window.vcSwitchTab === 'function') window.vcSwitchTab('pdf'); } catch(e){}
   var f = seq[0];
-  await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null);
+  if (await Promise.resolve(window.pdfLoad ? window.pdfLoad(f.url, f.kind) : null) === false) return false;
   try { window._vcShownPdfName = f.name; } catch(e){}
   // 방에 공유 → 교사·학생 모두 같은 교재를 봄
   //   ★ (2026-07-20) 입장 직후엔 WS(vcConn)가 아직 안 열려 있을 수 있음 → 조용히(quiet) 몇 번 재시도.
@@ -144,19 +144,21 @@ window.vcAutoLoadStudentTextbook = async function(){
     // 지난 수업의 잔상으로 대기 카드가 안 뜨는 일이 없게, 표시 상태를 입장 시 한 번 비운다.
     //   (vcStartPdfPoll 이 _vcShownPdf* 를 비우는 것과 같은 이유 — _vcCurrentPdfUrl 은 그동안 안 비웠다)
     try { window._vcCurrentPdfUrl = ''; window._vcCurrentPdfKind = ''; } catch(e){}
-    /* 🖍 (2026-08-08) 칠판 획 기록도 새 수업에서 비운다 — 기록이 생기면서 «지난 수업 판서가
-       다음 수업 첫 화면에 남는» 새 경로가 열렸다. 교재(_vcCurrentPdfUrl)와 같은 자리에서 비운다. */
-    try { if (typeof wbReceiveClear === 'function') wbReceiveClear(); } catch(e){}
     // 첫 화면은 교재 탭. 교재는 강사 공유(pdf-sync / room-media 폴링)로만 채워진다.
     try { window.vcSwitchTab && window.vcSwitchTab('pdf'); } catch(e){}
     window.vcWaitCardSync();
   }
 
+  /* 🖍 지난 수업 칠판은 «들어오는 순간» 비운다(_wbFresh = 이번 입장에 이미 비움).
+     ⛔ onEnterCall(350ms 뒤)로 옮기지 말 것 — 그 사이 온 whiteboard-replay 까지 지워진다(2026-11-04 Karl 재접속). */
+  var _wbFresh = false;
   try {
     new MutationObserver(function(){
-      if (document.body.classList.contains('vc-in-call')) setTimeout(onEnterCall, 350);
-      else {
-        _did = false;                                   // 통화 종료 → 다음 수업 위해 리셋
+      if (document.body.classList.contains('vc-in-call')) {
+        if (!_wbFresh) { _wbFresh = true; try { if (typeof wbReceiveClear === 'function') wbReceiveClear(); } catch(e){} }
+        setTimeout(onEnterCall, 350);
+      } else {
+        _did = false; _wbFresh = false;                 // 통화 종료 → 다음 수업 위해 리셋
         try { var c = card(); if (c) c.style.display = 'none'; } catch(e){}
       }
     }).observe(document.body, { attributes:true, attributeFilter:['class'] });

@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
+<script src="/js/ai-login-gate.js?v=3"></script>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>AI 말하기 — 망고아이</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml">
@@ -39,6 +40,9 @@
        📖 2026-11-04 8차(사장님 「적당한 곳에 누르면 보이게」) — «오늘은 …» 줄 오른쪽 «사용 안내» 버튼이
        사용 안내서(/ai-speaking-guide.html · 한 장 판, 초등 눈높이 · KO/EN · 인쇄·PDF·Word)를 이 화면 위 창(dialog)에 연다.
        화면 언어(ui)를 ?lang= 으로 넘기고, 창을 열 때만 iframe 을 불러온다(첫 화면 비용 0). 창을 못 여는 옛 브라우저는 같은 탭으로 간다.
+       🏷️ 2026-11-08 9차 — 두 설정이 «얼마나» 와 «언제» 로 읽히게 이름을 바꿨다: 교정 정도 → 교정 강도(Correction strength) ·
+       교정 시점 → 피드백 타이밍(Feedback timing). 피드백 타이밍도 고른 값의 뜻을 아래 #timingState 한 줄로 보여 준다
+       (문구는 option 의 data-hint-ko/en). 저장 동작은 그대로다.
        ⛔ 이 변경은 설정 읽기·쓰기·상황 목록 코드를 건드리지 않는다. -->
   <style>
     :root{--sky:#0b1026;--card:#161d3f;--card2:#1c2550;--line:#283160;--ring:#5b6bb5;--ink:#ffffff;--sub:#b8c1e6;--soft:#dde3ff;
@@ -122,6 +126,17 @@
       font:inherit;font-size:14px;font-weight:800;cursor:pointer}
     .seg button[aria-pressed="true"]{background:var(--lime);color:var(--on)}
     .state{padding:0 6px;font-size:13px;color:var(--sub);min-height:1em}
+    /* 🖥️ 대화 화면 — 작은 미리보기가 달린 두 버튼(누르면 바로 저장, 언어처럼) */
+    .screen-tile{margin-bottom:18px}
+    .scr-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .scr{display:flex;align-items:center;gap:12px;min-width:0;padding:10px;border-radius:18px;border:2px solid var(--line);background:var(--sky);
+      color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s}
+    .scr:hover{border-color:var(--soft)}
+    .scr[aria-pressed="true"]{border-color:var(--lime)}
+    .scr img{flex:0 0 auto;width:96px;height:60px;border-radius:10px;object-fit:cover;border:1px solid var(--line);background:#000}
+    .scr b{display:block;font-size:15px;font-weight:900}
+    .scr small{display:block;font-size:12.5px;color:var(--sub)}
+    .scr span{min-width:0}
     /* ✅ 확인 — 고른 세 값을 한꺼번에 저장. 잠김(무엇을 고를지) · 준비(라임) · 저장됨(라임 테두리) · 실패(주황 테두리) */
     .set-foot{display:flex;justify-content:flex-end;margin-top:18px}
     .ok-btn{min-width:220px;min-height:52px;padding:6px 28px;border:2px solid var(--lime);border-radius:999px;background:var(--lime);color:var(--on);
@@ -162,7 +177,7 @@
       .sit-list{grid-template-columns:repeat(3,minmax(0,1fr))}
       .sheet,#situations{padding:26px 28px}
     }
-    @media (max-width:640px){.set-row{grid-template-columns:1fr}.ok-btn{width:100%;min-width:0}}
+    @media (max-width:640px){.set-row,.scr-row{grid-template-columns:1fr}.ok-btn{width:100%;min-width:0}}
     @media (max-width:420px){.sit-list{grid-template-columns:1fr}header h1{font-size:24px}}
     @media (max-width:640px){#guideDlg{width:100vw;height:100vh;height:100dvh;border-radius:0;border:0}}
     @media (prefers-reduced-motion:reduce){.mode,.sit,.guide-btn{transition:none}}
@@ -208,6 +223,16 @@
 
   <section class="sheet" aria-labelledby="setTitle">
     <h2 id="setTitle" data-ko="공통 설정" data-en="Common settings">공통 설정</h2>
+    <!-- 🖥️ 대화 화면(2026-11-09) — 교재로 연습을 시작할 때 열리는 화면. 누르면 바로 저장한다(언어처럼 «확인» 과 무관).
+         상황별 말하기(?setup=0&sit=)도 이 설정을 따른다(2026-11-09). 엘리더잼은 원래대로 늘 채팅 화면이다 — js/warmup-facetalk.js autoEnter. -->
+    <div class="tile screen-tile"><span class="lab" id="scrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span data-ko="대화 화면" data-en="Practice screen">대화 화면</span></span>
+      <div class="scr-row" role="group" aria-labelledby="scrLab" aria-describedby="scrState">
+        <button type="button" class="scr" data-screen="simple" aria-pressed="false"><img src="/img/ai-speaking/screen-simple.webp" alt="" width="96" height="60" decoding="async">
+          <span><b data-ko="간단 대화" data-en="Simple talk">간단 대화</b><small data-ko="선생님 얼굴을 크게 보며 자연스럽게 대화해요" data-en="Talk naturally with the teacher's face up close">선생님 얼굴을 크게 보며 자연스럽게 대화해요</small></span></button>
+        <button type="button" class="scr" data-screen="full" aria-pressed="false"><img src="/img/ai-speaking/screen-full.webp" alt="" width="96" height="60" decoding="async">
+          <span><b data-ko="학습 도구" data-en="Study tools">학습 도구</b><small data-ko="교재·힌트·글쓰기 등 여러 기능을 함께 써요" data-en="Use textbook, hints, typing and more">교재·힌트·글쓰기 등 여러 기능을 함께 써요</small></span></button>
+      </div>
+      <small class="state" id="scrState"></small></div>
     <div class="set-row">
       <div class="tile"><span class="lab" id="langLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span data-ko="언어" data-en="Language">언어</span></span>
         <div class="seg" role="group" aria-labelledby="langLab">
@@ -215,7 +240,7 @@
           <button type="button" data-lang="en" aria-pressed="false">English</button>
         </div></div>
       <div class="tile"><label class="lab" for="setLevel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-5"/><path d="M12 20V10"/><path d="M19 20V4"/></svg><span data-ko="수준" data-en="Level">수준</span></label><select id="setLevel"></select></div>
-      <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 정도" data-en="Corrections">교정 정도</span></span>
+      <div class="tile"><span class="lab" id="corrLab"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg><span data-ko="교정 강도" data-en="Correction strength">교정 강도</span></span>
         <!-- 💬 고른 단계의 뜻(아래 #corrState 한 줄). 문구는 서버 동작과 «짝» 이다 — src/warmup-honest.ts
              자유 free_talk = 따라 말하기 없음(흐름을 끊지 않음) · 균형 balanced = 뜻이 바뀌는 큰 실수는 매번·작은 실수는 연달아 안 고침(낱말 고르기 word_choice 는 두 번째부터) → «위주로 / Mostly», 따라 말하기는 WARMUP_REPEAT_GAP_TURNS(3)턴에 한 번까지(src/warmup-correction.ts) — 그래서 «가끔»
              · 집중 focused = 실수를 모두 고친 문장을 FOCUSED_FIX_REPEATS(3)번 들려주고 따라 말하기.
@@ -227,6 +252,18 @@
           <button type="button" data-corr="focused" aria-pressed="false" data-hint-ko="모두 고쳐서 3번 들려주고 따라 말해요" data-hint-en="Fixes all, says it 3 times, you repeat."><span data-ko="집중" data-en="Focused">집중</span></button>
         </div>
         <small class="state" id="corrState"></small></div>
+    </div>
+    <div class="tile"><label class="lab" for="setTiming" data-ko="피드백 타이밍" data-en="Feedback timing">피드백 타이밍</label>
+      <!-- 💬 고른 값의 뜻(아래 #timingState 한 줄). 문구는 서버 동작과 «짝» 이다 — src/index.ts(교재·상황) · src/api-ai.ts(AI 친구) 의 timing 분기:
+           '' = timing 을 안 보냄 → 교정 강도대로 · immediate = 강도대로 바로 · key-mistakes = 뜻이 바뀌는 큰 실수(major)만, 세션에 3번까지
+           · after-lesson = 대화 중엔 안 보여 주고 끝에 모아(최대 3개) 보여 줌. ⚠️ 서버 동작을 바꾸면 이 문구도 함께 바꾸세요. -->
+      <select id="setTiming" aria-describedby="timingState">
+        <option value="" data-ko="기존 방식" data-en="Current behavior" data-hint-ko="교정 강도 설정대로 고쳐요" data-hint-en="Follows your correction strength.">기존 방식</option>
+        <option value="immediate" data-ko="즉시" data-en="Right away" data-hint-ko="말할 때마다 바로 고쳐 줘요" data-hint-en="Fixes right after you speak.">즉시</option>
+        <option value="key-mistakes" data-ko="대화 중 중요한 실수만" data-en="Key mistakes during practice" data-hint-ko="대화 중엔 큰 실수만, 최대 3번 고쳐요" data-hint-en="Only big mistakes, up to 3 times.">대화 중 중요한 실수만</option>
+        <option value="after-lesson" data-ko="연습 후" data-en="After practice" data-hint-ko="대화는 안 끊고, 끝나고 모아 보여 줘요" data-hint-en="No interruptions. Review at the end.">연습 후</option>
+      </select>
+      <small class="state" id="timingState"></small>
     </div>
     <!-- ✅ 확인 — 글자는 renderOk 가 상태에 맞춰 쓴다(data-ko/en 을 달지 않는다: i18n 루프가 본문을 갈아끼움) -->
     <div class="set-foot"><button type="button" class="ok-btn" id="setOk" disabled><span id="setOkTxt">확인</span></button></div>
@@ -254,8 +291,8 @@
     </div>
   </div>
 </div>
-<script src="/js/ai-situations.js?v=2"></script>
-<script src="/js/ai-speaking-settings.js?v=1"></script>
+<script src="/js/ai-situations.js?v=3"></script>
+<script src="/js/ai-speaking-settings.js?v=4"></script>
 <script>
 (function(){
   'use strict';
@@ -286,14 +323,25 @@
     }).join('');
   }
   // ✅ 고른 값(draft) — 버튼을 눌러도 여기만 바뀐다. 저장은 confirmSettings 한 곳(«확인»).
-  function readDraft(){ var c = SET ? SET.read(LS) : { level: 0, corr: '' }; return { level: c.level, corr: c.corr }; }
+  function readDraft(){ var c = SET ? SET.read(LS) : { level: 0, corr: '' }; return { level: c.level, corr: c.corr, timing: c.timing || '' }; }
   var draft = readDraft();
   // 이 화면에서 사람이 만진 칸 — 안 만진 칸은 저장소를 따른다(다른 탭·화면이 그 사이 바꿨을 수 있다. 6차 함정 대조)
   var touched = { level: false, corr: false };
   var okState = '';   // '' 아직 · 'saved' 저장됨 · 'fail' 저장 못 함 — 무엇이든 다시 고르면 ''
+  // 🖥️ 대화 화면 — 저장소 값을 그대로 그린다(안 정함 = 간단 대화, 지금 기본 동작). scrFail = 이 기기에서 저장 못 함
+  var scrFail = false;
+  function renderScreen(){
+    var s = (SET && SET.read(LS).screen) || 'simple';
+    document.querySelectorAll('[data-screen]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-screen') === s ? 'true' : 'false'); });
+    var st = document.getElementById('scrState');
+    if(st) st.textContent = scrFail ? T('⚠️ 이 기기에선 저장이 안 돼요', '⚠️ Could not save here')
+      : s === 'full' ? T('교재·상황 연습을 시작하면 학습 도구 화면으로 열려요', 'Textbook and situation practice open with study tools')
+      : T('교재·상황 연습을 시작하면 선생님 얼굴 화면으로 열려요', 'Textbook and situation practice open with the teacher\'s face');
+  }
   function renderSettings(){
     if(!SET){ renderOk(); return; }
     var cur = draft;
+    document.getElementById('setTiming').value = cur.timing;
     var lv = document.getElementById('setLevel');
     var lvHead = cur.level === 'mixed' ? T('화면마다 다름 — 고르면 맞춰요', 'Differs by screen — pick one') : T('아직 안 정함 (화면 기본)', 'Not set (screen default)');
     // 안 정함(0)·화면마다 다름이면 머리 줄을 둔다 — 없으면 «1단계» 가 골라진 것처럼 보이고, 1을 골라도 change 가 안 난다
@@ -307,6 +355,12 @@
       cs.textContent = cur.corr === 'mixed' ? T('화면마다 다름 — 누르면 맞춰요', 'Differs by screen — tap one')
         : picked ? picked.getAttribute(ui === 'en' ? 'data-hint-en' : 'data-hint-ko')
         : T('아직 안 정함 (화면 기본)', 'Not set (screen default)');
+    }
+    var ts = document.getElementById('timingState');
+    if(ts){
+      // 💬 9차 — 피드백 타이밍의 뜻 한 줄. cur.timing 은 SET.TIMING 셋 또는 '' 뿐(read·select 값)이라 선택자에 그대로 써도 안전하다.
+      var tOpt = document.querySelector('#setTiming option[value="' + cur.timing + '"]');
+      ts.textContent = tOpt ? tOpt.getAttribute(ui === 'en' ? 'data-hint-en' : 'data-hint-ko') : '';
     }
     renderOk();
   }
@@ -322,9 +376,9 @@
     b.disabled = !!miss;
     b.setAttribute('data-state', miss ? '' : okState);
     t.textContent = miss === 'off' ? T('설정을 불러오지 못했어요', 'Settings unavailable')
-      : miss === 'both' ? T('수준·교정 정도를 골라 주세요', 'Choose a level and corrections')
+      : miss === 'both' ? T('수준·교정 강도를 골라 주세요', 'Choose a level and correction strength')
       : miss === 'level' ? T('수준을 골라 주세요', 'Choose a level')
-      : miss === 'corr' ? T('교정 정도를 골라 주세요', 'Choose corrections')
+      : miss === 'corr' ? T('교정 강도를 골라 주세요', 'Choose correction strength')
       : okState === 'saved' ? T('✅ 적용됐어요', '✅ Applied')
       : okState === 'fail' ? T('⚠️ 이 기기에선 저장이 안 돼요', '⚠️ Could not save here')
       : T('확인', 'Confirm');
@@ -332,7 +386,7 @@
   function status(s){ var m = document.getElementById('setMsg'); if(m) m.textContent = s; }
   function pick(k, v){ draft[k] = v; touched[k] = true; okState = ''; status(''); renderSettings(); syncLeaveGuard(); }
   // 안 만진 칸을 저장소 값으로 — 그래야 «확인»·«적용하고 이동» 이 다른 탭이 새로 정한 값을 옛 값으로 덮지 않는다
-  function syncUntouched(){ if(!SET) return; var c = SET.read(LS); if(!touched.level) draft.level = c.level; if(!touched.corr) draft.corr = c.corr; }
+  function syncUntouched(){ if(!SET) return; var c = SET.read(LS); if(!touched.level) draft.level = c.level; if(!touched.corr) draft.corr = c.corr; if(!touched.timing) draft.timing = c.timing; }
   // 확인 — 수준·교정을 두 화면 키에 함께 쓴다. 언어는 누를 때 이미 저장했으므로 여기서 쓰지 않는다
   // (확인 때 다시 쓰면 계정 자동판정 언어가 «사람이 고름» 으로 굳는다 — mangoi_lang_by).
   function confirmSettings(){
@@ -340,7 +394,8 @@
     syncUntouched();
     if(draftMissing()) return false;
     var a = SET.chooseLevel(LS, draft.level), c = SET.chooseCorr(LS, draft.corr);
-    var ok = !!(a && c);
+    var t = !touched.timing || SET.chooseTiming(LS, draft.timing);
+    var ok = !!(a && c && t);
     okState = ok ? 'saved' : 'fail';
     if(ok) touched = { level: false, corr: false };
     renderSettings(); syncLeaveGuard();
@@ -356,7 +411,7 @@
   function unapplied(){
     if(!SET || LS.dead || okState === 'fail') return false;
     var s = SET.read(LS);
-    return (touched.level && draft.level !== s.level) || (touched.corr && draft.corr !== s.corr);
+    return (touched.level && draft.level !== s.level) || (touched.corr && draft.corr !== s.corr) || (touched.timing && draft.timing !== s.timing);
   }
   // 뒤로가기·새로고침·탭 닫기 — 브라우저 기본 창. 바꾼 것이 있을 때만 건다(MDN 권고: 늘 걸어 두면 «뒤로가기 보관»(bfcache)을 막는 브라우저가 있다 — 이 저장소에서 재지는 않음).
   function onBeforeUnload(e){ if(leaving || !unapplied()) return; e.preventDefault(); e.returnValue = 'unapplied'; return 'unapplied'; }
@@ -379,9 +434,9 @@
     syncUntouched();
     var miss = draftMissing();   // 'level'·'corr' — 바꾼 것이 있는데 나머지를 안 골라 «확인» 이 잠긴 경우
     setText('leaveTitle', T('설정을 아직 적용하지 않았어요', 'Your settings are not applied yet'));
-    setText('leaveBody', miss === 'level' ? T('수준을 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 교정 정도가 적용되지 않아요.', 'Choose a level to confirm. If you leave now, your new corrections will not apply.')
-      : miss === 'corr' ? T('교정 정도를 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 수준이 적용되지 않아요.', 'Choose corrections to confirm. If you leave now, your new level will not apply.')
-      : T('바꾼 수준·교정 정도는 «확인»을 눌러야 교재 연습·상황별 말하기·AI 친구에 적용돼요.', 'Your new level and corrections apply to all three practices only after you confirm.'));
+    setText('leaveBody', miss === 'level' ? T('수준을 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 교정 강도가 적용되지 않아요.', 'Choose a level to confirm. If you leave now, your new correction strength will not apply.')
+      : miss === 'corr' ? T('교정 강도를 골라야 «확인»할 수 있어요. 이대로 나가면 바꾼 수준이 적용되지 않아요.', 'Choose correction strength to confirm. If you leave now, your new level will not apply.')
+      : T('바꾼 수준·교정 강도는 «확인»을 눌러야 교재 연습·상황별 말하기·AI 친구에 적용돼요.', 'Your new level and correction strength apply to all three practices only after you confirm.'));
     var parts = [];
     if(typeof draft.level === 'number' && draft.level >= 1) parts.push(T('수준 ' + draft.level + '단계', 'Level ' + draft.level));
     if(corrName(draft.corr)) parts.push(T('교정 ', 'Corrections: ') + corrName(draft.corr));
@@ -422,14 +477,20 @@
       var l = b.getAttribute('data-lang'); if(l === ui) return;
       var ok = SET ? SET.chooseLang(LS, l) : false;
       ui = l; if(!ok) okState = 'fail';
-      applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
+      applyUi(); renderSituations(); renderSettings(); renderScreen(); syncLeaveGuard();
       status(ok ? '' : T('이 기기에서는 언어 저장이 안 돼요. 다른 화면에서는 예전 언어로 보여요.', 'Could not save the language on this device. Other screens keep the old language.'));
     }); });
     document.querySelectorAll('[data-corr]').forEach(function(b){ b.addEventListener('click', function(){
       pick('corr', b.getAttribute('data-corr'));
     }); });
+    document.querySelectorAll('[data-screen]').forEach(function(b){ b.addEventListener('click', function(){
+      scrFail = !(SET && SET.chooseScreen(LS, b.getAttribute('data-screen')));
+      renderScreen();
+    }); });
     var lv = document.getElementById('setLevel');
     if(lv) lv.addEventListener('change', function(){ if(!lv.value) return; pick('level', Number(lv.value)); });
+    var timingSelect = document.getElementById('setTiming');
+    timingSelect.addEventListener('change', function(){ pick('timing', timingSelect.value); });
     var okBtn = document.getElementById('setOk');
     if(okBtn) okBtn.addEventListener('click', function(){ confirmSettings(); });
     // 🚪 화면 안 링크로 나갈 때 — 위임(상황 카드는 나중에 그려진다). 새 탭·같은 화면 안(#)·이미 막힌 클릭은 건드리지 않는다.
@@ -472,13 +533,13 @@
       leaving = false; leaveFrom = null; hideLeave();
       if(SET) ui = SET.read(LS).lang;
       draft = readDraft(); touched = { level: false, corr: false }; okState = ''; status('');
-      applyUi(); renderSituations(); renderSettings(); syncLeaveGuard();
+      applyUi(); renderSituations(); renderSettings(); renderScreen(); syncLeaveGuard();
     });
     // 다른 탭이 설정을 바꾸면 — 안 만진 칸은 그 값으로 다시 그리고, «✅ 적용됐어요» 는 더 이상 사실이 아닐 수 있으니 거둔다
     window.addEventListener('storage', function(){
       if(!SET) return;
       syncUntouched(); if(okState === 'saved') okState = '';
-      renderSettings(); syncLeaveGuard();
+      renderSettings(); renderScreen(); syncLeaveGuard();
     });
   }
   // 📖 사용 안내 — 안내서를 창 안에 연다. 화면 언어(ui)를 ?lang= 으로 넘긴다(안내서가 그 언어로 뜬다).
@@ -514,7 +575,7 @@
       if(e.data === 'ai-speaking-guide:close' && e.origin === location.origin && fr && e.source === fr.contentWindow && dlg.open) dlg.close();
     });
   }
-  applyUi(); renderSituations(); renderSettings(); wire(); wireGuide();
+  applyUi(); renderSituations(); renderSettings(); renderScreen(); wire(); wireGuide();
 })();
 </script>
 </body>

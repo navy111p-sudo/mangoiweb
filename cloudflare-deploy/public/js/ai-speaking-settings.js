@@ -16,9 +16,13 @@
   var K = {
     wl: 'mangoi_warmup_level', al: 'mangoi_aifriend_level',
     wc: 'mangoi_warmup_correction', ac: 'mangoi_aifriend_correction',
-    lang: 'mangoi_lang'
+    lang: 'mangoi_lang', timing: 'mangoi_ai_correction_timing',
+    screen: 'mangoi_ai_screen_mode'   // 대화 화면 — js/warmup-facetalk.js autoEnter 가 같은 키를 읽는다
   };
   var CORR = ['free_talk', 'balanced', 'focused'];
+  /* 대화 화면 — simple = 시작하면 선생님 얼굴 화면(지금 기본) · full = 학습 도구(채팅) 화면 그대로. '' = 안 정함 → simple 처럼 */
+  var SCREENS = ['simple', 'full'];
+  var TIMING = ['immediate', 'key-mistakes', 'after-lesson'];
   /* AI 친구의 옛 저장값(ai-friend.html AIF_LEGACY 와 같은 표) */
   var AIF_LEGACY = { A1: 'S1', A2: 'S2', B1: 'S4', B2: 'S6', C1: 'S8' };
   var LEVELS = [
@@ -45,7 +49,13 @@
     var ac = CORR.indexOf(get(ls, K.ac)) >= 0 ? get(ls, K.ac) : '';
     var corr = (!wc && !ac) ? '' : (wc && ac && wc !== ac) ? 'mixed' : (wc || ac);
     var l = get(ls, K.lang);
-    return { level: level, corr: corr, lang: l.indexOf('en') === 0 ? 'en' : 'ko' };
+    var timing = get(ls, K.timing), screen = get(ls, K.screen);
+    return { level: level, corr: corr, timing: TIMING.indexOf(timing) >= 0 ? timing : '', lang: l.indexOf('en') === 0 ? 'en' : 'ko',
+      screen: SCREENS.indexOf(screen) >= 0 ? screen : '' };
+  }
+  function chooseScreen(ls, v) {
+    if (SCREENS.indexOf(v) < 0) return false;
+    return set(ls, K.screen, v);
   }
   function chooseLevel(ls, n) {
     n = Number(n); if (!(n >= 1 && n <= 8 && Math.floor(n) === n)) return false;
@@ -57,6 +67,17 @@
     var a = set(ls, K.wc, id), b = set(ls, K.ac, id);
     return a && b;
   }
+  /* 교정 정도(free_talk/balanced/focused)와 교정 시점은 서로 다른 설정이다. */
+  function chooseTiming(ls, timing) {
+    if (timing !== '' && TIMING.indexOf(timing) < 0) return false;
+    return set(ls, K.timing, timing);
+  }
+  function effectiveTiming(ls, level) {
+    var saved = read(ls).timing;
+    if (saved) return saved;
+    var n = Number(level);
+    return n >= 1 && n <= 2 ? 'immediate' : n >= 5 && n <= 8 ? 'after-lesson' : 'key-mistakes';
+  }
   function chooseLang(ls, l) {
     if (l !== 'ko' && l !== 'en') return false;
     var ok = set(ls, K.lang, l);
@@ -67,6 +88,7 @@
     } catch (e) {}
     return ok;
   }
-  root.AiSpeakSettings = { KEYS: K, LEVELS: LEVELS, CORR: CORR, read: read,
+  root.AiSpeakSettings = { KEYS: K, LEVELS: LEVELS, CORR: CORR, TIMING: TIMING, SCREENS: SCREENS, read: read, chooseScreen: chooseScreen,
+    chooseTiming: chooseTiming, effectiveTiming: effectiveTiming,
     chooseLevel: chooseLevel, chooseCorr: chooseCorr, chooseLang: chooseLang };
 })(typeof window !== 'undefined' ? window : globalThis);

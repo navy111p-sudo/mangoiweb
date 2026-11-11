@@ -250,16 +250,20 @@ export function turnOpenerLine(history: any): string {
     const seed = textSeed(last);
     const q = (c: OpenerCase) => JSON.stringify(pickOpener(TURN_OPENERS[c], seed, avoid));
     /* 🎯 «문맥에 맞게» — 어느 칸인지는 모델이 학생 말을 보고 고르고, 딱 맞는 것이 없으면 «같은 느낌의 다른 짧은 말» 을 허락한다.
-       By the way 는 «새 질문으로 넘어갈 때만» (억지로 화제를 바꾸게 하지 않는다) — 그것도 세 턴에 한 번쯤만 권한다. */
+       By the way 는 «새 질문으로 넘어갈 때만» (억지로 화제를 바꾸게 하지 않는다) — 그것도 세 턴에 한 번쯤만 권한다.
+       🧭 (2026-11-05 사장님 「F1~F5 진행」 — AI 친구 «주제가 너무 빨리 바뀐다» 실측) «모름» 칸은 예전에 「…, then start your next
+          question with "Anyway,"」 였다 — 모르는 학생을 «다음 질문» 으로 넘겨 주제가 뛰었다. 지금은 «같은 것을 쉽게·두 개 중 고르기로».
+          ⛔ «Anyway, 새 질문» 으로 되돌리지 말 것. ⚠️ 그 질문은 이번 턴 기억에서 빠진다(question-memory.ts isDontKnowAnswer) — 반복이 아니다.
+          By the way 권유도 «주제를 바꾸려고 쓰지 마» 를 먼저 말한다. */
     /* 🏅 (2026-11-04) 칭찬 규칙과 «한 자리» — 이 줄이 이번 턴의 반응이자 칭찬이다(따로 칭찬을 더하지 않는다).
        ⛔ 사장님 「틀린 문장에선 반드시 칭찬을 막아줘」 — 실수가 있으면 «평범한 정보» 칸으로 받게 하고, 그래도 칭찬하면 서버가 뗀다. */
-    return '- THIS TURN\'S OPENER: start with the one that fits what the learner just said. It is your whole reaction and cheer: add no other, and never praise English with a mistake. Sad or hard news: ' + q('sad')
+    return '- THIS TURN\'S OPENER: use the one that fits what they just said. It is your whole reaction and cheer: add no other, and never praise English with a mistake. Sad or hard news: ' + q('sad')
       + '; a request: ' + q('request') + '; a question to you: ' + q('asked')
-      + '; "I don\'t know" or confused: ' + q('lost') + ', then start your next question with "Anyway,"'
+      + '; "I don\'t know" or confused: ' + q('lost') + ', then ask it again more easily (two choices)'
       + '; they fixed a mistake or said it right: ' + JSON.stringify(pickOpener(TURN_PRAISE, seed, avoid))
       + '; good or fun news: ' + q('good') + '; something surprising: ' + q('surprise')
       + '; a mistake, a short answer or plain information: ' + q('info') + '. If none fits, use another short one with the same feeling.'
-      + (seed % 3 === 0 ? ' If you then move to a new related question, start it with "By the way,".' : '');
+      + (seed % 3 === 0 ? ' If their story is done and you ask about something new, start it with "By the way,".' : '');
   } catch { return ''; }
 }
 

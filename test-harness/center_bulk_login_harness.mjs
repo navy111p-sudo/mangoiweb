@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 📥 대리점 아이디 일괄 입력 (2026-11-02) — js/adm-center-bulk-login.js 를 가짜 화면에서 «실제로» 돌린다.
 //    + 대리점 목록 검색 대상(qf=name) 서버 조건을 소스에서 오려 진짜 SQLite 에 돌린다.
 import fs from 'node:fs';
@@ -7,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = fs.readFileSync(process.env.CTB_SRC || path.join(ROOT, 'cloudflare-deploy/public/js/adm-center-bulk-login.js'), 'utf8');
-const API = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const API = readAdminSourceFromFile(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'));
 const HTML = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/admin.html'), 'utf8');
 const CORE = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/public/js/adm-core.js'), 'utf8');
 

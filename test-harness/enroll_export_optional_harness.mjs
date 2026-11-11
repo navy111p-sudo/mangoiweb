@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 // 수강신청 등록 후 엑셀·워드(CSV·Word) 다운로드를 «선택» 으로 (2026-10-07 사장님 지시)
 // adm-core.js 의 _enDl 계열과 두 export 함수를 소스에서 오려 내 가짜 DOM 으로 «실제로» 돌린다.
 // 짝: 「꺼져 있으면 안 받는다」 ↔ 「켜져 있으면 받는다」 ↔ 「나중 버튼으로 받을 수 있다」 ↔ 「카톡은 그대로」.
 import fs from 'node:fs';
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const core = fs.readFileSync(ROOT + 'cloudflare-deploy/public/js/adm-core.js', 'utf8');
 const html = fs.readFileSync(ROOT + 'cloudflare-deploy/public/admin.html', 'utf8');
 let pass = 0, fail = 0;

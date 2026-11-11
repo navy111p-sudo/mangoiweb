@@ -5,8 +5,89 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../cloudflare-deploy/src');
+
+/** Follow only shipped learning/voice domain imports, dependencies first.
+ * Missing imported modules fail; unimported neighbouring files cannot satisfy a test.
+ * Overrides retain the source/mutation harnesses' ability to test changed code.
+ */
+export function gamesSrc(overrides = {}, directory = SRC_DIR) {
+  return gamesSrcUsing(file => overrides[file] ?? readFileSync(join(directory, file), 'utf8'));
+}
+
+export function gamesSrcUsing(readModule) {
+  const ts = createRequire(import.meta.url)('../cloudflare-deploy/node_modules/typescript');
+  const seen = new Set(), parts = [];
+  function visit(file) {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const source = readModule(file);
+    const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    for (const node of parsed.statements) {
+      if (!ts.isImportDeclaration(node)) continue;
+      const match = /^\.\/(api-games-[^/]+|api-voice-[^/]+)$/.exec(node.moduleSpecifier.text);
+      if (match) visit(match[1] + '.ts');
+    }
+    parts.push(source);
+  }
+  visit('api-games.ts');
+  return parts.join('\n/* learning module boundary */\n');
+}
+
+/** Read the actual admin module graph, dependencies first. Keep the old source
+ * extraction tests tied to shipped code when a private helper moves modules.
+ * Only admin domain imports are followed; missing modules fail the test.
+ */
+export function adminSrc(overrides = {}, directory = SRC_DIR) {
+  return adminSrcUsing(file => overrides[file] ?? readFileSync(join(directory, file), 'utf8'));
+}
+
+/** Preserve a harness's existing source override / sandbox directory resolver. */
+export function adminSrcUsing(readModule) {
+  const ts = createRequire(import.meta.url)('../cloudflare-deploy/node_modules/typescript');
+  const seen = new Set(), parts = [];
+  function visit(file) {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const source = readModule(file);
+    const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    for (const node of parsed.statements) {
+      if (!ts.isImportDeclaration(node)) continue;
+      const match = /^\.\/(admin-[^/]+|api-admin-[^/]+)$/.exec(node.moduleSpecifier.text);
+      if (match) visit(match[1] + '.ts');
+    }
+    parts.push(source);
+  }
+  visit('api-admin.ts');
+  return parts.join('\n/* admin module boundary */\n');
+}
+
+/** Same graph for a copied source tree used by SQLite and mutation sandboxes. */
+export function adminSrcFromFile(file) {
+  const path = file instanceof URL ? fileURLToPath(file) : file;
+  return adminSrc({ 'api-admin.ts': readFileSync(path, 'utf8') }, dirname(path));
+}
+
+/** Select an executable route by its condition, never by a neighbouring comment.
+ * Missing or ambiguous routes fail rather than silently testing the wrong body.
+ */
+export function adminIfStatement(source, matches) {
+  const ts = createRequire(import.meta.url)('../cloudflare-deploy/node_modules/typescript');
+  const parsed = ts.createSourceFile('admin-graph.ts', source, ts.ScriptTarget.Latest, true);
+  const found = [];
+  function visit(node) {
+    if (ts.isIfStatement(node) && matches(node.expression.getText(parsed))) {
+      found.push(node.getText(parsed));
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(parsed);
+  if (found.length !== 1) throw Error(`Expected exactly one admin route, found ${found.length}`);
+  return found[0];
+}
 
 export function allSrc() {
   try {

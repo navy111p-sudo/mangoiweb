@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🏢 조직 명부(지사·대리점) 격리 하니스 — 의존성 없음 · node 로 바로 실행
 //   실행:  node test-harness/org_scope_harness.mjs
@@ -30,7 +31,7 @@ const check = (name, ok) => {
   else { FAIL++; FAILS.push(name); console.log('  ❌ ' + name); }
 };
 
-const aapi = R('cloudflare-deploy/src/api-admin.ts');
+const aapi = readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile));
 const idx = R('cloudflare-deploy/src/index.ts');
 const core = R('cloudflare-deploy/public/js/adm-core.js');
 const scopeTs = R('cloudflare-deploy/src/scope.ts');

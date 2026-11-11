@@ -215,7 +215,7 @@ console.log('\n[ ⑦ 첫 턴 문맥에 인사말이 들어가는가 ]');
 const WARM_HTML = readFileSync(resolve(ROOT, 'public', 'warmup.html'), 'utf8');
 const greetHits = (WARM_HTML.match(/Hi[,!] I'm \{name\}/g) || []).length;
 ok(greetHits >= 3, '화면 인사가 «I\'m {name}» 모양이다(그 문장을 모델에게 넣는 근거)', greetHits);
-ok(/history\.length \?\s*history\s*:/.test(warm),
+ok(/history\.length \?\s*history\.map\(m => \(\{role:m\.role,content:m\.content\}\)\)\s*:/.test(warm),
   '웜업: 히스토리가 비면 «인사 한 턴» 을 대신 넣는다',
   '이 줄이 없으면 모델은 자기 이름을 한 번도 못 보고 첫 답을 만든다');
 ok(/role: 'assistant', content: `Hi! I'm \$\{ctxFriend\}/.test(warm),

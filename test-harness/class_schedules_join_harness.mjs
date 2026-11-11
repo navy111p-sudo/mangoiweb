@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 🔎 GET /api/admin/class-schedules 의 teachers JOIN 감시 — 2026-09-11
 //
 // [무엇이 문제였나]
@@ -30,7 +31,7 @@ try { ({ DatabaseSync } = await import('node:sqlite')); }
 catch { console.log('⏭  건너뜀 — 이 node 에는 node:sqlite 가 없습니다(Node 22+ 필요)'); process.exit(0); }
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const SRC = readAdminSourceFromFile(resolve(__dir, '../cloudflare-deploy/src/api-admin.ts'));
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 const check = (name, ok, extra) => {

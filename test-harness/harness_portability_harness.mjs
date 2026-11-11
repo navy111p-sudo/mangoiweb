@@ -19,6 +19,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { filesystemPortabilityIssues } from './helpers/filesystem-portability.mjs';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SELF = basename(fileURLToPath(import.meta.url));
@@ -64,6 +65,31 @@ for (const f of users) {
             : '경로만 참조 ';
   console.log(`     ${how}  ${f}`);
 }
+
+console.log('\n[ 파일 URL · 실제 경로 · Node --import 경계 ]');
+const samples = [
+  ["const root = new URL('..', import.meta.url).pathname;", 1],
+  ["const root = fileURLToPath(new URL('..', import.meta.url));", 0],
+  ["const route = new URL(request.url).pathname;", 0],
+  ["// new URL('..', import.meta.url).pathname", 0],
+  ['const example = "new URL(import.meta.url).pathname";', 0],
+  ["spawnSync(node, ['--import', join(tmp, 'reg.mjs'), self]);", 1],
+  ["spawnSync(node, ['--import', pathToFileURL(join(tmp, 'reg.mjs')).href, self]);", 0],
+  ["await import(path.join(root, 'fixture.mjs'));", 1],
+  ["await import(pathToFileURL(path.join(root, 'fixture.mjs')).href);", 0],
+  ["await import('./fixture.mjs');", 0],
+];
+for (const [source, count] of samples) check(source, filesystemPortabilityIssues(source).length === count);
+function walkHarnesses(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const path = join(dir, entry.name);
+    return entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules'
+      ? walkHarnesses(path) : entry.isFile() && entry.name.endsWith('.mjs') ? [path] : [];
+  });
+}
+const pathIssues = walkHarnesses(__dir).flatMap(file =>
+  filesystemPortabilityIssues(readFileSync(file, 'utf8'), file).map(issue => ({file, ...issue})));
+check('실행 하니스·수동 브라우저 검사에 깨지는 파일 경로 변환이 없다', pathIssues.length === 0, pathIssues);
 
 console.log('\n────────────────────────────────');
 console.log(`총 ${PASS + FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

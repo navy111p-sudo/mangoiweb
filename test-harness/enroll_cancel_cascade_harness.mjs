@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🧪 수강신청 «✕ 취소» → 그 신청이 만든 남은 수업도 함께 종료 (2026-10-08 사장님 지시)
 //   실행:  node test-harness/enroll_cancel_cascade_harness.mjs
@@ -27,7 +28,7 @@ if (!process.env.__ECC_CHILD) {
 
 const ROOT = join(dirname(SELF), '..');
 const SRC = join(ROOT, 'cloudflare-deploy/src');
-const ADMIN = readFileSync(process.env.ECC_ADMIN_SRC || join(SRC, 'api-admin.ts'), 'utf8');
+const ADMIN = readAdminSourceFromFile(process.env.ECC_ADMIN_SRC || join(SRC, 'api-admin.ts'));
 const CORE = readFileSync(join(ROOT, 'cloudflare-deploy/public/js/adm-core.js'), 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];

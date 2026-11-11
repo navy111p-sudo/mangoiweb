@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🔎 students_erp 에 없는 컬럼 `id` 참조 감시 — 2026-08-27
 //
 // [무엇이 문제였나]
@@ -60,7 +61,7 @@ const BAD = [
   { re: /'stu_(?:id_)?'\s*\|\|\s*id/, what: "'stu_' || id 조립" },
   { re: /(?:UPDATE|DELETE\s+FROM)\s+students_erp[\s\S]*?\bWHERE\s+id\b/i, what: 'students_erp 를 WHERE id 로 직접 변경' },
 ];
-const FILES = ['api-admin.ts', 'api-mango.ts', 'api-students.ts', 'api-teacher.ts', 'api-lessons.ts', 'api-games.ts', 'index.ts', 'cafe24-sync.ts', 'student-override.ts'];
+const FILES = ['api-admin.ts', 'api-mango.ts', 'api-students.ts', 'api-teacher.ts', 'api-lessons.ts', 'api-games.ts', 'api-games-badges.ts', 'api-games-streak.ts', 'api-games-attendance-streak.ts', 'api-games-vocab.ts', 'api-games-microlearn.ts', 'api-games-vocab-core.ts', 'api-games-vocab-context.ts', 'index.ts', 'cafe24-sync.ts', 'student-override.ts'];
 let leftover = [];
 for (const f of FILES) {
   let src = ''; try { src = strip(rd('../cloudflare-deploy/src/' + f)); } catch { continue; }
@@ -95,7 +96,7 @@ runs('bulk-assign-textbook — 이력 INSERT 의 SELECT 부분',
 
 /* ══ ④ 되돌림 방지 — 고친 자리에 옛 패턴이 다시 들어오면 ②가 잡는다(그 전제 확인) ══ */
 console.log('\n④ 소스가 실제로 고쳐진 상태인가');
-const adm = strip(rd('../cloudflare-deploy/src/api-admin.ts'));
+const adm = strip(readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile)));
 const mango = strip(rd('../cloudflare-deploy/src/api-mango.ts'));
 check('verify-room 이 COALESCE(user_id, login_id) 를 쓴다',
   /SELECT COALESCE\(user_id, login_id\) AS uid FROM students_erp WHERE korean_name = \? OR username = \?/.test(mango));

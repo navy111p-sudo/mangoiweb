@@ -1,8 +1,9 @@
 {
   "ghosts": [
-    "api-admin.ts:class_schedules|duration_minutes,teacher_name",
-    "api-admin.ts:counseling_bookings|date,staff_uid,start_time",
-    "api-admin.ts:students_erp|name",
+    "admin-lesson-fees.ts:class_schedules|duration_minutes,teacher_name",
+    "api-admin-counseling.ts:counseling_bookings|date,staff_uid,start_time",
+    "api-admin-payments.ts:students_erp|name",
+    "api-admin-stats.ts:students_erp|name",
     "api-mango.ts:students_erp|id",
     "api-notify.ts:chat_messages|created_at",
     "api-students.ts:point_rule_log|source"

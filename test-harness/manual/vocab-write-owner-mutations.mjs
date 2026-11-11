@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /**
  * 🧪 vocab_write_owner_gate_harness 변이시험 러너 (2026-10-19) — 사람이 부릅니다(게이트가 물어 가지 않음).
  *
@@ -12,11 +13,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '../..');
 const HARNESS = path.join(ROOT, 'test-harness/vocab_write_owner_gate_harness.mjs');
 const F = { G: 'cloudflare-deploy/src/api-games.ts', MQ: 'cloudflare-deploy/public/micro-quiz.html', V: 'cloudflare-deploy/public/vocab.html' };
 const ENV = { G: 'VWG_GAMES', MQ: 'VWG_MQ', V: 'VWG_VOCAB' };
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'vwg-mut-'));
+const SRC_COPY = path.join(TMP, 'src');
+fs.cpSync(path.join(ROOT, 'cloudflare-deploy/src'), SRC_COPY, { recursive: true });
+const GAME_MODULES = ['api-games-vocab-core.ts', 'api-games-vocab.ts', 'api-games-microlearn.ts'];
 
 const GATE = '{ const deny = await vocabWriteDenied(request, url, env, userId, b); if (deny) return deny; }';
 const M = [
@@ -58,15 +62,19 @@ const M = [
 
 let caught = 0, missed = 0, skipped = 0;
 for (const [name, key, a, b] of M) {
-  const src = fs.readFileSync(path.join(ROOT, F[key]), 'utf8');
-  const n = src.split(a).length - 1;
+  const candidates = key === 'G'
+    ? GAME_MODULES.map(file => ({ file, src: fs.readFileSync(path.join(SRC_COPY, file), 'utf8') }))
+    : [{ file: F[key], src: fs.readFileSync(path.join(ROOT, F[key]), 'utf8') }];
+  const n = candidates.reduce((total, item) => total + item.src.split(a).length - 1, 0);
   if (n !== 1) { skipped++; console.log(`??  안 돌림 — ${name}: 앵커 ${n}곳`); continue; }
-  const out = path.join(TMP, key + path.extname(F[key]));
+  const { file, src } = candidates.find(item => item.src.includes(a));
+  const out = key === 'G' ? path.join(SRC_COPY, file) : path.join(TMP, key + path.extname(F[key]));
   fs.writeFileSync(out, src.replace(a, b));
   let txt = '', code = 0;
   try {
-    txt = execFileSync('node', [HARNESS], { env: { ...process.env, [ENV[key]]: out }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    txt = execFileSync('node', [HARNESS], { env: { ...process.env, VWG_SRC_DIR: SRC_COPY, VWG_GAMES: '', ...(key === 'G' ? {} : { [ENV[key]]: out }) }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (e) { code = e.status; txt = (e.stdout || '') + (e.stderr || ''); }
+  if (key === 'G') fs.writeFileSync(out, src);
   const fails = (txt.match(/❌ FAIL/g) || []).length;
   const crashed = !/결과: PASS/.test(txt);
   if (code === 1 && fails > 0) { caught++; console.log(`✅ 잡음 — ${name}: FAIL ${fails}`); }

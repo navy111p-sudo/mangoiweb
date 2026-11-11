@@ -28,7 +28,7 @@ const SRC = (f) => readFileSync(resolve(SRCDIR, f), 'utf8');
 const CR_PATH = resolve(SRCDIR, 'correction-reason.ts');
 const CR_SRC = readFileSync(CR_PATH, 'utf8');
 const { explainCorrection } = await import('file://' + CR_PATH.replace(/\\/g, '/'));
-const AI = SRC('api-ai.ts'), JUD = SRC('api-judgment.ts');
+const AI = SRC('api-ai-writing.ts'), JUD = SRC('api-judgment.ts');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {

@@ -55,12 +55,36 @@ const check = (name, cond, extra = '') => {
   else { fail++; console.log('  ❌ ' + name + (extra ? '  → ' + extra : '')); }
 };
 
+
+/* 📞 «시작» 은 얼굴 대화를 연다(2026-11-09 기본 화면) — 이 검사는 채팅 칸을 쓰므로 사람처럼 ✕ 로 닫는다 */
+async function closeFt(page) {
+  await page.waitForFunction(() => window.WarmupFaceTalk && WarmupFaceTalk.isActive(), null, { timeout: 2000 }).catch(() => {});
+  if (await page.evaluate(() => !!(window.WarmupFaceTalk && WarmupFaceTalk.isActive()))) {
+    await page.click('#ftk .fc-close').catch(() => page.evaluate(() => WarmupFaceTalk.exit())); await page.waitForTimeout(200);
+  }
+}
+
 const browser = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] });
 
 /* 2026-10-18 — 1100px 이상(높이 620 이상) PC 는 «3단계 카드(B안)» 로 바뀌어 연령·수준 버튼이 숨고
    드롭다운이 대신합니다(사장님 선택). 아래 1~9절은 «버튼 배치» 를 재므로 그 배치가 그대로인 1024px 에서 잽니다.
-   PC 배치는 맨 끝 «B안» 절이 따로 잽니다. ⛔ TAB_W 를 1100 이상으로 올리지 마세요(숨은 버튼을 눌러 30초 타임아웃). */
+   PC 배치는 맨 끝 «B안» 절이 따로 잽니다. ⛔ TAB_W 를 1100 이상으로 올리지 마세요(숨은 버튼을 눌러 30초 타임아웃).
+   📌 2026-11-04 — 대화 수준은 «모든 폭» 에서 드롭다운입니다(사장님: 폰에서 8칸 목록이 공간을 너무 차지함).
+      그래서 수준은 page.click('#wusLevels …') 이 아니라 page.selectOption('#wusLevelSel', …) 으로 고릅니다
+      (목록 버튼은 숨어 있어 click 이 30초 타임아웃). 폰 배치는 5절이 잽니다.
+   📌 2026-11-04 (같은 날 저녁) — 나이대도 «모든 폭» 에서 드롭다운입니다(사장님: 나이대도 드롭다운·한 화면에).
+      나이대는 page.selectOption('#wusAgeSel', …) 으로 고릅니다(도우미 pickAge). 사진 카드(#wusAges)는 숨어 있습니다. */
 const TAB_W = 1024;
+/* 🎚️ 대화 수준 고르기 — 드롭다운이 안 보이면(예: CSS 회귀로 목록이 되살아남) selectOption 이 30초를 기다리다
+   하니스째 죽어 결과 줄이 안 나온다(변이시험에서 실제로 그랬다). 짧게 기다리고 FAIL 로 남긴 뒤 계속 간다. */
+async function pickLevel(page, value) {
+  try { await page.selectOption('#wusLevelSel', value, { timeout: 3000 }); return true; }
+  catch (e) { check('대화 수준 드롭다운이 보여서 고를 수 있다', false, String(e.message).split('\n')[0]); return false; }
+}
+async function pickAge(page, value) {
+  try { await page.selectOption('#wusAgeSel', value, { timeout: 3000 }); return true; }
+  catch (e) { check('나이대 드롭다운이 보여서 고를 수 있다', false, String(e.message).split('\n')[0]); return false; }
+}
 async function openWarmup(width, height, url = '/warmup.html') {
   // ⚠️ isMobile 은 켜지 않는다 — 폭만 좁히면 되는 검사에서 좌표가 어긋난다(CLAUDE.md 2장)
   const ctx = await browser.newContext({ viewport: { width, height } });
@@ -92,8 +116,10 @@ console.log('\n[ 1. 열자마자 — 고르기 화면이 먼저 뜨고, 대화�
   check('설정 화면이 떠 있다', seen.hidden === false && seen.display !== 'none', JSON.stringify(seen));
   check('화면을 덮고 맨 위에 있다', seen.covers && seen.onTop, JSON.stringify(seen));
   check('연령대 4개가 그려졌다', seen.ages === 4, String(seen.ages));
-  check('대화 수준 8단계가 그려졌다', seen.levels === 8, String(seen.levels));
-  check('시작 버튼이 «시작하기» 로 보인다', /웜업 시작하기/.test(seen.cta), seen.cta);
+  check('대화 수준 8단계 버튼이 있다(드롭다운이 대신 누르는 자리)', seen.levels === 8, String(seen.levels));
+  // 문구가 «🚀 이 설정으로 말하기 연습 시작하기» 로 바뀐 뒤에도 옛 «웜업 시작하기» 를 기대해 늘 FAIL 이었다 —
+  // 이 검사의 뜻은 «계속하기 가 아니라 시작하기» 다.
+  check('시작 버튼이 «시작하기» 로 보인다', /시작하기/.test(seen.cta) && !/계속하기/.test(seen.cta), seen.cta);
   check('아직 대화가 시작되지 않았다(말풍선 0개)', seen.logMsgs === 0, String(seen.logMsgs));
   check('아직 웜업 대화 API 를 부르지 않았다', !apiHits.some((h) => h === '/api/warmup/chat'), apiHits.join(','));
   await ctx.close();
@@ -106,8 +132,8 @@ console.log('\n[ 2. 골라서 시작 — 고른 값이 그대로 서버 요청�
   page.on('request', (r) => {
     if (r.url().includes('/api/warmup/chat')) { try { sent.push(JSON.parse(r.postData() || '{}')); } catch { sent.push({}); } }
   });
-  await page.click('#wusAges [data-age="adult"]');
-  await page.click('#wusLevels [data-lvl="6"]');
+  await pickAge(page, 'adult');   // 나이대·수준 모두 모든 폭에서 드롭다운(2026-11-04)
+  await pickLevel(page, '6');
   const marked = await page.evaluate(() => ({
     age: !!document.querySelector('#wusAges [data-age="adult"].on'),
     lvl: !!document.querySelector('#wusLevels [data-lvl="6"].on'),
@@ -117,7 +143,7 @@ console.log('\n[ 2. 골라서 시작 — 고른 값이 그대로 서버 요청�
   check('고른 연령대에 «지금» 표시가 붙는다', marked.age, JSON.stringify(marked));
   check('고른 수준에 «지금» 표시가 붙는다', marked.lvl, JSON.stringify(marked));
   check('⋮ 메뉴 표시도 함께 바뀐다', /성인/.test(marked.menuAge) && /6단계/.test(marked.menuLvl), JSON.stringify(marked));
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1200);
   const after = await page.evaluate(() => ({
     hidden: document.getElementById('wuSetup').hidden,
@@ -181,7 +207,7 @@ console.log('\n[ 3. 🎯 내 수준 찾기 — 3번 눌러 끝나고, 서버를 
 console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시작하지 않는다 ]');
 {
   const { ctx, page } = await openWarmup(TAB_W, 900);
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1000);
   const before = await page.evaluate(() => document.querySelectorAll('#log .msg.ai').length);
   await page.click('#menuBtn');
@@ -196,8 +222,8 @@ console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시
   check('⋮ 에서 설정 화면을 다시 열 수 있다', reopened.open, JSON.stringify(reopened));
   check('메뉴는 함께 닫힌다', !reopened.menuOpen);
   check('버튼이 «계속하기» 로 바뀐다', /계속하기/.test(reopened.cta), reopened.cta);
-  await page.click('#wusAges [data-age="kid"]');
-  await page.click('#wusStart');
+  await pickAge(page, 'kid');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(600);
   const after = await page.evaluate(() => ({
     ai: document.querySelectorAll('#log .msg.ai').length,
@@ -208,23 +234,118 @@ console.log('\n[ 4. 대화 중 ⋮ 로 다시 고르기 — 대화를 새로 시
   await ctx.close();
 }
 
-console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지지 않는다 ]');
+console.log('\n[ 5. 휴대폰 폭(390) — 넘치지 않고 글자가 쪼개지지 않는다 · 나이대·대화 수준은 드롭다운 · 한 화면 ]');
 {
   const { ctx, page } = await openWarmup(390, 844);
   const m = await page.evaluate(() => {
     const overflow = document.documentElement.scrollWidth > innerWidth + 1;
-    // 「낱글자로 쪼개짐」 판정 — 라벨 한 줄짜리가 3줄 이상이면 쪼개진 것이다
-    const worst = [...document.querySelectorAll('#wusAges .wus-name, #wusLevels .wus-name')].map((el) => {
+    // 「낱글자로 쪼개짐」 판정 — 라벨 한 줄짜리가 3줄 이상이면 쪼개진 것이다.
+    // ⚠️ 숨은 칸(나이대·수준 카드)은 높이 0 이라 늘 통과해 헛돈다 — «보이는» 이름만 잰다
+    const worst = [...document.querySelectorAll('#wuSetup .wus-name, #wuSetup .wus-two-nm')].filter((el) => el.getBoundingClientRect().width > 0).map((el) => {
       const cs = getComputedStyle(el);
       const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
       return { t: el.textContent.trim().slice(0, 18), lines: Math.round(el.getBoundingClientRect().height / lh) };
     }).sort((a, b) => b.lines - a.lines)[0];
     const cta = document.getElementById('wusStart').getBoundingClientRect();
-    return { overflow, worst, ctaW: Math.round(cta.width), inner: innerWidth };
+    const vis = (id) => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none'; };
+    const sel = document.getElementById('wusLevelSel'), asel = document.getElementById('wusAgeSel');
+    return { overflow, worst, ctaW: Math.round(cta.width), inner: innerWidth,
+      lvlSel: vis('wusLevelSel'), lvlList: vis('wusLevels'), ageSel: vis('wusAgeSel'), ages: vis('wusAges'),
+      selW: Math.round(sel.getBoundingClientRect().width), selFont: parseFloat(getComputedStyle(sel).fontSize),
+      ageW: Math.round(asel.getBoundingClientRect().width), ageFont: parseFloat(getComputedStyle(asel).fontSize),
+      ageOpts: [...asel.options].map((o) => o.value).join(','),
+      ageNote: (document.getElementById('wusAgeNote') || {}).textContent || '',
+      opts: sel.options.length, cefr: [...sel.options].map((o) => (o.textContent.match(/·\s*(\S+)/) || [])[1] || '').join(','),
+      note: (document.getElementById('wusLevelNote') || {}).textContent || '',
+      blockH: Math.round(document.getElementById('wusGLevel').getBoundingClientRect().height),
+      ageBlockH: Math.round(document.getElementById('wusGAge').getBoundingClientRect().height) };
   });
   check('문서가 가로로 넘치지 않는다', !m.overflow);
   check('라벨이 낱글자로 쪼개지지 않는다(3줄 미만)', m.worst && m.worst.lines < 3, JSON.stringify(m.worst));
   check('시작 버튼이 화면 폭 안에 있다', m.ctaW <= m.inner, `${m.ctaW}/${m.inner}`);
+  check('폰에서 대화 수준은 드롭다운으로 보이고 8칸 목록은 숨는다', m.lvlSel && !m.lvlList, JSON.stringify(m));
+  check('드롭다운에 8단계가 다 들어 있고 CEFR 도 함께 보인다', m.opts === 8 && m.cefr === 'A1,A2,A2+,B1,B1+,B2,B2+,C1', `${m.opts} · ${m.cefr}`);
+  // 2026-11-04 저녁 — 사장님 «나이대도 드롭다운으로». 사진 카드는 숨고(드롭다운이 대신 누르는 자리) 드롭다운이 보인다
+  check('폰에서 나이대도 드롭다운으로 보이고 사진 카드는 숨는다', m.ageSel && !m.ages, JSON.stringify(m));
+  check('나이대 드롭다운에 4개(유아·초등저 · 초등고·중 · 고등 · 성인)가 다 들어 있다', m.ageOpts === 'kid,child,teen,adult', m.ageOpts);
+  check('드롭다운 글자가 16px 이상이다(아이폰이 누를 때 화면을 확대하지 않는다)', m.selFont >= 16 && m.ageFont >= 16, `${m.selFont}/${m.ageFont}`);
+  check('드롭다운이 화면 폭 안에 있다', m.selW > 0 && m.selW <= m.inner && m.ageW > 0 && m.ageW <= m.inner, `${m.selW}/${m.ageW}/${m.inner}`);
+  check('고른 수준·나이대의 설명 줄이 보인다', m.note.trim().length > 0 && m.ageNote.trim().length > 0, m.note + ' / ' + m.ageNote);
+  check('대화 수준 묶음이 짧다(8칸 목록 757px → 160px 이하)', m.blockH > 0 && m.blockH <= 160, String(m.blockH));
+  check('나이대 묶음이 짧다(사진 카드 533px → 120px 이하)', m.ageBlockH > 0 && m.ageBlockH <= 120, String(m.ageBlockH));
+  // 폰 드롭다운으로 고르면 숨은 버튼 선택·설명·⋮ 메뉴·저장이 그대로 따라오는가(짝) — 판정을 새로 만들지 않았다는 확인
+  await pickLevel(page, '2');
+  await pickAge(page, 'adult');
+  const picked = await page.evaluate(() => ({
+    on: !!document.querySelector('#wusLevels [data-lvl="2"].on'),
+    selVal: document.getElementById('wusLevelSel').value,
+    note: (document.getElementById('wusLevelNote') || {}).textContent || '',
+    menuLvl: (document.getElementById('lvlVal') || {}).textContent || '',
+    ageOn: !!document.querySelector('#wusAges [data-age="adult"].on'),
+    ageVal: document.getElementById('wusAgeSel').value,
+    menuAge: (document.getElementById('ageVal') || {}).textContent || '',
+  }));
+  check('폰 드롭다운으로 고르면 기존 버튼 선택도 바뀐다(짝)', picked.on && picked.selVal === '2', JSON.stringify(picked));
+  check('설명 줄이 고른 단계로 바뀐다', /5~7단어/.test(picked.note), picked.note);
+  check('⋮ 메뉴 표시도 함께 바뀐다', /2단계/.test(picked.menuLvl), picked.menuLvl);
+  check('나이대 드롭다운으로 고르면 숨은 카드 선택·⋮ 메뉴도 바뀐다(짝)', picked.ageOn && picked.ageVal === 'adult' && /성인/.test(picked.menuAge), JSON.stringify(picked));
+  await page.click('#wusStart'); await closeFt(page);
+  await page.waitForTimeout(1200);
+  const saved = await page.evaluate(() => [localStorage.getItem('mangoi_warmup_level'), localStorage.getItem('mangoi_warmup_age')]);
+  check('폰에서 고른 수준·나이대가 저장된다', saved[0] === '2' && saved[1] === 'adult', saved.join('/'));
+  await ctx.close();
+}
+
+console.log('\n[ 5-2. 휴대폰 한 화면 — 스크롤 없이 시작 버튼까지 · 이름표가 고르는 칸과 안 겹친다 · 교정 3가지는 그대로 고를 수 있다 ]');
+/* 320·340 은 «한 화면» 을 약속하지 않는다(조금 스크롤) — 대신 «옆으로 안 밀린다» 를 잰다.
+   2026-11-04 함정 대조가 실측으로 잡음: 한 화면 배치의 nowrap 이 320·340 영어에서 위쪽 이동 줄·주제 버튼을 화면 밖으로 밀었다
+   (#wuSetup scrollWidth 346/320). 버튼 안 글자 넘침(spill)만 재면 «칸이 통째로 넓어지는» 경우를 못 본다 — 상자 폭을 함께 잰다. */
+for (const [w, h, lang, oneScreen] of [[390, 844, 'ko', 1], [390, 844, 'en', 1], [360, 740, 'ko', 1], [360, 740, 'en', 1], [340, 640, 'en', 0], [320, 568, 'ko', 0], [320, 568, 'en', 0]]) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  await ctx.addInitScript((l) => { try { localStorage.setItem('mangoi_lang', l); } catch (e) {} }, lang);
+  const page = await ctx.newPage();
+  await page.goto(BASE + '/warmup.html', { waitUntil: 'load' });
+  await page.waitForTimeout(900);
+  const tag = `${w}×${h} ${lang.toUpperCase()}`;
+  const r = await page.evaluate(() => {
+    const s = document.getElementById('wuSetup');
+    const hit = (el) => { if (!el) return false; const b = el.getBoundingClientRect(); if (!b.width) return false;
+      const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return !!t && (t === el || el.contains(t)); };
+    // 이름표(왼쪽 칸)가 같은 줄의 고르는 칸(오른쪽)과 겹치는가
+    const overlaps = [...document.querySelectorAll('#wuSetup .wus-short')].filter((e) => e.getBoundingClientRect().width > 0).filter((e) => {
+      const r = e.getBoundingClientRect();
+      const ctl = [...e.parentElement.children].find((c) => c !== e && c.getBoundingClientRect().width > 0 && getComputedStyle(c).gridColumnStart === '2');
+      return ctl && r.right > ctl.getBoundingClientRect().left + 0.5;
+    }).map((e) => e.textContent);
+    const shortVis = [...document.querySelectorAll('#wuSetup .wus-short')].filter((e) => e.getBoundingClientRect().width > 0).length;
+    // 버튼·드롭다운 안 글자가 칸 밖으로 넘치는가
+    const spill = [...document.querySelectorAll('#wuSetup button, #wuSetup select')].filter((e) => e.getBoundingClientRect().width > 0 && e.scrollWidth > e.clientWidth + 1)
+      .map((e) => e.id || e.getAttribute('data-cmode') || e.getAttribute('data-way') || e.className);
+    const modes = [...document.querySelectorAll('#wusCModes [data-cmode]')];
+    return { sh: s.scrollHeight, ch: s.clientHeight, fits: s.scrollHeight <= s.clientHeight + 1,
+      sw: s.scrollWidth, cw: s.clientWidth, dw: document.documentElement.scrollWidth, iw: innerWidth,
+      startHit: hit(document.getElementById('wusStart')), overlaps, shortVis, spill,
+      modes: modes.length, modesHit: modes.filter(hit).length,
+      chips: [...document.querySelectorAll('#wuSetup .aidiff-chip, #wuSetup .howto-chip')].filter(hit).length };
+  });
+  if (!oneScreen) {
+    // 조금 스크롤하는 크기 — 교정 줄이 처음엔 sticky 시작 띠 밑일 수 있어, 그 줄을 화면 가운데로 옮긴 뒤 다시 잰다(사람도 그렇게 내린다)
+    r.modesHit = await page.evaluate(() => {
+      document.getElementById('wusCModes').scrollIntoView({ block: 'center' });
+      return [...document.querySelectorAll('#wusCModes [data-cmode]')].filter((el) => {
+        const b = el.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+        return !!t && (t === el || el.contains(t));
+      }).length;
+    });
+  }
+  if (oneScreen) check(`${tag}: 스크롤 없이 한 화면에 들어간다`, r.fits, `${r.sh}/${r.ch}`);
+  check(`${tag}: 옆으로 밀리지 않는다(설정 화면·문서 폭 = 화면 폭)`, r.sw <= r.cw + 1 && r.dw <= r.iw + 1, `${r.sw}/${r.cw} · ${r.dw}/${r.iw}`);
+  check(`${tag}: 시작 버튼이 보이고 맨 위에서 눌린다`, r.startHit);
+  check(`${tag}: 왼쪽 이름표 6개가 보이고 고르는 칸과 안 겹친다`, r.shortVis === 6 && !r.overlaps.length, `${r.shortVis} · ${r.overlaps.join(',')}`);
+  check(`${tag}: 버튼·드롭다운 글자가 칸 밖으로 넘치지 않는다`, !r.spill.length, r.spill.join(','));
+  // 2026-10-29 사장님 결정 — 교정 방식 3가지는 «첫 페이지에, 선택할 수 있게»(줄였어도 셋 다 보이고 눌린다)
+  check(`${tag}: 교정 방식 3가지가 보이고 눌린다`, r.modes === 3 && r.modesHit === 3, `${r.modesHit}/${r.modes}`);
+  check(`${tag}: 도움말 칩 2개(차이·사용방법)가 보이고 눌린다`, r.chips === 2, String(r.chips));
   await ctx.close();
 }
 
@@ -327,7 +448,7 @@ console.log('\n[ 8. ⬅️ 뒤로 — 어디에서 왔느냐에 따라 돌아갈
   check('수준 찾기 중에 누르면 목록으로 돌아온다(페이지를 벗어나지 않는다)',
     back1.probe && back1.main && back1.setup, JSON.stringify(back1));
   // ② 대화 중 ⋮ 로 열었으면 → 대화로 (홈으로 튕기면 대화가 사라진다)
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(900);
   const aiBefore = await page.evaluate(() => document.querySelectorAll('#log .msg.ai').length);
   await page.click('#menuBtn'); await page.waitForTimeout(150);
@@ -379,7 +500,7 @@ console.log('\n[ B안. PC(1920×945) — 3단계 카드 · 드롭다운이 기�
   }));
   check('드롭다운으로 고르면 기존 버튼 선택도 바뀐다(짝)', marked.age && marked.lvl, JSON.stringify(marked));
   check('수준 설명 줄이 채워진다', marked.note.trim().length > 0, marked.note);
-  await page.click('#wusStart');
+  await page.click('#wusStart'); await closeFt(page);
   await page.waitForTimeout(1200);
   const saved = await page.evaluate(() => [localStorage.getItem('mangoi_warmup_age'), localStorage.getItem('mangoi_warmup_level'),
     document.getElementById('wuSetup').hidden]);
@@ -398,10 +519,12 @@ console.log('\n[ B안. PC(1920×945) — 3단계 카드 · 드롭다운이 기�
   const back = await page.evaluate(() => {
     const pc = document.getElementById('wusPc3');
     return { pcHidden: !pc || pc.hidden || getComputedStyle(pc).display === 'none',
-      agesVis: getComputedStyle(document.getElementById('wusAges')).display !== 'none',
+      ageSelVis: getComputedStyle(document.getElementById('wusAgeSel')).display !== 'none',
+      agesHidden: getComputedStyle(document.getElementById('wusAges')).display === 'none',
       inCard: !!document.querySelector('#wusPc3 #wusGLang, #wusPc3 #wusGAge') };
   });
-  check('좁히면 카드가 사라지고 원래 버튼 배치로 돌아온다', back.pcHidden && back.agesVis && !back.inCard, JSON.stringify(back));
+  // 2026-11-04 — 좁은 화면에서도 나이대는 드롭다운(사진 카드는 숨음). 카드 배치만 원래대로 돌아온다
+  check('좁히면 카드가 사라지고 원래 배치로 돌아온다(나이대는 그대로 드롭다운)', back.pcHidden && back.ageSelVis && back.agesHidden && !back.inCard, JSON.stringify(back));
   await ctx.close();
 }
 

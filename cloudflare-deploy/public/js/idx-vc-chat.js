@@ -13,13 +13,8 @@
   var busy     = false;
   var seq      = 0;                       // 말풍선 표식 번호 (innerHTML 재생성에도 살아남는 유일한 끈)
   var lastSent = null;                    // { translated, original } — 내 말풍선에 원문을 붙이려고 기억
-  /* 💬 (2026-11-04 Kaye 「번역을 켰는데 채팅이 번역되지 않는다」)
-     예전엔 3초만 기다리고, 못 받으면 «아무 말 없이» 원문을 보냈다. 실측(11/3 class-4065)에서
-     같은 영어 문장이 두 번 번역 없이 나갔는데 강사 화면엔 아무 표시도 없었다.
-     → 서버(/api/translate chat 모드)가 재시도·대체 번역을 할 시간을 주고(8초),
-       그래도 안 되면 원문을 보내되 «번역 없이 보냈다» 고 강사에게 분명히 알린다.
-     ⚠️ 서버 상한(api-mango.ts CHAT_LLM_TIMEOUT_MS 5초 + m2m100)이 이 값보다 짧아야 한다. */
-  var WAIT_MS  = 8000;
+  // Allow the server retry/fallback budget; on failure retain the draft and require an explicit retry.
+  var WAIT_MS = 10000;
 
   function isKo(){
     try {
@@ -87,17 +82,38 @@
     b.style.color = on ? '#fbbf24' : '#94a3b8';
   }
 
-  /** 서버 번역. 실패하면 원문을 그대로 돌려준다(절대 빈 값 아님). */
+  /** Bound both headers and body; a failed translation is never permission to send. */
   function translate(texts, tgt){
-    return fetch('/api/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // mode:'chat' — 서버가 번역모델(m2m100) 대신 언어모델을 쓴다.
-      //   m2m100 은 '숙제'를 job·집안일로 옮겨 수업 대화에서 오해가 났다.
-      body: JSON.stringify({ texts: texts, target: tgt, mode: 'chat' })
-    }).then(function(r){ return r.json(); }).then(function(d){
-      return (d && d.ok && d.map) ? d.map : {};
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer;
+    var request = Promise.resolve().then(function(){
+      return fetch('/api/translate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        signal: controller ? controller.signal : undefined,
+        body: JSON.stringify({ texts: texts, target: tgt, mode: 'chat' })
+      });
+    }).then(function(r){ return r.ok ? r.json() : null; }).then(function(d){
+      return (d && d.ok === true && d.map) ? d.map : {};
     }).catch(function(){ return {}; });
+    var deadline = new Promise(function(resolve){
+      timer = setTimeout(function(){
+        try { if (controller) controller.abort(); } catch(_){}
+        resolve({});
+      }, WAIT_MS);
+    });
+    return Promise.race([request, deadline]).then(function(map){ clearTimeout(timer); return map; });
+  }
+  function scope(){
+    return { room: typeof vcRoomId === 'undefined' ? '' : vcRoomId,
+      self: typeof vcUserId === 'undefined' ? '' : vcUserId,
+      account: typeof vcAccountSnapshot === 'function' ? vcAccountSnapshot() : '',
+      target: (window.vcChatTarget && window.vcChatTarget.userId) || null };
+  }
+  function sameScope(a, b){
+    return a.room === b.room && a.self === b.self && a.account === b.account && a.target === b.target;
+  }
+  function notice(ko, en){
+    try { if (typeof vcAddChatSystem === 'function') vcAddChatSystem(isKo() ? ko : en); } catch(_){}
   }
 
   // ── 언어 고르는 작은 메뉴 ──────────────────────────────────────────
@@ -193,28 +209,43 @@
       if (!tgt || !text || !needsTr(text, tgt) || /@[A-Za-z0-9가-힣_]+/.test(text)) {
         return origSend.apply(this, arguments);
       }
-      if (busy) return;                       // 엔터 연타 시 이중 전송 방지
+      var sentScope = scope();
+      var sentConn = typeof vcConn === 'undefined' ? null : vcConn;
+      var draft = input.__vcUnsentScope;
+      if (draft && draft.text === text && !sameScope(draft, sentScope)) return origSend.apply(this, arguments);
+      if (busy) return;
       busy = true;
       paintBtn();
       var ph = input.placeholder;
       input.placeholder = isKo() ? '번역 중…' : 'Translating…';
-      var done = function(){
+      function done(){
         busy = false;
         paintBtn();
-        try { input.placeholder = ph; input.focus(); } catch(_){}
-      };
-      // WAIT_MS 안에 응답이 없으면 원문으로 보낸다 — 채팅이 멈춰 보이면 안 된다(위 WAIT_MS 주석)
-      var settled = false;
-      var fire = function(out){
-        if (settled) return; settled = true;
-        var ok = !!(out && out !== text);
-        if (ok) { input.value = out; lastSent = { translated: out, original: text }; }
+        try { if (typeof window.vcRefreshChatPlaceholder === 'function') window.vcRefreshChatPlaceholder(); else input.placeholder = sameScope(sentScope, scope()) ? ph : (isKo() ? '메시지 입력...' : 'Message…'); } catch(_){}
+      }
+      translate([text], tgt).then(function(map){
+        if (!sameScope(sentScope, scope()) || sentConn !== (typeof vcConn === 'undefined' ? null : vcConn) || target() !== tgt || input !== document.getElementById('vc-chat-input') || input.value.trim() !== text) {
+          notice('상황이나 입력 내용이 바뀌어 번역 결과를 보내지 않았어요.', 'The conversation or draft changed; nothing was sent.');
+          done(); return;
+        }
+        var out = map && Object.prototype.hasOwnProperty.call(map, text) ? map[text] : '';
+        if (typeof out === 'string') out = out.trim();
+        if (typeof out !== 'string' || !out || out === text) {
+          notice('번역을 확인하지 못해 보내지 않았어요. 입력은 남겨 두었어요. 다시 시도하거나 번역을 끄고 원문을 보내 주세요.',
+            'Translation could not be confirmed. Nothing was sent; your draft is kept. Retry, or turn translation off to send the original.');
+          done(); return;
+        }
+        input.value = out;
+        lastSent = { translated: out, original: text };
         try { origSend.call(window); } catch(e){ console.warn('[chat-tr] send', e); }
+        // The base sender clears the input only after accepting the socket write.
+        if (input.value === out) {
+          input.value = text;
+          input.__vcUnsentScope = { room: sentScope.room, self: sentScope.self, account: sentScope.account, target: sentScope.target, text: text };
+          lastSent = null;
+        }
         done();
-        if (!ok) warnUntranslated(tgt);
-      };
-      setTimeout(function(){ fire(null); }, WAIT_MS);
-      translate([text], tgt).then(function(map){ fire(map && map[text]); });
+      });
     };
   }
 
@@ -252,9 +283,13 @@
         // 상대가 보낸 것 → 내 언어가 아니면 내 언어로 바꿔 붙인다
         var rt = readTarget();
         if (data.userId !== (typeof vcUserId !== 'undefined' ? vcUserId : '') && msg && rt && needsTr(msg, rt)) {
+          var receivedScope = scope();
+          var receivedConn = typeof vcConn === 'undefined' ? null : vcConn;
           translate([msg], rt).then(function(map){
+            if (!sameScope(receivedScope, scope()) || receivedConn !== (typeof vcConn === 'undefined' ? null : vcConn) || readTarget() !== rt) return;
             var out = map && map[msg];
-            if (out && out !== msg) addNote(trId, out, false);
+            if (typeof out === 'string' && out && out !== msg) addNote(trId, out, false);
+            else addNote(trId, isKo() ? '번역을 확인하지 못했어요. 원문을 참고해 주세요.' : 'Translation unavailable. Please use the original.', false);
           });
         }
       } catch(e){ console.warn('[chat-tr] recv', e); }

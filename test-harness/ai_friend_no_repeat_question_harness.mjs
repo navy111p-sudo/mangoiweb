@@ -50,8 +50,9 @@ const live = (needle, label) => {
   const why = at < 0 ? 'missing' : deadAt(src, at, hStart);
   ok(`⓪ ${label} — 주석 밖에 살아 있다`, why === '', { needle, why });
 };
-live('questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn })', '기억은 «지금 이어지는 대화» 로 만든다(요청 턴이면 방금 질문은 뺀다)');
-live('const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history))', '«요청 턴» 판정은 정본 + cutHint 와 같은 조건이다');
+live('questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn, maxMsgs: QM_FRIEND_ROWS })', '기억은 «지금 이어지는 대화» 로 만든다(요청 턴이면 방금 질문은 뺀다)');
+live('const reaskTurn = isReaskRequest(msg) || dontKnowTurn || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history))', '«요청 턴» 판정은 정본 + «I don\'t know» 그 말만 + cutHint 와 같은 조건이다');
+live('const dontKnowTurn = isDontKnowAnswer(msg);', '«I don\'t know» 그 말만은 정본(isDontKnowAnswer)으로 판정한다');
 live('${askedLine}', '지시에 «이미 물은 질문» 줄을 싣는다');
 {
   // 웜업(index.ts)·엘리더잼(eleader-l1.ts)도 «이번 학생 말» 을 넘겨 같은 정본 판정(isReaskRequest)을 탄다 — 그 두 하니스에는 되묻기 표본이 없다.
@@ -61,6 +62,7 @@ live('${askedLine}', '지시에 «이미 물은 질문» 줄을 싣는다');
   ok('⓪ 웜업·엘리더잼도 이번 학생 말을 넘겨 같은 정본을 부른다 — 주석 밖에 살아 있다', a0 > 0 && deadAt(idx, a1, a0) === '' && deadAt(el, b1) === '' && deadAt(el, b2, b1) === '', { a0, a1, b1, b2 });
 }
 live('hintFor: repeatQuestionHintEn', '다시 뽑을 때 영어 힌트를 쓴다');
+live('ORDER BY id DESC LIMIT ?`).bind(uid, QM_FRIEND_ROWS)', '기억은 최근 QM_FRIEND_ROWS 줄로 만든다(40줄이면 20턴 넘은 대화에서 앞 질문을 잊는다 — ④)');
 live('repN(rn) <= repN(reply)', '이름 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
 live('repN(st2) <= repN(reply)', '짧게 다시 뽑기가 같은 질문을 새로 들여오지 않는다');
 
@@ -124,6 +126,7 @@ const kvMap = new Map();
 const KV = { get: async (k) => kvMap.get(k) ?? null, put: async (k, v) => { kvMap.set(k, String(v)); }, delete: async (k) => { kvMap.delete(k); } };
 
 let script = () => 'Hi! 😊 Do you like games?';
+let recheckCount = 0;   // 균형 «교정만 다시 묻기» 호출 수(③ — «I don't know.» 그 말만은 예전처럼 안 부른다)
 const calls = [];
 let clockSkew = 0;
 const realNow = Date.now.bind(Date);
@@ -145,6 +148,7 @@ const AI = {
        대본(script)을 쓰지 않고 «교정 없음» 으로 답하며 호출 수에도 안 센다.
        ⛔ 이것을 대본으로 넘기면 그 호출이 'first' 로 잡혀 대본 순서가 한 칸씩 밀린다(실제로 밟음). */
     if (String(o?.messages?.[0]?.content || '').includes('BALANCED_CORRECTION_CHECK')) {
+      recheckCount++;
       return { response: JSON.stringify({ reply: 'Checked.', fix: null }) };
     }
     calls.push({ model, o });
@@ -479,7 +483,11 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     // «요청하는 모양» 으로 좁힌 뒤에도 잡혀야 하는 것(2026-10-28 원래부터 있던 오판 수리)
     '천천히', '천천히요', '느리게', '짧게', '천천히 해 주세요', '너무 빠르게 말해요', '너무 빨라요', '크게 말해줘', '짧게 말해 주세요',
     'Repeat.', 'Can you repeat?', 'Please repeat that.', 'Sorry, say it again.', 'Speak more slowly please', 'Easier please', 'Use easy words, please', "I can't understand you 😅"];
-  const ANSWERS = ['What about you?', 'What is that?', 'What is your name?', "I don't know what to say.", 'What a big dog!', 'Sorry, I mean small.', 'I like what you said.', 'What I like is pizza.',
+  const ANSWERS = ['What about you?', 'What is that?', 'What is your name?', "I don't know what to say.",
+    // 🤷 (2026-11-05 실측 — 이 말들이 «천천히 말해 달라» 로 읽혀 「Yes! I will speak slowly.」 가 나왔다) «모른다» 는 되묻기가 아니다
+    "I don't know.", "I don't know", "I don't know, anyway I like riding a bicycle.", "I don't know. But I love beauty and the beast movie that is why i choose Belle",
+    "I don't know, teacher. What do you say?", "I don't know still, so let's talk about the other.", "I don't know what it is.", "I don't know what to do.",
+    "I don't know what you said, but it was fun.", 'What a big dog!', 'Sorry, I mean small.', 'I like what you said.', 'What I like is pizza.',
     '네', '응', '예', '영어로 뭐라고 해요?', '개 이름을 뭐라고 해요?', "I didn't hear about it.", "I'm sorry.", 'Guess what?', 'I like it, huh.',   // 끝에만 그 말이 오는 답(앞 ^ 를 풀면 걸린다)
     // 함정 대조(2026-10-28)가 실제 정본으로 재현한 «진짜 답» — 듣기·잡기·한 번 더를 문장 어디서나 받으면 걸린다(그 질문이 기억에서 빠진다)
     "No, I can't catch it.", "My dog can't catch it.", "I didn't catch it.", "No, I didn't catch that fish.", "He couldn't catch it.", "I can't catch you!",
@@ -527,27 +535,50 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     "I don't really understand.", "Don't understand, sorry.", 'Not understand.', "I don't understand what that means.", 'Too hard, easier please.', 'Can you use easy words?',
     'Use simple words.', 'Please speak English slowly.', 'Huh? Slow down.', 'Speak slowly, please.', 'Can you repeat that?', 'I don’t understand.', 'I can’t hear you', 'Sorry, louder.',
     'Sorry, what?', 'Excuse me, what?', 'Can you talk slowly?', "I didn't understand.", 'ok say it again', 'oh say it again', 'Please slower', 'Sorry, say it again.',
-    'Too fast, slow please', 'What? Too fast!', 'Speak slower.', 'Say again.'];
+    'Too fast, slow please', 'What? Too fast!', 'Speak slower.', 'Say again.',
+    // 🤷 (2026-11-05) «뜻을 모른다» — 질문을 못 알아들었다(실측 「I don't know what that mean.」 에 주제가 통째로 바뀌었다)
+    "I don't know what that mean.", "I don't know what that means.", "I don't know what you said.", "I don't know what you mean", "I don’t know what it means, sorry",
+    "I do not know what the word means.", "I don't really know what you're saying."];
   const SAMPLES = ['Can you say that again slowly?', 'slow down please', 'too fast!', 'say it again', 'again please', 'Repeat please.', "I don't understand.", 'I dont understand',
     'simpler please', 'easier', 'shorter please', '천천히 말해줘', '느리게', '너무 빠르다', '다시 말해줘', '다시 해줘', '못 알아들었어', '모르겠어요', '쉽게 말해줘', '짧게',
     "I don't know.", 'Yes.', 'No, small.', 'I like it a lot.', 'Because it is fun.', 'Every day!', '작아요', 'My dog is white.', ...ECHOES, ...REQUESTS, ...ANSWERS];
   const bad = SAMPLES.filter((t) => M.isReaskRequest(t) && !meta(t));
-  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 3 && bad.length === 0, { n: lits.length, bad });
+  ok('①-18 정본이 «요청» 이라 하면 aiFriendIsMetaAsk 도 요청이다(지시와 판정이 안 갈린다)', lits.length === 4 && bad.length === 0, { n: lits.length, bad });
   /* 표본 대조만으로는 표본에 없는 낱말로 두 곳이 갈라져도 초록이다(함정 대조 변이 실측: 정본에만 louder·again 을 더해도 통과).
-     그래서 정규식 «원문» 을 직접 견준다 — 한국어·«그 말만» 줄은 글자 그대로 같고, 영어 줄은 «I don't know» 하나만 더 받는다. */
+     그래서 정규식 «원문» 을 직접 견준다 — 네 줄 모두 글자 그대로 같다.
+     🔴 (2026-11-05) 예전엔 지시 쪽 영어 줄 맨 앞에 «I don't know» 가 «문장 어디서나» 붙어 있었다 — 「I don't know, anyway I like riding a bicycle.」
+        까지 «천천히 말해 달라» 로 읽혀 「Yes! I will speak slowly. You like bike.」 가 나왔다(실측). 지금은 정본과 똑같다(되살리면 이 줄이 FAIL). */
   const same = (a, b) => !!a && !!b && a.source === b.source && a.flags === b.flags;
-  const enMeta = lits[1] ? new RegExp(lits[1].source.replace("\\bi don['’]?t know\\b|", ''), lits[1].flags) : null;   // 지시 쪽 영어 줄 = «I don't know» + 정본
-  ok('①-18 두 곳의 정규식 원문이 같다(한국어·그 말만 = 그대로 · 영어 = «I don\'t know» 만 더)', same(lits[0], M.QM_REASK_KO) && same(enMeta, M.QM_REASK_EN) && same(lits[2], M.QM_REASK_ECHO)
-    && lits[1].source !== enMeta.source, { ko: same(lits[0], M.QM_REASK_KO), en: same(enMeta, M.QM_REASK_EN), echo: same(lits[2], M.QM_REASK_ECHO) });
-  const missed = [...ECHOES, ...REQUESTS].filter((t) => !M.isReaskRequest(t)), wrong = ANSWERS.filter((t) => M.isReaskRequest(t) || (meta(t) && !/i don'?t know/i.test(t)));   // 지시 쪽은 «I don't know» 만 더 받는다
+  ok('①-18 두 곳의 정규식 원문이 같다(한국어·영어·그 말만·«뜻을 모른다» 네 줄 모두 그대로)', same(lits[0], M.QM_REASK_KO) && same(lits[1], M.QM_REASK_EN) && same(lits[2], M.QM_REASK_ECHO)
+    && same(lits[3], M.QM_REASK_DONT_KNOW_MEANING), { ko: same(lits[0], M.QM_REASK_KO), en: same(lits[1], M.QM_REASK_EN), echo: same(lits[2], M.QM_REASK_ECHO), dk: same(lits[3], M.QM_REASK_DONT_KNOW_MEANING) });
+  const missed = [...ECHOES, ...REQUESTS].filter((t) => !M.isReaskRequest(t)), wrong = ANSWERS.filter((t) => M.isReaskRequest(t) || meta(t));
   ok('①-18 «What?·Huh?·뭐라고?·네?» 같은 되묻기는 요청이고 · 문장 속 what·물음표 없는 «네»·«영어로 뭐라고 해요?» 는 답이다(짝)', missed.length === 0 && wrong.length === 0, { missed, wrong });
   ok('①-18 «I don\'t know»·평범한 답은 요청이 아니고 · «I don\'t understand»·「모르겠어요」·「천천히」는 요청이다(짝)',
     !M.isReaskRequest("I don't know.") && !M.isReaskRequest('No, small.') && !M.isReaskRequest('My dog is white.')
     && M.isReaskRequest("I don't understand.") && M.isReaskRequest('모르겠어요') && M.isReaskRequest('천천히 말해줘'), '');
+  /* 🤷 (2026-11-05) «I don't know» 그 말만 = «답을 모른다»(되묻기 아님) — 이번 턴엔 그 질문을 기억에서 빼 «쉽게 다시» 물을 수 있게 한다. */
+  const DK_YES = ["I don't know.", "I don't know", 'I dont know', "Um, I don't know.", "I don't know, teacher.", 'I dunno', 'No idea.', "I'm not sure.", '몰라요', '잘 몰라요',
+    "I don't really know.", "I don't know yet.", 'I don’t know!', 'Hmm... I don\'t know.'];
+  const DK_NO = ["I don't know, anyway I like riding a bicycle.", "I don't know. But I love beauty and the beast movie", "I don't know what that mean.", 'I know.', 'Yes.', '모르겠어요',
+    "I don't know what to say.", "I don't know him.", 'My dog knows it.', "I don't know, teacher. What do you say?", '', "I don't know " + 'x'.repeat(300),
+    /* 앞에 «대답» 이 있으면 «그 말만» 이 아니다 — 그 대답(피자)을 따라가야 한다. 정규식 앞 고정(^)을 풀면 이 둘이 «모른다» 로 잡힌다(변이 실측). */
+    "Maybe pizza, I don't know.", "Pizza? I don't know."];
+  ok('①-19 «I don\'t know» 그 말만은 «모른다» 답이고 · 뒤에 얘기가 붙거나 «뜻을 모른다» 면 아니다(짝)', DK_YES.every((t) => M.isDontKnowAnswer(t)) && !DK_NO.some((t) => M.isDontKnowAnswer(t)),
+    { missed: DK_YES.filter((t) => !M.isDontKnowAnswer(t)), wrong: DK_NO.filter((t) => M.isDontKnowAnswer(t)) });
+  ok('①-19 «I don\'t know» 는 되묻기가 아니고 · «뜻을 모른다»(I don\'t know what that mean)는 되묻기다(짝)',
+    !M.isReaskRequest("I don't know.") && !M.isReaskRequest("I don't know, anyway I like riding a bicycle.") && M.isReaskRequest("I don't know what that mean.") && M.isReaskRequest("I don't know what you said"), '');
+  const H1 = [{ role: 'assistant', content: 'Do you like movies?' }];
+  const dk1 = M.questionMemory(H1, "I don't know."), dk2 = M.questionMemory(H1, 'Yes.');
+  const dk3 = M.questionMemory(H1.concat([{ role: 'user', content: "I don't know." }, { role: 'assistant', content: 'Do you like cartoons or action movies?' }]), 'Cartoons.');
+  const dk4 = M.questionMemory(H1, "I don't know.", { reask: false });
+  ok('①-19 정본: 이번 턴 «I don\'t know.» 면 방금 질문을 뺀다 · 평범한 답이면 기억 · 지난 턴의 «I don\'t know» 는 기억한다 · opts.reask 가 덮어쓴다(짝)',
+    dk1 === null && !!dk2 && dk2.items.length === 1 && !!dk3 && dk3.items.length === 2 && !!dk4 && dk4.items.length === 1,
+    { dk1, dk2: dk2 && dk2.items.length, dk3: dk3 && dk3.items.length, dk4: dk4 && dk4.items.length });
   /* 속도 — 정규식은 길이에 비례해야 한다(함정 대조 3회차 실측: 「(말)\s*해?\s*(줘)」 꼴이 «천천히 말» + 공백 14만 자에 8초).
      isReaskRequest 는 1,000자에서 자르므로 «정규식 자체» 를 정본·지시 쪽 모두 직접 잰다. 선형이면 5만 자에 수십 ms, 제곱이면 1초가 넘는다. */
-  const KEYS = ['천천히 말', '천천히 말해', '천천히', '다시', '못 알아', '너무', '한 번', '쉬운 말로', 'you', 'please', 'sorry', 'too fast', 'what', '네?', "i don't understand", 'say it', 'speak'];
-  const RES = [M.QM_REASK_KO, M.QM_REASK_EN, M.QM_REASK_ECHO, ...lits];
+  const KEYS = ['천천히 말', '천천히 말해', '천천히', '다시', '못 알아', '너무', '한 번', '쉬운 말로', 'you', 'please', 'sorry', 'too fast', 'what', '네?', "i don't understand", 'say it', 'speak',
+    "i don't know", "i don't know what", "i don't know what you", 'um', 'um, um', '몰라'];
+  const RES = [M.QM_REASK_KO, M.QM_REASK_EN, M.QM_REASK_ECHO, M.QM_REASK_DONT_KNOW_MEANING, ...lits];
   let worst = 0, worstAt = '';
   for (const k of KEYS) for (const sep of [' ', ', ', '?']) {
     const t = k + sep.repeat(50000) + 'x', t0 = performance.now();
@@ -556,6 +587,13 @@ for (const [ans, blocked] of [['Can you say that again slowly?', false], ['No, h
     if (d > worst) { worst = d; worstAt = JSON.stringify(k) + ' + ' + JSON.stringify(sep) + ' × 50000'; }
   }
   ok('①-18 되묻기 정규식이 긴 입력에서도 빠르다(키워드 × 공백 5만 자 — 정본·지시 쪽 모두 1초 안)', worst < 1000, { ms: Math.round(worst), at: worstAt });
+  /* «모른다» 정규식(QM_DONT_KNOW)은 따로 1만 자로 잰다 — 앞 고정(^)을 풀면 제곱이 되어 5만 자에선 하니스가 «멈춤»(실패가 아니라 시간초과)으로 끝난다.
+     [잰 것 2026-11-05] 1만 자: 고정 있음 수 ms · 없음 약 730ms. 실제 판정(isDontKnowAnswer)은 200자에서 자르지만 정규식은 export 되므로 그 자체를 잰다. */
+  let dkWorst = 0;
+  for (const k of ["i don't know", 'um', 'x']) for (const sep of [' ', ', ']) {
+    const t = k + sep.repeat(10000) + 'x', t0 = performance.now(); M.QM_DONT_KNOW.test(t); dkWorst = Math.max(dkWorst, performance.now() - t0);
+  }
+  ok('①-19 «모른다» 정규식도 길이에 비례한다(1만 자 — 300ms 안)', dkWorst < 300, { ms: Math.round(dkWorst) });
   ok('①-18 1,000자가 넘는 말은 되묻기로 안 본다 · 그 안이면 본다(짝)', M.isReaskRequest('천천히 말해 줘' + ' '.repeat(990)) && !M.isReaskRequest('천천히 말해 줘' + ' '.repeat(1000)) && M.QM_REASK_MAX_LEN === 1000, '');
 }
 
@@ -601,7 +639,8 @@ for (let mi = 0; mi < MODES.length; mi++) {
       if (firstRep || oldRep) S.needTurns++;
       if (rk && !firstRep && !oldRep) S.fa++;
       if (firstRep && !rk) S.miss++;
-      if (t > 0 && !sys.includes(M.ASKED_LINE_HEAD)) S.promptMiss++;
+      /* ⚠️ 둘째 턴 학생 말이 «I don't know.» 그 말만이면 그 질문은 이번 턴 기억에서 빠진다(정본 isDontKnowAnswer) — 다른 질문이 없으니 줄도 없다. */
+      if (t > 0 && !sys.includes(M.ASKED_LINE_HEAD) && !(t === 1 && M.isDontKnowAnswer(said))) S.promptMiss++;
       if (kit.repeatsIn(res.reply, talk.covered)) {
         S.newFinal++;
         if (process.env.AIF_DEBUG) console.log('    [debug]', JSON.stringify({ mode: mi, ti, seed, t, stream, level, said, first, reply: res.reply, kinds: kinds(res), covered: [...talk.covered], qs: M.questionsIn(res.reply) }));
@@ -651,4 +690,133 @@ MODES.forEach((m, k) => {
 });
 ok(`② 대화 수백 번을 실제 핸들러로 돌렸다(전제) — 대화 ${convs} · 턴 ${turns}`, convs >= 300 && turns >= 4000, { convs, turns });
 console.log(`  (샌드박스 ${((realNow() - t0) / 1000).toFixed(1)}초)`);
+
+// ─── ③ (2026-11-05 사장님 「F1~F5 진행」) 실제 핸들러가 모델에 넘기는 지시를 읽는다 ──────────────
+//    실측(운영 D1): 「I don't know」 가 «문장 어디서나» «천천히 말해 달라» 로 읽혀 「Yes! I will speak slowly. You like bike.」 ·
+//    「I don't know what that mean.」 에 주제가 통째로 바뀜 · 오늘의 단어 억지(「Was it delicious to play Nintendo?」) ·
+//    「What about you?」 대답 4번 중 1번. 지시 «글자» 가 아니라 «이 학생 말이면 무엇이 실리는가» 를 짝으로 묻는다.
+console.log('③ «I don\'t know»·오늘의 단어·«What about you?» — 실제 지시(2026-11-05)');
+{
+  const grab = async (msg, rows) => {
+    const g = await guest();
+    if (rows) seedRows(g.uid, rows);
+    let cap = null;
+    script = (o) => { if (!cap) cap = { sys: String(o.messages[0].content || ''), user: lastUser(o) }; return 'Sure! 😊 Do you like games?'; };
+    recheckCount = 0;
+    const res = await chat(g, msg);
+    return { sys: cap ? cap.sys : '', user: cap ? cap.user : '', ok: res.ok === true, rechecks: recheckCount };
+  };
+  const HIST = [['assistant', 'Hi! 😊 Do you like movies?', 3 * MIN]];
+  const META = /asking you to slow down \/ repeat \/ speak more simply/;
+  const DK = /does not know the answer to your last question/;
+  const a = await grab("I don't know.", HIST);
+  const b = await grab("I don't know, anyway I like riding a bicycle.", HIST);
+  const c = await grab("I don't know what that mean.", HIST);
+  const d = await grab('Can you speak slowly?', HIST);
+  const e = await grab('Yes.', HIST);
+  const f = await grab('I like riding a bicycle every day.', HIST);
+  ok('③ 전제: 여섯 장면을 실제 핸들러로 돌려 지시를 읽었다', [a, b, c, d, e, f].every((x) => x.ok && x.sys.length > 500 && x.user), [a, b, c, d, e, f].map((x) => x.ok));
+  // F1 — «I don't know» 갈래
+  ok('③-1 «I don\'t know.» 그 말만 → «천천히» 힌트가 아니라 «같은 것을 쉽게·두 개 중 고르기» 힌트', !META.test(a.user) && DK.test(a.user), a.user);
+  ok('③-2 «I don\'t know, anyway I like …» → 어느 힌트도 안 붙는다(학생이 꺼낸 얘기를 따라간다)', !META.test(b.user) && !DK.test(b.user), b.user);
+  ok('③-3 «I don\'t know what that mean.» → 못 알아들었다 — 다시 말해 주기 힌트(완전한 문장으로)', META.test(c.user) && /keep every sentence complete and correct/.test(c.user) && !DK.test(c.user), c.user);
+  ok('③-4 (짝) 진짜 «천천히» 부탁은 여전히 그 힌트를 받는다 · 평범한 답은 어느 힌트도 없다', META.test(d.user) && !META.test(e.user) && !DK.test(e.user), [d.user, e.user]);
+  ok('③-5 «천천히» 힌트가 더는 «much shorter» 로 문법 낱말을 버리게 하지 않는다', !/much shorter and easier words/.test(c.user + d.user) && /never drop little words/.test(d.user), d.user);
+  ok('③-6 규칙: «I don\'t know» 는 «천천히» 가 아니라 «모른다» 다 — 같은 질문을 돕고, 다른 얘기를 붙이면 그것을 따른다',
+    /"I don't know" means they don't know the answer, not "slow down": help with the same question \(easier words or two choices\)\. If they add something else, follow that\./.test(a.sys), '');
+  // F1 — 균형 «교정만 다시 묻기»: «I don't know.» 그 말만은 예전처럼 안 부른다(속도 그대로) · 평범한 문장은 그대로 부른다(짝)
+  ok('③-7 «I don\'t know.» 그 말만은 교정 다시 묻기를 안 부른다(예전과 같다) · 평범한 문장은 부른다(짝)', a.rechecks === 0 && f.rechecks === 1, { dontKnow: a.rechecks, plain: f.rechecks });
+  // F2·F4 — 공용 지시가 AI 친구에 그대로 실린다
+  ok('③-8 첫마디 «모름» 칸은 «같은 것을 쉽게 다시» — «Anyway, 다음 질문» 이 아니다', /"I don't know" or confused: [^;]*, then ask it again more easily \(two choices\)/.test(a.sys) && !/start your next question with "Anyway,"/.test(a.sys), '');
+  ok('③-9 «I don\'t know.» 턴엔 방금 질문이 «이미 물은 질문» 에서 빠진다 · 평범한 답이면 실린다(짝)',
+    !a.sys.includes(M.ASKED_LINE_HEAD) && e.sys.includes(M.ASKED_LINE_HEAD) && /Do you like movies\?" → "Yes\."/.test(e.sys), { a: a.sys.includes(M.ASKED_LINE_HEAD), e: (e.sys.match(/Questions you already asked[^\n]*/) || [''])[0].slice(0, 200) });
+  ok('③-10 «이미 물은 질문» 줄이 꼬리질문은 허락한다(주제가 뛰지 않게) — 옛 «말한 것은 아예 묻지 마» 가 아니다',
+    /never ask for a fact the learner already told you — but a follow-up on it \(why, who with, what next\) is good: stay with their story\./.test(e.sys) && !/never ask about something the learner already told you/.test(e.sys), '');
+  // F3 — 오늘의 단어
+  ok('③-11 오늘의 단어는 «대화에 맞을 때만» — 억지로·슬픈 얘기 뒤엔 쓰지 않는다(옛 «Use it naturally sometimes» 아님)',
+    /Use it only when it fits the talk — never force it into an unrelated sentence or use it after sad news; skipping it is fine\./.test(e.sys) && !/Use it naturally sometimes/.test(e.sys), '');
+  // F5 — 학생이 물었을 때
+  const q1 = await grab('What about you?', [['assistant', 'I like pizza. 🍕 Do you like pizza?', 3 * MIN]]);
+  const q2 = await grab('I like pizza.', [['assistant', 'I like pizza. 🍕 Do you like pizza?', 3 * MIN]]);
+  ok('③-12 «What about you?» → 첫 문장이 곧 대답(첫마디만 앞에) · 같은 질문을 AI 자신에 대해 답하라',
+    /Answer it in your FIRST sentence — only the short opener \(if any\) may come before it\./.test(q1.sys) && /If they ask "What about you\?" or "How about you\?", answer that same question about YOURSELF\./.test(q1.sys), '');
+  ok('③-13 (짝) 묻지 않은 턴엔 «먼저 대답» 규칙이 없다', !/THE STUDENT JUST ASKED YOU SOMETHING/.test(q2.sys) && /THE STUDENT JUST ASKED YOU SOMETHING/.test(q1.sys), '');
+  script = () => 'Hi! 😊 Do you like games?';
+}
+
+// ─── ④ (2026-11-08 2차 재측정 · 운영 D1) 긴 대화 — 20턴 넘게 이어지면 앞에서 물은 질문을 잊던 것 ────────
+/* [잰 것] 성인 학생에게 12번째 턴의 「Do you have a favorite singer?」를 44번째 턴에 또 물어 학생이 「Told you.」·
+   「I told you I like EXO.」 라고 했다. 다른 학생에게는 「favorite animal」을 1·22·34번째 턴에 물었다.
+   [원인] 기억(qmem)을 최근 40줄(20턴)로만 만들었다 — 위 ② 샌드박스는 대화가 14~20턴이라 원리상 못 봤다.
+   ⚠️ 여기는 일부러 40~70턴으로 돌린다. 짝: 지시에 싣는 목록은 길어지지 않는다(QM_SHOW — 속도 그대로). */
+console.log('④ 긴 대화 — 40~70턴');
+{
+  ok('④ 기억 줄 수가 80턴 이상이다(전제 — 아래 대화 길이와 짝)', Number(M.QM_FRIEND_ROWS) >= 160, M.QM_FRIEND_ROWS);
+  ok('④ (짝) 웜업·엘리더잼 기본 기억은 그대로 40줄(KV 기록 길이) — AI 친구만 넘겨 받는다', Number(M.QM_MEMORY_MSGS) === 40, M.QM_MEMORY_MSGS);
+  // ④-1 실제 대화 모양 그대로 — 31턴 전에 물은 질문을 다시 물으면 다시 뽑는다
+  const g = await guest();
+  const THINGS = ['apples', 'bananas', 'trains', 'robots', 'rabbits', 'kites', 'puzzles', 'cookies', 'tigers', 'boats', 'pianos', 'lemons', 'rockets',
+    'turtles', 'carrots', 'castles', 'drums', 'ducks', 'parks', 'clouds', 'jeans', 'tents', 'candles', 'shells', 'buses', 'socks', 'whales', 'grapes', 'maps', 'bells', 'owls'];
+  const rows = [['user', 'Hi!', 0], ['assistant', 'Hi! 😊 Do you have a favorite singer?', 0], ['user', "I don't have a favorite singer, but I like good songs.", 0]];
+  for (const th of THINGS) rows.push(['assistant', `Cool! Do you like ${th}?`, 0], ['user', 'Yes, I do.', 0]);
+  const n = rows.length;
+  seedRows(g.uid, rows.map((r, k) => [r[0], r[1], (n - k) * 0.5 * MIN]));   // 30초 간격 — 1시간 쉼이 없는 한 대화
+  script = seq(['Great! Do you have a favorite singer?', 'Nice! What song do you sing in the car?']);
+  const res = await chat(g, 'Yes, I do.');
+  const ks = kinds(res);
+  ok('④-1 31턴 전에 물은 질문(favorite singer)을 또 물으면 다시 뽑는다 · 학생에게 안 나간다', ks.includes('repeat') && !/favorite singer/i.test(res.reply), { ks, reply: res.reply });
+  const sys1 = String(res.calls[0]?.o?.messages?.[0]?.content || '');
+  const line1 = sys1.slice(sys1.indexOf(M.ASKED_LINE_HEAD)).split('\n')[0];
+  const items1 = (line1.match(/\d+\) "/g) || []).length;
+  ok('④-1 (짝) 지시의 «이미 물은 질문» 목록은 QM_SHOW 개를 넘지 않는다 — 기억이 길어져도 프롬프트는 안 길어진다', items1 > 0 && items1 <= M.QM_SHOW, { items1, QM_SHOW: M.QM_SHOW });
+  const hist1 = (res.calls[0]?.o?.messages || []).filter((m) => m.role === 'user' || m.role === 'assistant').length;
+  ok('④-1 (짝) 모델에게 보여 주는 대화는 예전처럼 최근 20줄 + 이번 말(지시를 늘리지 않음)', hist1 <= 21, hist1);
+
+  // ④-2 샌드박스 — 긴 대화를 실제 핸들러로. 모델 흉내가 «20턴도 더 전에» 다룬 질문을 다시 내는지 세고(전제), 그것이 학생에게 안 나가는지 본다.
+  const LONG = [{ drift: 0.35, obey: 1 }, { drift: 0.7, obey: 1 }];
+  const L = { convs: 0, turns: 0, oldFirst: 0, final: 0, streamRep: 0, notOk: 0, items: 0, stream: 0 };
+  for (let li = 0; li < LONG.length; li++) for (let c = 0; c < 5; c++) {
+    const { drift, obey } = LONG[li];
+    const seedNo = 90001 + li * 97 + c * 13;
+    const talk = kit.makeTalk(seedNo, TOPIC_SETS[(c + li) % TOPIC_SETS.length], drift, obey);
+    const g2 = await guest();
+    const stream = c % 2 === 1;
+    if (stream) L.stream++;
+    const at = new Map();   // 개념 → 처음 다룬 턴
+    let said = 'Hi!';
+    const turns = 42 + c * 6;
+    L.convs++;
+    for (let t = 0; t < turns; t++) {
+      L.turns++;
+      let first = null, sys = '';
+      script = (o) => {
+        const k = kindOf(o);
+        if (k === 'first') { first = talk.first(); sys = String(o.messages[0].content || ''); return first; }
+        if (k === 'repeat' || k === 'generic') return talk.retry(o.messages);
+        return String(o.messages[o.messages.length - 2].content || '');
+      };
+      const r = await chat(g2, said, { level: 'S6', ...(stream ? { stream: 1 } : {}) });
+      if (r.ok !== true || typeof r.reply !== 'string') { L.notOk++; break; }
+      for (const q of M.questionsIn(first)) { const id = kit.cidOf(q); if (id && talk.covered.has(id) && at.has(id) && t - at.get(id) > 20) L.oldFirst++; }
+      if (kit.repeatsIn(r.reply, talk.covered)) {
+        L.final++;
+        if (process.env.AIF_DEBUG) console.log('    [debug ④]', JSON.stringify({ li, c, t, first, reply: r.reply, kinds: kinds(r) }));
+      }
+      if (stream) for (const s2 of r.sent) if (kit.repeatsIn(s2, talk.covered)) L.streamRep++;
+      if (sys.includes(M.ASKED_LINE_HEAD)) {
+        const ln = sys.slice(sys.indexOf(M.ASKED_LINE_HEAD)).split('\n')[0];
+        L.items = Math.max(L.items, (ln.match(/\d+\) "/g) || []).length);
+      }
+      said = talk.answer(r.reply);
+      for (const id of talk.covered) if (!at.has(id)) at.set(id, t);
+    }
+  }
+  console.log(`  · 긴 대화 ${L.convs}(스트리밍 ${L.stream}) · 턴 ${L.turns} · 모델이 20턴도 더 전에 다룬 질문을 다시 낸 횟수 ${L.oldFirst} · 학생에게 나간 같은 질문 ${L.final}`);
+  ok('④-2 긴 대화가 매 턴 정상으로 답했다', L.notOk === 0, L.notOk);
+  ok('④-2 모델 흉내가 «20턴도 더 전» 질문을 실제로 다시 냈다(전제 — 시험이 헛돌지 않게)', L.oldFirst > 0, L.oldFirst);
+  ok('④-2 긴 대화에서도 같은 질문이 학생에게 한 번도 안 나간다(따르는 모델)', L.final === 0, L.final);
+  ok('④-2 스트리밍 미리듣기로도 안 나간다 · 스트리밍 대화를 실제로 돌렸다(전제)', L.streamRep === 0 && L.stream > 0, { streamRep: L.streamRep, stream: L.stream });
+  ok('④-2 (짝) 지시의 목록은 끝까지 QM_SHOW 개 이하다', L.items > 0 && L.items <= M.QM_SHOW, L.items);
+  script = () => 'Hi! 😊 Do you like games?';
+}
 finish();

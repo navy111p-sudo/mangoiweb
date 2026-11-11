@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // ═══════════════════════════════════════════════════════════════════════
 // 🎥🤖 student_track_roster_harness — 학생 구분(화상+AI / A.i 단독 신청 / 수업 기록 없음) 명부·요약 (2026-09-24 · 09-25 «신청 기반» 개정)
 //
@@ -42,7 +43,7 @@ function blockFrom(src, startIdx) {
 const st = rd('src/student-track-roster.ts');
 const bill = rd('src/ai-billing.ts');
 const exec = rd('src/exec-summary.ts');
-const api = rd('src/api-admin.ts');
+const api = readAdminModuleGraph(adminModuleFile => rd("src/" + adminModuleFile));
 const br = rd('public/branch.html');
 
 // ── 정본 조각 읽기 ─────────────────────────────────────────────────────

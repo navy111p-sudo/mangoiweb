@@ -358,9 +358,9 @@
   <div id="toast"></div>
 </div>
 
-<script src="/js/game-tts.js"></script>
+<script src="/js/game-tts.js?v=9"></script>
 <script src="/js/game-vocab.js"></script>
-<script src="/js/mangoi-voice-input.js?v=6"></script>
+<script src="/js/mangoi-voice-input.js?v=9"></script>
 <!-- 🗣 따라 말하기 채점 단일 출처. 직접 만든 "단어 몇 개 들렸나" 방식은 쓰지 말 것 —
      그 방식은 "I have a dog" 에 "I have a cat" 이라고 해도 통과시킨다(2026-07-23 확인). -->
 <script src="/js/mangoi-speak-score.js?v=1"></script>
@@ -1143,6 +1143,48 @@ var cutEl = document.getElementById('cut'), cutCv = document.getElementById('cut
     cutCtx = cutCv.getContext('2d'), cutVid = document.getElementById('cutVid'),
     cutText = document.getElementById('cutText'), cutSkip = document.getElementById('cutSkip');
 var cutRun = false, cutEnd = null;
+// 미션 클릭 때 미리 깨워 둔다. 저장/영상 로딩 뒤에는 사용자 제스처가 끝나 있다.
+var hatchAudio = null, hatchSoundNodes = [];
+document.addEventListener('pointerdown', unlockHatchAudio, true);
+document.addEventListener('keydown', unlockHatchAudio, true);
+function unlockHatchAudio(){
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!hatchAudio) hatchAudio = new AC();
+    if (hatchAudio.state === 'suspended') hatchAudio.resume().catch(function(){});
+  } catch(e){}
+}
+function stopHatchSound(){
+  hatchSoundNodes.forEach(function(n){ try { n.stop(); n.disconnect(); } catch(e){} });
+  hatchSoundNodes = [];
+}
+function playHatchSound(){
+  try {
+    if (!hatchAudio || hatchAudio.state !== 'running') return;
+    stopHatchSound();
+    var ac = hatchAudio, now = ac.currentTime;
+    // 짧은 껍질 파열음 + 밝게 올라가는 세 음. 외부 음원 다운로드 없이 재생한다.
+    var buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * .12), ac.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+    var crack = ac.createBufferSource(), gain = ac.createGain();
+    crack.buffer = buffer; gain.gain.value = .18;
+    crack.connect(gain); gain.connect(ac.destination);
+    crack.onended = function(){ crack.disconnect(); gain.disconnect(); };
+    hatchSoundNodes.push(crack); crack.start(now);
+    [523.25, 659.25, 783.99].forEach(function(hz, index){
+      var osc = ac.createOscillator(), g = ac.createGain(), t = now + .07 + index * .11;
+      osc.type = 'sine'; osc.frequency.value = hz;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.12, t + .015);
+      g.gain.exponentialRampToValueAtTime(.001, t + .6);
+      osc.connect(g); g.connect(ac.destination);
+      osc.onended = function(){ osc.disconnect(); g.disconnect(); };
+      hatchSoundNodes.push(osc); osc.start(t); osc.stop(t + .62);
+    });
+  } catch(e){} // 오디오를 사용할 수 없어도 부화는 계속된다.
+}
 
 function playCutscene(newTier){
   var sp = SPECIES[ST.species];
@@ -1154,18 +1196,23 @@ function playCutscene(newTier){
 
   // 1순위: Higgsfield 로 만든 컷신 영상 (public/video/avatar/{species}-{tier}.mp4)
   var src = '/video/avatar/' + ST.species + '-' + newTier + '.mp4';
-  var done = false;
+  var done = false, hatchSoundPlayed = false;
+  var soundAtReveal = function(){
+    if (done || hatchSoundPlayed || newTier !== 1) return;
+    hatchSoundPlayed = true; playHatchSound();
+  };
   var finish = function(){ if (done) return; done = true; endCutscene(newTier); };
   cutEnd = finish;
 
   cutVid.onerror = null; cutVid.onended = null;
+  cutVid.ontimeupdate = function(){ if (cutVid.currentTime >= 1.5) soundAtReveal(); };
   var fellBack = false;
   // 영상을 포기하고 캔버스로 넘어가는 단일 지점 — 두 번 실행되지 않게 막는다.
   var toCanvas = function(){
     if (fellBack || done) return; fellBack = true;
     try { cutVid.pause(); } catch(e){}
     cutVid.style.display = 'none'; cutCv.style.display = 'block';
-    canvasCutscene(newTier, finish);
+    canvasCutscene(newTier, finish, soundAtReveal);
   };
 
   fetch(src, { method:'HEAD' }).then(function(r){
@@ -1184,7 +1231,7 @@ function playCutscene(newTier){
   }).catch(toCanvas);
 }
 
-function canvasCutscene(newTier, onDone){
+function canvasCutscene(newTier, onDone, onReveal){
   var sp = SPECIES[ST.species];
   var t0 = performance.now(), DUR = 3400, parts = [];
   // 🛟 안전장치 — 학생이 컷신 도중 탭을 전환하면 rAF 가 아예 멈춘다(백그라운드 탭·저전력).
@@ -1234,6 +1281,7 @@ function canvasCutscene(newTier, onDone){
 
     // 아바타 — 전 단계에서 새 단계로 교체 + 줌
     var swap = el > 1500;
+    if (swap && onReveal) { onReveal(); onReveal = null; }
     var zoom = el < 1500 ? (1 + el / 1500 * 0.35) : (1.35 - Math.min(1, (el - 1500) / 1400) * 0.35);
     var shake = el > 1200 && el < 1650 ? (Math.random() - .5) * 8 : 0;
     drawAvatar(cutCtx, cx + shake, cy, base * zoom, ST.species, swap ? newTier : Math.max(0, newTier - 1),
@@ -1247,6 +1295,8 @@ function canvasCutscene(newTier, onDone){
 
 function endCutscene(newTier){
   cutRun = false;
+  stopHatchSound();
+  cutVid.ontimeupdate = null;
   try { cutVid.pause(); cutVid.removeAttribute('src'); cutVid.load(); } catch(e){}
   cutVid.style.display = 'none';
   cutEl.classList.remove('on');

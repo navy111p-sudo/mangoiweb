@@ -119,6 +119,7 @@ export function judgePayType(
 export type EvalBrief = {
   id: number; date: string; score: number | null; max: number | null;
   text: string; teacher: string | null;
+  student_level: string | null; attendance_status: string | null;
 };
 
 /** 점수 만점 — 값이 5를 넘으면 100점 만점(AI 리포트), 아니면 5점 만점(1분 일지). */
@@ -141,6 +142,9 @@ export function briefEval(r: any): EvalBrief {
     max: hasScore ? evalMaxOf(n) : null,
     text: text.length > 90 ? text.slice(0, 89) + '…' : text,
     teacher: r?.teacher_name || null,
+    // Keep each log's saved snapshot; today's student record is not its history.
+    student_level: r?.student_level || null,
+    attendance_status: r?.attendance_status || null,
   };
 }
 

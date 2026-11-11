@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 🧑‍🏫 수강신청 «등록 화면» 항목 정리 + ③ 배정 우선순위 하니스 — 2026-08-12
 //
 //   배경: 「수업 등록 창에서 강사를 직접 지정할 수 있게 되어 있다 — 요구사항과 불일치」.
@@ -36,7 +37,7 @@ const CF = join(ROOT, 'cloudflare-deploy');
 const adminHtml = readFileSync(join(CF, 'public', 'admin.html'), 'utf8');
 const coreSrc = readFileSync(join(CF, 'public', 'js', 'adm-core.js'), 'utf8');
 const actSrc = readFileSync(join(CF, 'src', 'enroll-activate.ts'), 'utf8');
-const admSrc = readFileSync(join(CF, 'src', 'api-admin.ts'), 'utf8');
+const admSrc = readAdminSourceFromFile(join(CF, 'src', 'api-admin.ts'));
 
 let pass = 0, fail = 0;
 const check = (name, cond, extra) => {

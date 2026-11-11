@@ -18,6 +18,7 @@ import vm from 'node:vm';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const PUB = resolve(__dir, '../cloudflare-deploy/public');
+const ROOT = resolve(__dir, '..');
 const rd = (p) => { try { return readFileSync(p, 'utf8'); } catch { return ''; } };
 
 let PASS = 0, FAIL = 0; const FAILS = [];
@@ -106,7 +107,7 @@ if (T.cardHTML) {
   const evil = { id: 1, english_name: '<img src=x onerror=alert(1)>', certifications: '"><script>x</script>', career: '3' };
   const c = run(T.cardHTML, evil, 0, false, 'ko');
   check('카드가 이름·과목의 꺾쇠를 탈출한다', !/<img src=x/.test(c) && !/<script>/.test(c) && /&lt;img src=x/.test(c));
-  const d = run(T.detailHTML, { id: 2, english_name: 'Ana', notes: '</blockquote><script>x</script>', career: 'Motto <b>hi</b>', group_name: 'Office Teacher', education: 'BSEd', intro_video_url: 'javascript:alert(1)' }, { index: 0, total: 1, playing: true }, 'ko');
+  const d = run(T.detailHTML, { id: 2, english_name: 'Ana', career: 'Motto <b>hi</b></blockquote><script>x</script>', group_name: 'Office Teacher', education: 'BSEd', intro_video_url: 'javascript:alert(1)' }, { index: 0, total: 1, playing: true }, 'ko');
   check('프로필이 소개 글·좌우명의 꺾쇠를 탈출한다', !/<script>/.test(d) && !/<b>hi<\/b>/.test(d) && /&lt;script&gt;/.test(d));
   check('내부 인사 분류(group_name)를 그리지 않는다 (2026-07-30 제보 #5)', !/Office Teacher/.test(d));
   check('javascript: 영상 주소면 영상 버튼도 재생기도 없다', !/data-tg="video"/.test(d) && !/<iframe|<video/.test(d) && !/javascript:/i.test(d));
@@ -128,6 +129,119 @@ if (T.cardHTML) {
     run(T.detailHTML, plain, { index: 0, total: 2 }, 'ko'), run(T.detailHTML, vet, { index: 1, total: 2 }, 'en')].join('\n');
   check('카드·프로필 어디에도 «4.9»·별점 기호가 없다', !/4\.9|★|⭐/.test(html));
   check('대신 년차가 있으면 카드에 보인다 (짝 — 줄을 통째로 지운 것이 아님)', /6 yrs/.test(run(T.cardHTML, vet, 1, false, 'en')) && /6년차/.test(run(T.cardHTML, vet, 1, false, 'ko')));
+}
+
+console.log('\n[ ②-3 내부 관리 메모(notes)는 학부모 화면에 안 나간다 (2026-11-05 사장님 캡처) ]');
+// teacher_profiles.notes 는 «선생님 한마디» 가 아니라 «아이디:mangoi_026 / 프랜차이즈:에듀비전 / 80분연강:제한 /
+// 평점: 5.0 (2 reviews)» 꼴의 내부 메모다(운영 D1 활동중 25명 전원 실측). 강사 소개 창이 그것을 그대로 그렸다.
+const MEMO = '아이디:mangoi_026 / 프랜차이즈:에듀비전 / 80분연강:제한 / 평점: 5.0 (2 reviews)';
+if (T.detailHTML) {
+  const janice = { id: 26, english_name: 'Teacher Janice', origin_region: '미국캐나다', notes: MEMO,
+    career: 'Full Name: Janice M. Geolin Motto: "Learning is not a spectator sport."' };
+  const dk = run(T.detailHTML, janice, { index: 0, total: 1 }, 'ko');
+  const de = run(T.detailHTML, janice, { index: 0, total: 1 }, 'en');
+  check('프로필에 내부 메모의 로그인 아이디·프랜차이즈·연강 글자가 없다 (KO·EN)',
+    !/mangoi_026|아이디|프랜차이즈|80분연강|reviews/.test(dk + de), (dk + de).match(/mangoi_026|아이디|프랜차이즈|80분연강|reviews/));
+  check('대신 강사가 직접 쓴 말(career)이 «선생님 한마디» 로 보인다 (짝 — 칸을 통째로 지운 것이 아님)',
+    /선생님 한마디/.test(dk) && /Learning is not a spectator sport/.test(dk) && /In their words/.test(de));
+  check('입력칸 라벨 «Full Name: …»·«Motto:» 는 화면에 안 보인다', !/Full Name|Geolin|Motto\s*:/i.test(dk));
+  const memoOnly = run(T.detailHTML, { id: 27, english_name: 'X', notes: MEMO }, { index: 0, total: 1 }, 'ko');
+  check('career 가 없고 메모만 있으면 «소개 글 없음» 한 줄 (메모로 메우지 않는다)',
+    /아직 등록된 소개 글이 없어요/.test(memoOnly) && !/mangoi_026/.test(memoOnly));
+}
+if (T.aboutOf) {
+  check('aboutOf: «Motto: X» → X', T.aboutOf({ career: "Motto: Dreams don't work unless you do!" }) === "Dreams don't work unless you do!");
+  check('aboutOf: 라벨이 없는 글은 그대로 (짝)', T.aboutOf({ career: 'Every day is a chance to get better.' }) === 'Every day is a chance to get better.');
+}
+{
+  // 모듈 안에서 notes 를 «읽는» 코드가 없어야 한다 — 주석을 벗긴 사본으로 판정(⛔ 자기 주석을 잡지 않게).
+  const live = modSrc.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/^\s*\/\/.*$/, '')).join('\n');
+  check('teacher-gallery.js 가 t.notes 를 읽지 않는다', !/\.notes\b/.test(live));
+  check('(전제) 주석 벗기기가 파일을 통째로 먹지 않았다', live.length > modSrc.length * 0.5);
+}
+
+console.log('\n[ ②-4 공개 API 가 내부 메모 원문을 안 내보낸다 (src/teacher-public.ts · api-mango.ts) ]');
+{
+  const { stripTypeScriptTypes } = await import('node:module');
+  const pubSrc = readFileSync(join(ROOT, 'cloudflare-deploy/src/teacher-public.ts'), 'utf8');
+  let P = {};
+  try {
+    const js = stripTypeScriptTypes(pubSrc).replace(/\bexport\s+/g, '');
+    P = new Function(js + '\nreturn { publicTeacherNotes, publicTeacherRow, isPublicTeacher };')();
+  } catch (e) { console.log('  (teacher-public.ts 실행 실패: ' + e.message + ')'); }
+  const N = P.publicTeacherNotes || (() => '__MISSING__');
+  check('실제 메모 → «평점: 5.0 (2 reviews)» 만 남는다', N(MEMO) === '평점: 5.0 (2 reviews)', N(MEMO));
+  check('평점이 없는 메모(관리자·작업 메모) → null', N('아이디:mangoi_144 / 프랜차이즈:에듀비전 / 역할: 관리자(수업 안 함)') === null && N('[2026-09-01 사장님 지시 …]') === null);
+  check('문자열이 아니거나 비면 null', N(null) === null && N(undefined) === null && N(42) === null && N('') === null);
+  // 짝 — 이 칸을 읽는 공개 화면 둘의 정규식이 그대로 값을 꺼낸다(옛 화면을 안 고쳐도 된다).
+  const out = N(MEMO) || '';
+  const rate = (out.match(/평점:\s*([\d.]+)/) || [])[1], revs = (out.match(/\((\d+)\s*reviews?\)/i) || [])[1];
+  check('lesson-booking·lesson-postpone 의 평점 정규식이 그 값을 그대로 꺼낸다', rate === '5.0' && revs === '2');
+  const demoSrc = readFileSync(join(PUB, 'lesson-postpone-demo.html'), 'utf8') + readFileSync(join(PUB, 'lesson-booking-demo.html'), 'utf8');
+  check('(전제) 그 두 화면이 아직 notes 에서 «평점:» 을 꺼내 쓴다 (바뀌면 이 짝을 다시 볼 것)', /평점:\\s\*\(\[\\d\.\]\+\)/.test(demoSrc));
+
+  // 라우트를 중괄호 짝으로 오려 내 가짜 D1 로 실제로 돌린다.
+  const mango = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-mango.ts'), 'utf8');
+  const head = "if (path === '/api/teacher-profiles' && method === 'GET') {";
+  const i = mango.indexOf(head);
+  let block = '';
+  if (i >= 0) {
+    let depth = 0, j = i + head.length - 1;
+    for (; j < mango.length; j++) { const ch = mango[j]; if (ch === '{') depth++; else if (ch === '}') { depth--; if (depth === 0) break; } }
+    block = mango.slice(i + head.length, j);
+  }
+  check('(전제) 공개 강사 목록 라우트를 오려 냈다', block.length > 200);
+  check('api-mango.ts 가 teacher-public 을 불러 쓴다', /import\s*\{[^}]*\bpublicTeacherRow\b[^}]*\}\s*from\s*'\.\/teacher-public'/.test(mango));
+  check('api-mango.ts 가 isPublicTeacher 도 불러 쓴다 (매니저 거르기)', /import\s*\{[^}]*\bisPublicTeacher\b[^}]*\}\s*from\s*'\.\/teacher-public'/.test(mango));
+  const runRoute = async (opts) => {
+    const sqls = [];
+    const env = { DB: {
+      exec: async () => {},
+      prepare: (sql) => { sqls.push(sql); return { bind: () => ({ all: async () => {
+        if (opts.noHiddenCol && /list_hidden/.test(sql)) throw new Error('no such column: list_hidden');
+        // 질의문을 «읽어서» 답한다 — 이름만 보면 조건을 뒤집어도(= 1) 통과한다(변이 실측).
+        const hm = sql.match(/COALESCE\(\s*list_hidden\s*,\s*0\s*\)\s*=\s*(\d)/);
+        const keep = (r) => !hm || Number(r.list_hidden || 0) === Number(hm[1]);
+        return { results: opts.rows.filter((r) => /status\s*=\s*'활동중'/.test(sql) && keep(r)).map((r) => ({ ...r })) };
+      } }) }; } } };
+    const json = (b) => b;
+    const url = new URL('https://x/api/teacher-profiles?limit=50');
+    try {
+      // ⚠️ 함수로 «감싼 뒤» 벗긴다 — 블록만 벗기면 함수 밖 return 으로 실패해 이 절이 통째로 헛돈다(CLAUDE.md 2장).
+      const fn = new Function('path', 'method', 'url', 'env', 'json', 'publicTeacherRow', 'isPublicTeacher',
+        'return ' + stripTypeScriptTypes('(async () => {' + block + '\n})') + '();');
+      return { body: await fn('/api/teacher-profiles', 'GET', url, env, json, P.publicTeacherRow, P.isPublicTeacher), sqls };
+    } catch (e) { return { err: e.message, sqls }; }
+  };
+  const ROWS = [
+    { id: 26, english_name: 'Teacher Janice', notes: MEMO, career: 'Motto: x', list_hidden: 0 },
+    { id: 38, english_name: 'test teacher', notes: '[2026-09-01 사장님 지시 …]', list_hidden: 1 },
+    // 🧑‍💼 매니저 셋 — 운영 D1 실측 모양 그대로(2026-11-05)
+    { id: 19, english_name: 'Melca', group_name: null, notes: '아이디:mangoi_144 / 프랜차이즈:에듀비전 / 80분연강:제한 / 역할: 관리자(수업 안 함)', list_hidden: 0 },
+    { id: 25, english_name: 'Teacher Maimai', group_name: 'Head Teacher', notes: '아이디:mangoi_033 / 프랜차이즈:에듀비전 / 80분연강:제한 / 역할: 관리자(수업 안 함)', list_hidden: 0 },
+    { id: 33, english_name: 'Karl', group_name: 'Head Teacher', notes: null, list_hidden: 0 },
+    { id: 4, english_name: 'Teacher Belle', group_name: 'Home-based', notes: '아이디:mangoi_172 / 프랜차이즈:에듀비전 / 80분연강:제한 / 평점: 5.0 (4 reviews)', list_hidden: 0 },
+  ];
+  const a = await runRoute({ rows: ROWS });
+  check('(전제) 라우트가 실제로 돌았다 (예외 없음)', !a.err && !!a.body, a.err);
+  const items = (a.body && a.body.items) || [];
+  check('라우트 응답에 로그인 아이디가 없다', items.length > 0 && !JSON.stringify(a.body).includes('mangoi_026'), a.err || JSON.stringify(a.body).slice(0, 200));
+  check('평점 조각은 남는다 (짝)', items.some((r) => r.notes === '평점: 5.0 (2 reviews)'));
+  check('명부에서 숨긴 계정(list_hidden)은 공개 목록에 없다', !items.some((r) => r.id === 38));
+  check('숨기지 않은 강사는 그대로 있다 (짝)', items.some((r) => r.id === 26));
+  check('수업 안 하는 매니저(Melca·Maimai·Karl)는 공개 목록에 없다 (2026-11-05 사장님 「매니저는 빼줘」)',
+    ![19, 25, 33].some((id) => items.some((r) => r.id === id)), items.map((r) => r.id).join(','));
+  check('일반 강사(Home-based·미국 오후반)는 그대로 있다 (짝 — «전부 빼기» 가 아님)', items.some((r) => r.id === 4) && items.some((r) => r.id === 26));
+  const b = await runRoute({ rows: ROWS, noHiddenCol: true });
+  const items2 = (b.body && b.body.items) || [];
+  check('list_hidden 칸이 없는 DB 면 예전처럼 숨김을 거르지 않고 보여 준다 (빈 목록 금지)',
+    b.sqls.length === 2 && items2.some((r) => r.id === 38) && items2.some((r) => r.id === 26) && items2.some((r) => r.id === 4), b.err || items2.map((r) => r.id).join(','));
+  check('그 경우에도 메모 원문은 안 나간다', !JSON.stringify(b.body || {}).includes('mangoi_026'));
+  check('그 경우에도 매니저는 빠진다', !((b.body && b.body.items) || []).some((r) => [19, 25, 33].includes(r.id)));
+  const IP = P.isPublicTeacher || (() => '__MISSING__');
+  check('isPublicTeacher: 분류 «Head Teacher»(대소문자·공백 무관) → 뺀다', IP({ group_name: ' head teacher ' }) === false && IP({ group_name: 'Head Teacher', notes: null }) === false);
+  check('isPublicTeacher: 메모 «역할: 관리자(수업 안 함)» → 뺀다', IP({ notes: '아이디:x / 역할: 관리자(수업 안 함)' }) === false);
+  check('isPublicTeacher: 평범한 강사 메모·분류는 남긴다 (짝)', IP({ group_name: 'Office Teacher', notes: MEMO }) === true && IP({ group_name: '중국어 강사' }) === true && IP({}) === true);
 }
 
 console.log('\n[ ③ 판정 — 국가 칸 · 년차/소개 · 유튜브 · 검색 ]');
@@ -154,6 +268,13 @@ if (T.ytEmbed) {
   check('재생 중이면 사진 자리에 유튜브 재생기가 들어간다', /<iframe src="https:\/\/www\.youtube\.com\/embed\/dQw4w9WgXcQ/.test(d));
   const d2 = run(T.detailHTML, { id: 5, english_name: 'D', intro_video_url: 'https://youtu.be/' + id }, { index: 0, total: 1, playing: false }, 'ko');
   check('재생 전에는 «소개 영상 보기» 버튼만 있고 재생기는 없다 (짝)', /data-tg="video"/.test(d2) && !/<iframe/.test(d2));
+  // 2026-11-05 사장님 「교사소개에서 수업입장은 삭제해줘」 — 강사 소개 창에는 수업방 입구가 없다.
+  const d2en = run(T.detailHTML, { id: 5, english_name: 'D', intro_video_url: 'https://youtu.be/' + id }, { index: 0, total: 1, playing: false }, 'en');
+  const noVid = run(T.detailHTML, { id: 6, english_name: 'E' }, { index: 0, total: 1 }, 'ko');
+  check('프로필에 «수업 입장/Join class» 버튼이 없다 (KO·EN·영상 없는 강사)', [d2, d2en, noVid].every(h => !/data-tg="join"|수업 입장|Join class/.test(h)));
+  check('…그래도 «소개 영상 보기 / Watch intro video» 버튼은 남아 있다 (짝 — 버튼 줄을 통째로 지운 것이 아님)', /data-tg="video"[^>]*>[\s\S]*소개 영상 보기/.test(d2) && /Watch intro video/.test(d2en));
+  check('영상 없는 강사는 빈 버튼 줄(tg-d-actions)을 그리지 않는다', !/tg-d-actions/.test(noVid) && /tg-d-actions/.test(d2));
+  check('모듈이 수업방 입장 함수(mangoiJoinClass)를 부르지 않는다', !/mangoiJoinClass/.test(modSrc));
 }
 if (T.filterList) {
   const L = [

@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🎚️ 판단력 훈련 — 읽기 밴드(읽기 난이도) 정확성 하니스 (의존성 없음 · node 로 바로 실행)
 //   실행:  node test-harness/judgment_level_harness.mjs
@@ -383,7 +384,7 @@ console.log('\n[ N. 강사·관리자 화면에 레벨이 닿는가 ]');
 {
   const SRVT = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-teacher.ts'), 'utf8');
   const TEA = readFileSync(resolve(__dir, '../cloudflare-deploy/public/teacher.html'), 'utf8');
-  const ADM = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-admin.ts'), 'utf8');
+  const ADM = readAdminSourceFromFile(resolve(__dir, '../cloudflare-deploy/src/api-admin.ts'));
   const SRVJ4 = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8');
 
   check('밴드 조회 함수가 공개돼 있다', /export async function getReadingBandFor/.test(SRVJ4));

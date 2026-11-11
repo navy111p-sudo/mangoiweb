@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 월간 성적표 «따라 읽기 말속도(분당 낱말)» (개선안 1순위 ③)
 //   정본 src/speaking-pace.ts 를 타입만 벗겨 «진짜 SQLite» 로 돌리고, 성적표 화면의 paceLine 을 오려 내 실제로 그립니다.
 //   짝: «말한다» 옆에 «표본이 모자라면 말하지 않는다» · «튀는 값은 버린다» · «남의 학생 값은 안 센다».
@@ -6,7 +7,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const SRC = fs.readFileSync(process.env.SP_SRC || path.join(ROOT, 'cloudflare-deploy/src/speaking-pace.ts'), 'utf8');
 const REP = fs.readFileSync(process.env.REP_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-reports.ts'), 'utf8');
 const HTML = fs.readFileSync(process.env.HTML_SRC || path.join(ROOT, 'cloudflare-deploy/public/monthly-report.html'), 'utf8');

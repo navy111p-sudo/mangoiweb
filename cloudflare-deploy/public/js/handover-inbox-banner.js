@@ -2,6 +2,7 @@
 (function(){
   'use strict';
   var host=document.getElementById('handover-inbox-banner');if(!host)return;
+  var onHandover=!!document.getElementById('mh-work-title');
   var shadow=host.attachShadow({mode:'open'}),pending=false,stopped=false,last=null,failed=false,mine=[];
   var audio=null,blocked=false,ringing=false,lastSignature='',lastRing=0,ringCount=0;
   shadow.innerHTML='<style>:host([hidden]){display:none!important}:host{display:block;margin:0 0 18px;color-scheme:light dark}*{box-sizing:border-box}.box{background:light-dark(#eef4ff,#20334e);color:light-dark(#193351,#edf4ff);border:2px solid light-dark(#b8cbe6,#4a6688);border-radius:12px;padding:18px 22px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}.box.warning{border-color:#c23425;background:light-dark(#fff0ec,#4b2020)}.title{font-size:23px;font-weight:700;margin:0}.note,.permission{font-size:16px;margin:6px 0 0}a,button{font:inherit;color:light-dark(#214faf,#bdd3ff);font-weight:650;display:inline-block;padding:10px;min-height:44px}button{cursor:pointer;border:1px solid currentColor;border-radius:8px;background:transparent}.actions{display:flex;gap:12px;flex-wrap:wrap}.primary{background:light-dark(#244fad,#b9d1ff);color:light-dark(#fff,#14243c);border-radius:8px;padding:12px 18px;text-decoration:none}[hidden]{display:none!important}.writer{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}.wline{background:light-dark(#fff7e8,#3d2f14);color:light-dark(#4a3305,#fbe8c4);border:2px solid light-dark(#d39b2a,#b3842c);border-radius:12px;padding:14px 18px;font:18px/1.5 system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.wline.bad{border-color:#c23425;background:light-dark(#fff0ec,#4b2020);color:light-dark(#5b1a12,#ffe1da)}.wline b{font-size:19px}.wline button.push-allow,.wline a{background:light-dark(#9a5b00,#f2c46d);color:light-dark(#fff,#2a1d05);border-radius:8px;padding:10px 16px;text-decoration:none}@media(max-width:600px){.box{padding:16px}.title{font-size:22px}}</style><div class="writer" hidden></div><section class="box"><div><p class="title"></p><p class="note" role="status"></p><p class="permission"></p><p class="sound-status" role="status"></p></div><div class="actions"><a class="primary" href="/daily-handover.html"></a><a class="sent" href="/daily-handover.html?view=mine"></a><a class="appr" href="/work"></a><button class="sound" type="button"></button><button class="snooze" type="button"></button></div></section>';
@@ -16,8 +17,54 @@
   // ✍️ 내 보고(2026-10-06) — 오늘 미작성·지난 근무일 미제출은 쓸 때까지 남는다(닫기 없음). 대표님 화면엔 미제출 명단.
   function line(cls,txt,href,btn){var d=document.createElement('div');d.className='wline'+(cls?' '+cls:'');var b=document.createElement('b');b.textContent=txt;d.append(b);if(href){var a=document.createElement('a');a.href=href;a.textContent=btn;d.append(a);}return d;}
   function kstNow(){return new Date(Date.now()+9*3600000).toISOString();}
+  var writerModal=null,writerAudioBusy=false,writerAudioPending=false,writerShown='';
+  function warning(){var w=!stopped&&!failed&&last&&last.writer;return w&&w.required&&w.warning&&w.warning.level>0&&w.warning.missing_days.length?w.warning:null;}
+  function writerText(w){return t(w.level+'차 경고 · 매일보고 미제출 '+w.missing_days.length+'건','Warning '+w.level+' · '+w.missing_days.length+' daily report(s) not submitted');}
+  function writerHref(w){return '/daily-handover.html?write='+encodeURIComponent(w.missing_days[0]);}
+  function closeWriterModal(){if(writerModal){writerModal.remove();writerModal=null;}}
+  function paintWriterWarning(){
+    var w=warning(),day=kstNow().slice(0,10),stamp=key('writer_popup')+':'+day;
+    if(!w){closeWriterModal();writerAudioPending=false;return;}
+    if(writerModal||writerShown===stamp||get(stamp))return;
+    writerShown=stamp;put(stamp,'1');
+    var overlay=document.createElement('div'),card=document.createElement('div'),h=document.createElement('h2'),p=document.createElement('p'),a=document.createElement('a'),close=document.createElement('button');
+    overlay.id='handover-writer-warning';overlay.setAttribute('role','alertdialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-labelledby','handover-writer-warning-title');
+    overlay.style.cssText='position:fixed;inset:0;z-index:2147482999;background:rgba(30,0,0,.65);display:flex;align-items:center;justify-content:center;padding:18px';
+    card.style.cssText='background:#fff1f2;color:#881337;border:4px solid #dc2626;border-radius:14px;padding:26px;max-width:600px;max-height:85vh;overflow:auto;font:18px/1.6 system-ui,sans-serif';
+    h.id='handover-writer-warning-title';h.textContent=writerText(w);h.style.cssText='margin:0 0 12px;font-size:26px;color:#b91c1c';
+    p.textContent=(last.me.name||last.me.username)+' · '+t('미제출 날짜: ','Missing dates: ')+w.missing_days.join(', ')+'. '+t('지금 작성해 주세요. 모든 미제출 보고를 제출하면 경고가 해제됩니다.','Please submit now. The warning clears after all missing reports are submitted.');
+    a.href=writerHref(w);a.textContent=t('미제출 보고 작성하기','Write missing report');a.style.cssText='display:inline-block;background:#b91c1c;color:white;padding:12px 18px;border-radius:8px;font-weight:700;margin:8px 12px 0 0';
+    close.type='button';close.textContent=t('닫기','Close');close.style.cssText='font:inherit;padding:10px 18px;cursor:pointer';close.onclick=closeWriterModal;
+    overlay.addEventListener('keydown',function(e){if(e.key==='Escape'){closeWriterModal();return;}if(e.key==='Tab'){e.preventDefault();(document.activeElement===a?close:a).focus();}});
+    card.append(h,p,a,close);overlay.append(card);document.body.append(overlay);writerModal=overlay;close.focus();
+  }
+  // At most once per account/KST day. Suspended audio queues no sound; retry on a gesture.
+  function ringWriter(){
+    var w=warning(),stamp=key('writer_sound')+':'+kstNow().slice(0,10);
+    if(!w||document.hidden||!enabled()||writerAudioBusy||get(stamp))return;
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;if(!AC){writerAudioPending=true;return;}
+      if(!audio)audio=new AC();
+      if(audio.state!=='running'){
+        writerAudioPending=true;
+        var resumed=audio.resume();if(resumed&&resumed.then)resumed.then(function(){if(audio.state==='running')ringWriter();}).catch(function(){writerAudioPending=true;});return;
+      }
+      writerAudioBusy=true;writerAudioPending=false;
+      var count=w.level===1?3:6;
+      for(var i=0;i<count;i++){
+        var o=audio.createOscillator(),g=audio.createGain(),start=audio.currentTime+i*.4;
+        o.type='sine';o.frequency.setValueAtTime(650,start);o.frequency.linearRampToValueAtTime(w.level===3?1150:850,start+.25);
+        g.gain.setValueAtTime(0,start);g.gain.linearRampToValueAtTime(.12,start+.03);g.gain.linearRampToValueAtTime(0,start+.32);
+        o.connect(g);g.connect(audio.destination);o.onended=(function(osc,gain){return function(){osc.disconnect();gain.disconnect();};})(o,g);o.start(start);o.stop(start+.34);
+      }
+      put(stamp,'1');setTimeout(function(){writerAudioBusy=false;},2600);
+    }catch(e){writerAudioBusy=false;writerAudioPending=true;}
+  }
   function renderWriter(){
     var w=last&&last.writer,ms=last&&last.missed_staff,out=[];
+    var warn=warning();
+    if(warn)out.push(line('bad',writerText(warn)+' · '+warn.missing_days.join(', '),writerHref(warn),t('미제출 보고 작성하기','Write missing report')));
+    if(warn&&writerAudioPending){var retry=line('bad',t('경고음을 들으려면 화면을 클릭하세요','Click the page to enable the warning sound'));out.push(retry);}
     if(w&&w.required){
       if(w.prev_missed)out.push(line('bad',t('⚠️ 지난 근무일('+w.prev_day+') 매일보고 미제출 — 지금 작성해 주세요','⚠️ Daily handover for '+w.prev_day+' was not submitted — please write it now'),'/daily-handover.html?write='+encodeURIComponent(w.prev_day),t('지난 보고 쓰기','Write it now')));
       if(w.today_required&&!w.today_submitted){var late=kstNow().slice(11,16)>=w.due_time;out.push(line(late?'bad':'',late?t('🔴 오늘 매일보고 마감('+w.due_time+' KST) 지남 — 아직 제출 안 함','🔴 Today\'s daily handover is past due ('+w.due_time+' KST) — not submitted'):t('📝 오늘 매일보고 반드시 작성 · 마감 '+w.due_time+' (KST)','📝 Daily handover required today · due '+w.due_time+' KST'),'/daily-handover.html?write='+encodeURIComponent(w.day||''),t('오늘 보고 쓰기','Write today\'s report')));}
@@ -71,7 +118,8 @@
   //    못 읽으면(실패·401) 덮지 않는다 — 관리자 화면이 통째로 멈추는 것이 더 나쁘다.
   var lock=null;
   function paintLock(){
-    var items=!stopped&&last&&last.overdue_lock;
+    // 보고 화면(daily-handover)에서는 잠그지 않는다 — 거기서 확인해야 하는데, 덮으면 «지금 읽고 확인하기» 가 같은 화면을 다시 열며 무한 반복(2026-11-10).
+    var items=!onHandover&&!stopped&&last&&last.overdue_lock;
     if(!items||!items.length){if(lock){lock.remove();lock=null;}return;}
     if(!lock){lock=document.createElement('div');lock.id='handover-review-lock';lock.setAttribute('role','alertdialog');lock.setAttribute('aria-modal','true');
       lock.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:16px';
@@ -89,14 +137,46 @@
     lock.replaceChildren(card);
   }
   function reviewerLine(){return (last&&last.reviewer_overdue||[]).map(function(o){return t('⏰ '+o.name+' 확인 마감 지남 '+o.count+'건 · 최장 '+o.max_late_hours+'시간','⏰ '+o.name+' overdue '+o.count+' (max '+o.max_late_hours+'h)');}).join(' · ');}
+  // No timeout or close action: only the report author can confirm each reply on the server.
+  var feedbackModal=null,feedbackId=null,feedback=[];
+  function paintFeedback(){
+    var f=!stopped&&feedback[0];
+    if(!f){if(feedbackModal)feedbackModal.remove();feedbackModal=null;feedbackId=null;return;}
+    if(feedbackModal&&feedbackId===f.id+':'+en())return;
+    if(feedbackModal)feedbackModal.remove();
+    var overlay=document.createElement('div'),card=document.createElement('section'),h=document.createElement('h2'),meta=document.createElement('p'),body=document.createElement('div'),button=document.createElement('button'),status=document.createElement('p');
+    overlay.id='handover-feedback-required';overlay.setAttribute('role','alertdialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-labelledby','handover-feedback-title');
+    overlay.style.cssText='position:fixed;inset:0;z-index:2147483100;background:rgba(15,23,42,.85);display:flex;align-items:center;justify-content:center;padding:12px';
+    card.style.cssText='background:#fff;color:#14243c;border:3px solid #2454b5;border-radius:14px;padding:20px;width:100%;max-width:760px;max-height:96dvh;overflow:auto;font:18px/1.65 system-ui,sans-serif';
+    h.id='handover-feedback-title';h.textContent=t('받은 피드백을 확인해 주세요','Please read your report feedback');h.style.cssText='margin:0 0 8px;font-size:24px';
+    meta.textContent=f.author_name+' · '+f.report_date+' · '+feedback.length+t('건 미확인',' unconfirmed');
+    body.textContent=f.body;body.tabIndex=0;body.setAttribute('role','region');body.setAttribute('aria-label',t('피드백 본문','Feedback message'));body.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;max-height:45dvh;overflow:auto;padding:16px;background:#eef4ff;border:1px solid #adc2eb;border-radius:8px;font-size:20px;line-height:1.8';
+    button.type='button';button.textContent=t('읽고 확인했습니다','I have read and confirmed');button.style.cssText='width:100%;min-height:52px;padding:12px;margin-top:16px;font:700 18px system-ui;background:#2454b5;color:#fff;border:0;border-radius:8px;cursor:pointer';button.disabled=true;
+    status.setAttribute('role','status');status.textContent=t('본문을 끝까지 읽어 주세요. 확인 버튼은 5초 후 활성화됩니다.','Read to the end. Confirmation becomes available after 5 seconds.');
+    var start=Date.now(),readEnd=false;
+    function gate(){readEnd=readEnd||body.scrollTop+body.clientHeight>=body.scrollHeight-4;button.disabled=!readEnd||Date.now()-start<5000;button.style.background=button.disabled?'#718096':'#2454b5';if(!button.disabled)status.textContent=t('확인을 누르면 작성자에게 확인 시각이 전달됩니다.','Confirmation records the time for the sender.');}
+    body.onscroll=gate;
+    button.onclick=async function(){
+      button.disabled=true;
+      try{var r=await fetch('/api/approval/handover/reply-confirm',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:f.id})});var j=await r.json();if(!r.ok||!j.ok)throw Error();
+        feedback=feedback.filter(function(x){return x.id!==f.id;});paintFeedback();document.dispatchEvent(new CustomEvent('mh:feedback-changed'));refresh();
+      }catch(e){status.textContent=t('확인을 저장하지 못했습니다. 다시 눌러 주세요.','Confirmation was not saved. Please try again.');button.disabled=false;}
+    };
+    overlay.addEventListener('keydown',function(e){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}if(e.key==='Tab'){e.preventDefault();(document.activeElement===body&&!button.disabled?button:body).focus();}});
+    card.append(h,meta,body,button,status);overlay.append(card);document.body.append(overlay);feedbackModal=overlay;feedbackId=f.id+':'+en();body.focus();
+    var timer=setInterval(function(){if(!overlay.isConnected){clearInterval(timer);return;}if(document.hidden){start=Date.now();return;}gate();},250);gate();
+  }
   function render(){
+    paintWriterWarning();
+    paintFeedback();
     box.setAttribute('aria-label',t('받은 매일보고','Handover inbox'));link.textContent=t('보고 읽고 응답하기','Read and respond');appr.textContent=t('결재함','Approvals');
     sound.textContent=blocked?t('🔊 알람 소리 켜기','Enable alarm sound'):enabled()?t('🔊 소리 끄기','Mute sound'):t('🔇 소리 켜기','Enable sound');
     snooze.textContent=t('30분간 소리 쉬기','Silence for 30 min');snooze.hidden=!last||!last.total;
     soundStatus.textContent=blocked?t('브라우저가 자동 소리를 막았습니다. ‘알람 소리 켜기’를 눌러 주세요.','Autoplay was blocked. Click Enable alarm sound.'):Number(get(key('snooze')))>Date.now()?t('소리는 잠시 쉬는 중 · 미응답 상태는 유지됩니다.','Sound is paused; reports still need a response.'):'';
     renderWriter();
+    if(onHandover&&!last)title.textContent=failed?t('받은 보고 · 상태 확인 실패','Received reports · Refresh failed'):t('받은 보고 · 확인 중','Received reports · Checking');
     if(!last){if(failed)note.textContent=t('새 보고 확인이 지연됩니다. 보고함을 열어 주세요.','Unable to refresh. Open the inbox.');return;}
-    title.textContent=t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
+    title.textContent=failed&&onHandover?t('받은 보고 · 상태 확인 실패','Received reports · Refresh failed'):t('매일보고 · 미응답 '+last.total+'건','Daily reports · '+last.total+' awaiting response');
     var alerts=eligible(),urgent=alerts.some(function(r){return r.payload.priority==='urgent'||(r.followup&&r.followup.warning_level>0);}),overdue=alerts.filter(function(r){return r.followup&&r.followup.due_at&&r.followup.due_at<Date.now();}).length;
     var rl=reviewerLine();box.classList.toggle('warning',urgent||overdue>0||!!rl);
     note.textContent=failed?t('최신 상태 확인 실패 · 보고함을 열어 확인해 주세요.','Refresh failed; open the inbox to verify.'):last.total?(overdue?t('🔴 기한 초과 '+overdue+'건 · ','Overdue '+overdue+' · '):'')+t('확인 완료·보완 요청·사유 있는 보류 중 하나로 응답해 주세요.','Acknowledge, request changes, or give a hold reason.'):t('받은 보고를 모두 확인했습니다.','All received reports acknowledged.');if(rl)note.textContent+=' '+rl;
@@ -105,6 +185,7 @@
     permission.replaceChildren();var a=document.createElement('a');a.href='/work#pushBtn';a.textContent=typeof Notification==='undefined'||Notification.permission!=='granted'?t('기기 알림 켜기','Enable device notifications'):t('기기 푸시 등록 확인','Check device push registration');permission.append(a);
   }
   function ring(){
+    ringWriter();
     if(!last||failed||stopped||document.hidden||!enabled()||ringing||Number(get(key('snooze')))>Date.now())return;
     var alerts=eligible();if(!alerts.length){blocked=false;render();return;}
     var sig=alerts.map(function(r){var f=r.followup||{};return r.id+':'+r.version+':'+(f.warning_level||0)+':'+(f.last_request_at||0);}).sort().join('|');
@@ -129,21 +210,29 @@
   sound.onclick=function(){if(blocked||!enabled()){setSound(true);blocked=false;put(key('snooze'),0);lastSignature='';ring();}else setSound(false);render();};
   snooze.onclick=function(){put(key('snooze'),Date.now()+1800000);blocked=false;render();};
   // A browser may require this gesture again after every login/navigation.
-  function wake(e){if(e&&e.composedPath&&e.composedPath().some(function(n){return n===sound||n===snooze;}))return;if(blocked&&enabled())ring();}
+  function wake(e){if(e&&e.composedPath&&e.composedPath().some(function(n){return n===sound||n===snooze;}))return;if(writerAudioPending)ringWriter();if(blocked&&enabled())ring();}
   document.addEventListener('pointerdown',wake,{passive:true});document.addEventListener('keydown',wake);
   document.addEventListener('click',askPushOnce,true);document.addEventListener('keydown',askPushOnce,true);
   async function refresh(){
     if(pending||stopped||document.hidden)return;pending=true;var c=new AbortController(),timer=setTimeout(function(){c.abort();},10000);
+    // Show feedback independently of the inbox and daily submission checks.
+    var previousFeedback=feedback;
+    var feedbackRequest=fetch('/api/approval/handover/feedback-pending',{credentials:'same-origin',cache:'no-store',signal:c.signal})
+      .then(function(r){if(r.ok)return r.json();})
+      .then(function(j){if(j&&j.ok&&!stopped&&feedback===previousFeedback){feedback=j.feedback;paintFeedback();}})
+      .catch(function(){});
     try{
       var r=await fetch('/api/approval/handover/inbox',{credentials:'same-origin',cache:'no-store',signal:c.signal});
-      if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;paintLock();if(audio)audio.close().catch(function(){});return;}
-      if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');
+      if(r.status===401||r.status===403){stopped=true;last=null;host.hidden=true;paintLock();closeWriterModal();paintFeedback();if(audio)audio.close().catch(function(){});return;}
+      if(!r.ok)throw Error('unavailable');var j=await r.json();if(!j.ok)throw Error('unavailable');last=j;
       var m=await fetch('/api/approval/handover/mine',{credentials:'same-origin',cache:'no-store',signal:c.signal});if(!m.ok)throw Error('mine unavailable');var data=await m.json();if(!data.ok)throw Error('mine unavailable');mine=data.reports||[];
-      var inbox=!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
+      var inbox=onHandover||!!(j.reader_mode||j.total||mine.some(function(x){return x.status==='submitted';}));box.hidden=!inbox;
       var first=j.reports[0];link.href=first?'/daily-handover.html?date='+encodeURIComponent(first.report_date)+'&report='+first.id:'/daily-handover.html';
       last=j;failed=false;autoPush();render();paintLock();host.hidden=!inbox&&!renderWriter();ring();
-    }catch(e){failed=true;render();}finally{clearTimeout(timer);pending=false;}
+    }catch(e){failed=true;render();}finally{await feedbackRequest;clearTimeout(timer);pending=false;}
   }
+  document.addEventListener('mh:feedback-changed',refresh);
+  if(onHandover)document.addEventListener('mh:handover-changed',refresh);
   render();refresh();setInterval(refresh,60000);window.addEventListener('focus',refresh);window.addEventListener('online',refresh);window.addEventListener('storage',render);
   document.addEventListener('mangoi:lang-changed',render);window.addEventListener('mangoi:lang-changed',render);
   try{new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['lang']});}catch(e){}

@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🧑‍🏫 강사 «상태» 인라인 변경 하니스 — 활동중 · 비활동 · 퇴사 + 명부 숨김 (2026-09-01)
 //
 //   왜 필요한가 —
@@ -40,7 +41,7 @@ const skipIt = (name) => { skip++; console.log('  ⏭ ' + name); };
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
 const statusSrc = read('cloudflare-deploy/src/teacher-status.ts');
-const adminSrc  = read('cloudflare-deploy/src/api-admin.ts');
+const adminSrc  = readAdminModuleGraph(adminModuleFile => read("cloudflare-deploy/src/" + adminModuleFile));
 const coreSrc   = read('cloudflare-deploy/public/js/adm-core.js');
 const htmlSrc   = read('cloudflare-deploy/public/admin.html');
 const cssSrc    = read('cloudflare-deploy/public/css/admin-inline-c.css');

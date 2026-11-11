@@ -63,7 +63,7 @@ ok('모델 호출보다 «앞» 에서 다 기다린다', awaitAt[2] > 0 && awai
   [['_preLesson', 'lesson'], ['_preMistake', 'mistake'], ['_preWeakWord', 'weak']].forEach(([n, k]) => {
     sim = sim.replace(re(n), `const ${n} = (async () => { let sys = ''; sys += await delay('${k}'); return sys; })().catch(() => '');`);
   });
-  sim = sim.replace(/if \(history\.length === 0\) \{[\s\S]*?\n    if \(warmupShouldMarkFirstReply[^\n]*\n/, "await new Promise((r) => setTimeout(r, 20)); starts.push('log');\n");
+  sim = sim.replace(/const markFirstReply = warmupShouldMarkFirstReply[\s\S]*?(?=let sys = ctxLang)/, "await new Promise((r) => setTimeout(r, 20)); starts.push('log');\n");
   sim = sim.replace(/let sys = ctxLang[\s\S]*?(sys \+= await _preLesson;)/, "let sys = 'S'; $1");
   let fn = null;
   try { fn = new Function('delay', 'starts', 'return (async () => { ' + stripTypeScriptTypes(sim) + ' return sys; })();'); } catch (e) { ok('흉내 실행 준비', false, e.message); }

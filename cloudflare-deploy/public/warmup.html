@@ -2,8 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
+<script src="/js/ai-login-gate.js?v=3"></script>
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
-<link rel="stylesheet" href="/css/warmup-photo-icons.css?v=1">
+<link rel="stylesheet" href="/css/warmup-photo-icons.css?v=2">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes,viewport-fit=cover" />
 <title>🗣️ A.i 말하기 연습 — mangoi.ai</title>
 <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
@@ -198,6 +199,8 @@
   #log[data-sub="blur"] .msg.ai:not(.sub-shown) .wu-text{filter:blur(6px);cursor:pointer;user-select:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .wu-text{display:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .sub-veil{display:inline}
+  #log[data-fs="s"] .msg{zoom:.85}
+  #log[data-fs="l"] .msg{zoom:1.2}
   /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31) — ai-friend 와 같은 사정.
      흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다.
      ⚠️ .wu-text 밖에 두어야 한다 — 안에 두면 이 안내까지 흐려진다. */
@@ -397,7 +400,8 @@
   .wus-find{margin:10px 0 14px;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.42)}
   .wus-find:hover{background:rgba(251,191,36,.24)}
   .wus-find .wus-name{color:#fcd34d}
-  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 수준이 8줄이라 휴대폰에서는 끝까지 내려야 보인다.
+  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 고를 칸이 여럿이라 휴대폰에서는 끝까지 내려야 보인다
+     (대화 수준은 2026-11-04 부터 드롭다운이라 짧아졌지만 나이대·교정·말하는 방법이 남아 있다).
      스크롤 상자가 .wu-setup 자신이라 sticky 가 그 안에서 정상 동작한다
      (CLAUDE.md 2장의 «html/body overflow 로 sticky 가 죽는» 자리가 아니다).
      ⚠️ 이 주석에 홑낫표를 쓰지 말 것 — admin_lazyload/subtitle 하니스가 <style> 안 장식 문자를
@@ -471,9 +475,108 @@
     .wus-booknow{bottom:53px;font-size:13px;padding:10px 12px}
     .wus-two-nm{font-size:14px} .wus-two-ds{font-size:11.5px} .wus-twoc{padding:12px 8px}
   }
+  /* 🎚️ 드롭다운(나이대·대화 수준) — 모양은 폰·PC 공용 한 벌 (2026-11-04).
+     대화 수준은 폰에서도 드롭다운이다(사장님: 8칸 목록이 공간을 너무 많이 차지하고 복잡하다).
+     나이대도 폰·PC 모두 드롭다운이다(같은 날 사장님: 나이대도 드롭다운으로 · 한 화면에).
+     ⚠️ 목록(#wusLevels·#wusAges)은 감추기만 한다 — 드롭다운이 그 버튼을 «대신 눌러» 저장·판정이 그대로 돈다(wireSelects).
+     ⚠️ 글자 16px 미만이면 아이폰이 누를 때 화면을 확대한다 — 16px 아래로 내리지 마세요(한 화면 배치는 16px).
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  .wus-sel{display:none;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
+    font-family:inherit;font-size:17px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
+    border:1px solid rgba(148,163,184,.4);
+    background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
+  .wus-sel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
+  .wus-sel option{background:#0f1c3f;color:#f8fafc}
+  .wus-selnote{display:none;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+  #wusLevelSel,#wusLevelNote,#wusAgeSel,#wusAgeNote{display:block}
+  #wusLevels,#wusAges{display:none}
+  #wusGLevel .wus-find{margin:12px 0 0;padding:10px 14px}
+  .wus-short{display:none}
+  .wus-nm-s{display:none}
+  /* 📱 한 화면 배치 (2026-11-04 사장님: 나이대도 드롭다운으로 · 한 화면에 보이게).
+     PC 3단계 카드(B안)가 «아닌» 모든 화면 — 폰·태블릿·낮은 창. 아래 PC 블록과 정확히 «반대» 조건이다.
+     각 칸을 «왼쪽 짧은 이름표 + 오른쪽 고르는 줄» 한 줄로 접는다. 긴 질문·안내·카드 설명은 감추고,
+     고른 것의 설명은 칸 아래 한 줄(.wus-selnote)이 말한다 — 수준·나이대·교정 방식 모두 같은 모양.
+     ⛔ 버튼·드롭다운을 지우거나 새 판정을 만들지 않는다 — 모양만 바꾼다(저장·판정은 기존 위임 처리 그대로).
+     ⛔ 교정 방식 3가지는 첫 화면에서 «고를 수 있게» 둔다(2026-10-29 사장님 결정) — 줄만 접었다.
+     ⚠️ 글자 16px 미만 드롭다운은 아이폰이 누를 때 화면을 확대한다 — 드롭다운은 16px.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
+  @media (max-width:1099.98px), (max-height:619.98px){
+    .wu-setup{padding:12px 12px 12px}
+    .wus-nav{margin:-12px -12px 10px;padding:5px 12px}
+    .wus-nav-in{flex-wrap:nowrap;gap:6px}
+    .wus-navbtn{padding:5px 10px;font-size:13px;gap:4px}
+    .wus-navbtn .wu-photo-icon{width:20px;height:20px;margin-right:0}
+    .wus-title{font-size:18px;margin:0 0 4px}
+    .wus-title .mango-inline{width:30px;height:auto}
+    .wus-lead{display:none}
+    #wusMain>div[style*="text-align:center"]{display:flex;justify-content:center;gap:6px;margin-bottom:4px}
+    #wusMain>div[style*="text-align:center"]>:is(.aidiff-chip,.howto-chip){margin:0!important;padding:4px 11px!important;font-size:12.5px!important;white-space:nowrap}
+    :is(.aidiff-chip,.howto-chip,#wusFind) .wus-nm-l{display:none}
+    :is(.aidiff-chip,.howto-chip,#wusFind) .wus-nm-s{display:inline}
+    .aidiff-chip .wu-photo-icon,.howto-chip .wu-photo-icon{width:18px;height:18px}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec){display:grid;grid-template-columns:64px minmax(0,1fr);
+      column-gap:8px;align-items:center;margin:0;padding:7px 0;border-top:1px solid rgba(148,163,184,.16)}
+    #wusGLang{border-top:0}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec)>*{grid-column:2}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec)>.wus-short{display:block;grid-column:1;grid-row:1;
+      font-size:13px;font-weight:800;color:var(--accent);line-height:1.25;word-break:keep-all;overflow-wrap:anywhere}
+    :is(#wusGLang,#wusTwoSec,#wusGAge,#wusGLevel,#wusGMode,#wusTalkSec)>:is(.wus-sub,.wus-hint){display:none}
+    /* 언어·말하는 방법 — 두 칸 */
+    #wusLangs,#wusTalkBtns{grid-template-columns:1fr 1fr;gap:6px}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wus-card{text-align:center;padding:8px 4px;border-radius:11px}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wus-name{justify-content:center;gap:4px;font-size:14.5px;flex-wrap:nowrap;white-space:nowrap}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wus-desc{display:none}
+    :is(#wusLangs,#wusTalkBtns,#wusCModes) .wu-photo-icon{width:20px;height:20px;margin-right:0}
+    :is(#wusLangs,#wusTalkBtns) .wus-now{padding:1px 6px;font-size:11px}
+    #wusTalkBtns .wus-nm-l{display:none}
+    #wusTalkBtns .wus-nm-s{display:inline}
+    #wusTalkBtns .at-beta{margin-left:0;padding:0 4px;font-size:10.5px}
+    /* 주제 — 교재로 / 자유 대화 두 칸(그림·설명은 접는다. 고른 뒤의 사실은 아래 띠의 지금 교재 줄이 말한다) */
+    #wusTwoWay{gap:6px;margin:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+    #wusTwoWay .wus-twoc{padding:8px 4px;border-radius:11px}
+    #wusTwoWay :is(.wus-two-ic,.wus-two-ds){display:none}
+    #wusTwoWay .wus-two-nm{font-size:14.5px;line-height:1.2}
+    #wusTwoWay .wus-now{padding:1px 6px;font-size:11px}
+    #wusBooksSec{margin:2px 0 6px}
+    /* 나이대·수준 — 드롭다운 + 고른 것 설명 한 줄 */
+    #wusGAge .wus-sel,#wusGLevel .wus-sel{font-size:16px;padding:8px 38px 8px 12px;border-radius:11px;background-position:right 12px center}
+    :is(#wusGAge,#wusGLevel,#wusGMode) .wus-selnote{margin-top:4px;font-size:12.5px;line-height:1.4}
+    #wusGLevel .wus-lvrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:4px}
+    #wusGLevel .wus-lvrow .wus-selnote{flex:1 1 130px;margin:0}
+    #wusGLevel .wus-find{flex:0 0 auto;width:auto;margin:0;padding:3px 10px 3px 5px;border-radius:999px}
+    #wusGLevel .wus-find .wus-name{font-size:13px;flex-wrap:nowrap;white-space:nowrap}
+    #wusGLevel .wus-find .wu-photo-icon{width:20px;height:20px}
+    #wusGLevel .wus-find .wus-desc{display:none}
+    /* 교정 — 세 칸 한 줄(카드 설명·기본·지금 표시는 접고 아래 설명 줄이 말한다) */
+    #wusCModes{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    #wusCModes .wus-card{padding:8px 2px}
+    #wusCModes .wus-name{font-size:13.5px;gap:3px}
+    #wusCModes .wu-photo-icon{width:18px;height:18px}
+    #wusCModes :is(.wus-cmode-tag,.wus-now){display:none}
+    #wusCModes .wus-card:has(.wus-cmode-tag){border-style:dashed;border-color:var(--accent)}
+    #wusGMode .wus-selnote{display:block}
+    #wusGMode .wus-cm-speed{display:none}
+    /* 시작 띠 — ⚠️ 폭 640px 이하는 아래 @media (max-width:640px) 의 .wus-ctabar 가 뒤에 와서 margin·padding 을 이긴다
+       (배경만 여기 값). 그래서 이 margin·padding 은 641~1099px 에서만 먹는다 — 폰 값을 바꾸려면 그쪽을 고칠 것. */
+    .wus-ctabar{bottom:-12px;margin:0 -12px -12px;padding:6px 12px 14px;
+      background:linear-gradient(180deg,rgba(16,31,71,0),rgba(16,31,71,.96) 14px,#101f47 34px)}
+    .wus-ctabar .wus-booknow{margin-bottom:6px;padding:7px 11px;font-size:13px}
+    .wus-ctabar .wus-booknow .wu-photo-icon{width:20px;height:20px}
+    .wus-ctabar .wus-cta{padding:11px;font-size:16px}
+    .wus-ctabar .wus-hint2{margin-top:5px;font-size:12px}
+  }
+  @media (max-width:359px){
+    :is(#wusTalkBtns,#wusLangs) .wu-photo-icon,#wusCModes .wus-cm-ic{display:none}
+    .wus-nav-in{flex-wrap:wrap;row-gap:4px}
+    .wus-navbtn{padding:5px 8px;font-size:12.5px}
+    .wus-navbtn .wu-photo-icon{display:none}
+    #wusCModes .wus-name{font-size:12.5px}
+    #wusCModes .wus-card{padding:8px 1px}
+    :is(#wusLangs,#wusTalkBtns,#wusTwoWay) .wus-name,#wusTwoWay .wus-two-nm{font-size:13.5px}
+  }
   /* 🖥️ PC 3단계 카드 (B안 · 2026-10-18). 폰·좁은 창은 아래 규칙이 하나도 안 걸린다.
      ⚠️ 이 주석에 CJK 홑낫표를 쓰지 마세요(한자 폰트 하니스). */
-  .wus-pcsel,.wus-pcnote{display:none}
   .wus-pc3[hidden]{display:none!important}
   @media (min-width:1100px) and (min-height:620px){
     .wu-setup{padding:16px 28px 22px}
@@ -525,15 +628,10 @@
     #wusPcB1 #wusTalkBtns .wus-card{text-align:center;padding:14px 8px}
     #wusPcB1 #wusTalkBtns .wus-name{justify-content:center;font-size:16px}
     #wusPcB1 #wusTalkBtns .wus-desc{display:none}
-    /* 2 · 나이대·수준 — 드롭다운 */
-    #wusPcB2 #wusAges,#wusPcB2 #wusLevels{display:none}
-    #wusPcB2 .wus-pcsel{display:block;width:100%;appearance:none;-webkit-appearance:none;cursor:pointer;
-      font-family:inherit;font-size:18px;font-weight:800;color:#f8fafc;border-radius:14px;padding:12px 44px 12px 16px;
-      border:1px solid rgba(148,163,184,.4);
-      background:#0f1c3f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%237dd3fc' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 16px center}
-    #wusPcB2 .wus-pcsel:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}
-    #wusPcB2 .wus-pcsel option{background:#0f1c3f;color:#f8fafc}
-    #wusPcB2 .wus-pcnote{display:block;margin-top:6px;font-size:14px;line-height:1.45;color:var(--text2)}
+    /* 2 · 나이대·수준 — 드롭다운(모양은 위 .wus-sel 공용 규칙. 여기서는 나이대까지 켜고 글자만 키운다) */
+    #wusPcB2 #wusAges{display:none}
+    #wusPcB2 .wus-sel{display:block;font-size:18px}
+    #wusPcB2 .wus-selnote{display:block}
     #wusPcB2 .wus-find{margin:14px 0 0;padding:10px 14px}
     #wusPcB2 .wus-find .wus-name{font-size:16px}
     #wusPcB2 .wus-find .wus-desc{font-size:13.5px}
@@ -570,7 +668,7 @@
     #wusPcB3 #wusBooksSec{max-height:120px;min-height:0}
     #wusPcB1 #wusLangs .wu-photo-icon{width:34px;height:34px}
     #wusPcB1 #wusTalkBtns .wus-card{padding:10px 8px}
-    #wusPcB2 .wus-pcsel{padding:10px 44px 10px 14px;font-size:17px}
+    #wusPcB2 .wus-sel{padding:10px 44px 10px 14px;font-size:17px}
     #wusPcB2 .wus-find{margin-top:10px;padding:8px 12px}
     .wus-pcn{width:32px;height:32px;font-size:16px}
     .wus-title{font-size:26px;margin:0}
@@ -671,7 +769,7 @@
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/avatar-visemes.js?v=5" defer></script>
-<script src="/js/mango-avatar.js?v=42" defer></script>
+<script src="/js/mango-avatar.js?v=46" defer></script>
 <script src="/js/game-track.js?v=4" defer></script>
 <script src="/js/eleader-entry.js?v=3" defer></script>
 <script src="/js/eleader-l1.js?v=12" defer></script>
@@ -729,9 +827,9 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> <span data-ko="말하기 연습 설정" data-en="Speaking practice setup">말하기 연습 설정</span></div>
         <div class="wus-lead"><span data-ko="먼저 누가 · 어느 수준으로 이야기할지 정해요." data-en="First, choose who is practicing and at what level.">먼저 누가 · 어느 수준으로 이야기할지 정해요.</span><br><span data-ko="대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요." data-en="You can change this anytime from ⋮ at the top right.">대화 중에도 오른쪽 위 ⋮ 에서 언제든 바꿀 수 있어요.</span></div>
         <!-- 💡 「A.i말하기와 A.i친구하기 차이」 (2026-09-26 사장님) — 안내창 본체는 js/ai-diff.js 한 곳 -->
-        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</button>
+        <div style="text-align:center"><button type="button" class="aidiff-chip" onclick="window.mgOpenAiDiff&&mgOpenAiDiff()"><span class="wus-nm-l" data-ko="💡 A.i말하기와 A.i친구하기 차이" data-en="💡 Speaking vs. Friend: what's different?">💡 A.i말하기와 A.i친구하기 차이</span><span class="wus-nm-s" data-ko="💡 친구하기와 차이" data-en="💡 vs. A.i Friend">💡 친구하기와 차이</span></button>
           <!-- 📘 사용방법 안내 (2026-10-03 사장님) — 안내창 본체는 js/warmup-howto.js 한 곳 -->
-          <button type="button" class="howto-chip" onclick="window.mgOpenWarmupHowto&&mgOpenWarmupHowto()" data-ko="📘 A.i말하기 사용방법 쉽게 알기" data-en="📘 How to use A.i Speaking">📘 A.i말하기 사용방법 쉽게 알기</button></div>
+          <button type="button" class="howto-chip" onclick="window.mgOpenWarmupHowto&&mgOpenWarmupHowto()"><span class="wus-nm-l" data-ko="📘 A.i말하기 사용방법 쉽게 알기" data-en="📘 How to use A.i Speaking">📘 A.i말하기 사용방법 쉽게 알기</span><span class="wus-nm-s" data-ko="📘 사용방법" data-en="📘 How to use">📘 사용방법</span></button></div>
 
         <!-- 🀄 대화 언어 (2026-09-13) — «무슨 말로 이야기하는가». 수준·나이대와 «독립» 인 축이다.
              ⚠️ 이 줄을 맨 위에 두는 이유: 아래 두 축(수준 설명·수준 찾기)의 «뜻» 이 언어에 따라
@@ -739,6 +837,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
                 설명이 말없이 바뀐다. -->
         <span id="wusPcHome" hidden></span>
         <div id="wusGLang">
+        <span class="wus-short" data-ko="언어" data-en="Language">언어</span>
         <div class="wus-sub" data-ko="🗣️ 무슨 말로 이야기할까요?" data-en="🗣️ Which language will you speak?">🗣️ 무슨 말로 이야기할까요?</div>
         <div class="wus-hint" data-ko="고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다." data-en="The AI speaks in this language, and the mic listens for it.">고른 언어로 AI 가 말하고, 마이크도 그 말을 듣습니다.</div>
         <div class="wus-grid" id="wusLangs"></div>
@@ -754,6 +853,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
                고른 수준으로 권을 near/rest 로 가르므로 고르는 도중 목록이 눈앞에서 재정렬됩니다.
                그래서 «펼친 순간의 수준» 을 _btsSortLv 에 고정합니다(btsSortLevel). -->
         <div id="wusTwoSec">
+          <span class="wus-short" data-ko="주제" data-en="Topic">주제</span>
           <div class="wus-sub" data-ko="📚 오늘은 어떻게 이야기할까요?" data-en="📚 How do you want to talk today?">📚 오늘은 어떻게 이야기할까요?</div>
           <div class="wus-two" id="wusTwoWay"></div>
         </div>
@@ -773,23 +873,31 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
         </div>
 
         <div id="wusGAge">
+        <span class="wus-short" data-ko="나이대" data-en="Age">나이대</span>
         <div class="wus-sub" data-ko="🧑‍🎓 누가 연습하나요?" data-en="🧑‍🎓 Who is practicing?">🧑‍🎓 누가 연습하나요?</div>
         <div class="wus-hint" data-ko="고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)" data-en="Topics and tone follow the age group you pick. (Separate from English level.)">고른 나이대에 맞춰 이야기 소재와 말투가 달라져요. (영어 수준과는 별개예요)</div>
         <div class="wus-grid" id="wusAges"></div>
-        <!-- 🖥️ PC(B안) 전용 드롭다운 — 고르면 위 숨은 버튼을 «대신 눌러» 기존 처리 그대로 탄다 -->
-        <select id="wusAgeSel" class="wus-pcsel" aria-label="나이대"></select>
-        <div class="wus-pcnote" id="wusAgeNote"></div>
+        <!-- 🧑‍🎓 폰·PC 모두 드롭다운(2026-11-04) — 고르면 위 숨은 카드 버튼을 «대신 눌러» 기존 처리 그대로 탄다.
+             ⛔ 카드(#wusAges)를 지우지 마세요 — 저장·판정·⋮ 메뉴 갱신이 그 버튼의 위임 처리에 있습니다. -->
+        <select id="wusAgeSel" class="wus-sel" aria-label="나이대"></select>
+        <div class="wus-selnote" id="wusAgeNote"></div>
         </div>
 
         <div id="wusGLevel">
+        <span class="wus-short" data-ko="수준" data-en="Level">수준</span>
         <div class="wus-sub" data-ko="🎚️ 대화 수준" data-en="🎚️ Conversation level">🎚️ 대화 수준</div>
         <div class="wus-hint" data-ko="고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요." data-en="The AI's words and sentence length follow the level you pick.">고른 수준에 맞춰 AI가 쓰는 단어와 문장 길이가 달라져요.</div>
-        <select id="wusLevelSel" class="wus-pcsel" aria-label="대화 수준"></select>
-        <div class="wus-pcnote" id="wusLevelNote"></div>
+        <!-- 🎚️ 폰·PC 모두 드롭다운(2026-11-04) — 고르면 아래 숨은 목록 버튼을 «대신 눌러» 기존 처리 그대로 탄다.
+             ⛔ 목록(#wusLevels)을 지우지 마세요 — 저장·판정·⋮ 메뉴 갱신이 그 버튼의 위임 처리에 있습니다. -->
+        <select id="wusLevelSel" class="wus-sel" aria-label="대화 수준"></select>
+        <!-- 📱 설명 줄과 «내 수준 찾기» 를 한 묶음으로 — 한 화면 배치(폰)에서는 한 줄에 나란히 놓인다(넘치면 저절로 줄바꿈) -->
+        <div class="wus-lvrow">
+        <div class="wus-selnote" id="wusLevelNote"></div>
         <button type="button" class="wus-find" id="wusFind">
-          <span class="wus-name" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span>
+          <span class="wus-name"><span class="wus-nm-l" data-ko="🎯 내 수준 찾아줄까요?" data-en="🎯 Find my level?">🎯 내 수준 찾아줄까요?</span><span class="wus-nm-s" data-ko="🎯 내 수준 찾기" data-en="🎯 Find my level">🎯 내 수준 찾기</span></span>
           <span class="wus-desc" data-ko="영어 문장 3개만 보면 끝나요. (약 30초)" data-en="Just look at 3 English sentences. (About 30 seconds)">영어 문장 3개만 보면 끝나요. (약 30초)</span>
         </button>
+        </div>
         <div class="wus-list" id="wusLevels"></div>
         </div>
 
@@ -798,8 +906,10 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
         <div id="wusGMode">
         <div class="wus-sub" data-ko="🎚️ 틀린 말은 어떻게 고쳐 줄까요?" data-en="🎚️ How should mistakes be corrected?">🎚️ 틀린 말은 어떻게 고쳐 줄까요?</div>
         <div class="wus-hint" data-ko="잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요." data-en="Praise only when it's right; corrections follow the way you pick.">잘했을 때만 칭찬하고, 고칠 때는 고른 방식대로 도와줘요.</div>
-        <span class="wus-cm-short" data-ko="교정" data-en="Fix">교정</span>
+        <span class="wus-cm-short wus-short" data-ko="교정" data-en="Fix">교정</span>
         <div class="wus-cmodes" id="wusCModes"></div>
+        <!-- 📱 좁은 화면(한 화면 배치)에서만 보이는 «고른 방식» 한 줄 — 카드 설명을 접은 대신 여기서 말한다(wusSelSync) -->
+        <div class="wus-selnote" id="wusCModeNote"></div>
         <!-- ⏱️ (2026-11-01) 집중교정은 교정 여부를 답이 다 나와야 알 수 있어 스트리밍이 꺼진다 → 아바타 응대가 느릴 수 있다(src/warmup-stream.ts). -->
         <div class="wus-cm-speed" data-ko="⏱️ 집중교정은 틀린 곳을 먼저 확인하느라 아바타 응대가 느릴 수 있어요." data-en="⏱️ Focused mode checks mistakes first, so the avatar may reply more slowly.">⏱️ 집중교정은 틀린 곳을 먼저 확인하느라 아바타 응대가 느릴 수 있어요.</div>
         </div>
@@ -929,6 +1039,16 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
           <div class="ls-ends"><span data-ko="🌱 읽으며" data-en="🌱 Read along">🌱 읽으며</span><span data-ko="귀로만 👂" data-en="Ears only 👂">귀로만 👂</span></div>
         </div>
 
+        <!-- 🔠 글자 크기 3단계 (2026-11-09) — 말풍선 글자만. AI 친구하기(ai-friend.html)와 같은 배율 -->
+        <div class="menu-group">
+          <div class="menu-label"><span data-ko="🔠 글자 크기" data-en="🔠 Text size">🔠 글자 크기</span></div>
+          <div class="sub-btns" id="fsBtns" role="radiogroup" aria-label="글자 크기 선택">
+            <button type="button" data-fs="s" onclick="setFsMode('s')" data-ko="작게" data-en="Small">작게</button>
+            <button type="button" data-fs="m" onclick="setFsMode('m')" data-ko="보통" data-en="Normal">보통</button>
+            <button type="button" data-fs="l" onclick="setFsMode('l')" data-ko="크게" data-en="Large">크게</button>
+          </div>
+        </div>
+
         <!-- 🗑 새로 시작 (2026-09-23) — AI 친구하기의 «대화 초기화» 에 해당. 설정 «맨 아래» 굴러가는 칸 안에 둔다:
              ⓐ 한 번 잘못 누르면 대화가 통째로 사라지므로 상단바에 드러내지 않는다
              ⓑ 굴러가는 칸 «안» 이라 카드 높이가 안 늘어난다(노트북에서 «다시 고르기» 가 화면 밖으로 밀리던 2026-09-15 사고).
@@ -1050,10 +1170,10 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
     </div>
   </div>
 </dialog>
-<script src="/js/warmup-guide.js?v=9"></script>
+<script src="/js/warmup-guide.js?v=12"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
-<script src="/js/speech-rate-request.js?v=1"></script>
-<script src="/js/ai-situations.js?v=2"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
+<script src="/js/speech-rate-request.js?v=2"></script>
+<script src="/js/ai-situations.js?v=3"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -1235,6 +1355,42 @@ var _idleTimer=null, _idleShownForTurn=false;
    ⚠️ 2026-08-31 실제로 밟았다 — 8초로 고쳐 놓고도 화면은 그대로 즉시였고,
       브라우저로 재 보고서야 알았다(문자열 검사로는 안 보인다). */
 var _ansTimer = 0, ANS_DELAY_MS = 8000;
+// Each Rhubarb timeline was generated from its matching versioned audio clip.
+window.warmupTurnPrompt = {
+  text: "It's your turn! Try saying a few words.",
+  path: '/audio/warmup-turn-v1/',
+  cues: {
+    'asteria.mp3': [
+      {start:0,end:0.37,value:'A'}, {start:0.37,end:0.43,value:'B'}, {start:0.43,end:0.62,value:'F'},
+      {start:0.62,end:0.69,value:'B'}, {start:0.69,end:0.9,value:'E'}, {start:0.9,end:1.04,value:'C'},
+      {start:1.04,end:1.78,value:'A'}, {start:1.78,end:1.84,value:'C'}, {start:1.84,end:2.04,value:'B'},
+      {start:2.04,end:2.18,value:'C'}, {start:2.18,end:2.26,value:'A'}, {start:2.26,end:2.44,value:'F'},
+      {start:2.44,end:2.58,value:'E'}, {start:2.58,end:2.93,value:'B'}, {start:2.93,end:2.97,value:'A'}
+    ],
+    'odysseus.mp3': [
+      {start:0,end:0.32,value:'A'}, {start:0.32,end:0.41,value:'B'}, {start:0.41,end:0.62,value:'F'},
+      {start:0.62,end:0.69,value:'B'}, {start:0.69,end:0.97,value:'E'}, {start:0.97,end:1.04,value:'C'},
+      {start:1.04,end:1.36,value:'A'}, {start:1.36,end:1.82,value:'B'}, {start:1.82,end:1.89,value:'C'},
+      {start:1.89,end:2.1,value:'B'}, {start:2.1,end:2.21,value:'A'}, {start:2.21,end:2.45,value:'F'},
+      {start:2.45,end:2.59,value:'E'}, {start:2.59,end:2.87,value:'B'}, {start:2.87,end:2.92,value:'A'}
+    ],
+    'thalia.mp3': [
+      {start:0,end:0.14,value:'A'}, {start:0.14,end:0.23,value:'B'}, {start:0.23,end:0.44,value:'F'},
+      {start:0.44,end:0.51,value:'B'}, {start:0.51,end:0.79,value:'E'}, {start:0.79,end:0.93,value:'C'},
+      {start:0.93,end:1.07,value:'B'}, {start:1.07,end:1.21,value:'C'}, {start:1.21,end:1.35,value:'B'},
+      {start:1.35,end:1.42,value:'C'}, {start:1.42,end:1.63,value:'B'}, {start:1.63,end:1.73,value:'A'},
+      {start:1.73,end:1.96,value:'F'}, {start:1.96,end:2.1,value:'E'}, {start:2.1,end:2.45,value:'B'},
+      {start:2.45,end:2.49,value:'A'}
+    ],
+    'aries.mp3': [
+      {start:0,end:0.09,value:'A'}, {start:0.09,end:0.13,value:'B'}, {start:0.13,end:0.45,value:'F'},
+      {start:0.45,end:0.73,value:'E'}, {start:0.73,end:0.8,value:'C'}, {start:0.8,end:0.97,value:'B'},
+      {start:0.97,end:1.14,value:'A'}, {start:1.14,end:1.56,value:'B'}, {start:1.56,end:1.64,value:'A'},
+      {start:1.64,end:1.86,value:'F'}, {start:1.86,end:1.93,value:'E'}, {start:1.93,end:2.21,value:'B'},
+      {start:2.21,end:2.32,value:'A'}
+    ],
+  }
+};
 function scheduleIdleSuggest(){
   clearTimeout(_idleTimer);
   _idleTimer=setTimeout(function(){
@@ -1244,6 +1400,14 @@ function scheduleIdleSuggest(){
       if(inp && inp.value.trim()) return;                       // 입력 중이면 방해 금지
       if(document.getElementById('qsCard')) return;               // 이미 추천 카드가 떠 있음
       _idleShownForTurn=true;
+      // Keep the current question visible while the avatar prompts for a reply.
+      if(!isZh() && _speechOn && window.parent===window && (_audioUnlocked || _speechEverStarted) &&
+         document.getElementById('warmThought').hidden &&
+         (!_ttsAudio || _ttsAudio.paused || _ttsAudio.ended) &&
+         (!window.speechSynthesis || !window.speechSynthesis.speaking) &&
+         (!window.MangoWarmupFlow || !MangoWarmupFlow.blocksRecording())){
+        speak(window.warmupTurnPrompt.text);
+      }
       if(window.MangoWarmupGuide){MangoWarmupGuide.offerHelp();return;}
       loadFollowups();
     }catch(e){}
@@ -1523,8 +1687,29 @@ function setVoiceMode(m, announce){
   syncVoiceBtnsForLang();
   applyVoiceFace();     // 이름표 + 고른 사람 얼굴로 즉시 교체(다음 답변까지 기다리지 않게)
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
+  /* 🧑 (2026-11-10 제보 「Jake 로 바꿨는데 아직도 Emma 가 나와」)
+     KO: 학생이 아직 한 마디도 안 했는데 첫 인사만 떠 있으면, 그 인사를 «새 친구» 로 다시 받는다.
+         안 그러면 얼굴·목소리는 Jake 인데 말풍선은 「Hi, I'm Emma!」 로 남고, 서버 대화 기록에도
+         Emma 의 인사가 남는다. 새 인사가 곧 «귀로 확인» 이라 hi 는 따로 읽지 않는다.
+         학생이 이미 말했으면 지난 말풍선은 «그때 말한 사람» 의 기록이라 그대로 둔다.
+     EN: Friend changed before the student said anything: re-greet as the new friend, otherwise the
+         face/voice is Jake while the bubble (and server history) still says "I'm Emma".
+     ⚠️ newWarmupChat 은 수업방(?room=·?session=)에서는 아무것도 안 한다 — 그때는 예전처럼 hi 만 읽는다. */
+  if(announce && changed && _regreetAsNewFriend()) return;
   // 바꾸자마자 그 친구가 자기 목소리로 인사 → 누구를 골랐는지 «귀로» 확인시켜 준다
   if(announce && changed) speak(VOICE_MODES[m].hi);
+}
+function _regreetAsNewFriend(){
+  try{
+    if(!_warmStarted || Q.get('room') || Q.get('session')) return false;
+    if(!log || log.querySelector('.msg.me')) return false;   // 인사가 아직 오는 중이어도(말풍선 0개) 옛 친구 이름으로 도착하므로 같이 다시 받는다
+    /* KO: 쓰던 답은 지킨다 — newWarmupChat 이 입력칸을 비우는데, 친구만 바꾼 학생의 초안까지 지우면 안 된다.
+       EN: keep the unsent draft; newWarmupChat clears the input, but switching friends must not discard it. */
+    var ip = document.getElementById('inp'), draft = ip ? ip.value : '';
+    newWarmupChat();
+    if(ip && draft) ip.value = draft;
+    return true;
+  }catch(e){ return false; }
 }
 
 /* ══ 👁 자막 3단계 (2026-08-07) ══
@@ -1552,6 +1737,17 @@ function setSubMode(m, announce){
   if(m !== 'on'){ var shown = document.querySelectorAll('#log .msg.ai.sub-shown');
     for(var j=0;j<shown.length;j++) shown[j].classList.remove('sub-shown'); }
 }
+
+/* 🔠 글자 크기 3단계 (2026-11-09) — 모르는 값·저장 실패는 «보통» */
+function setFsMode(m){
+  if(m!=='s' && m!=='l') m = 'm';
+  try{ localStorage.setItem('mangoi_warmup_fs', m); }catch(e){}
+  var bs = document.querySelectorAll('#fsBtns button');
+  for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-fs')===m);
+    bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); }
+  var lg = document.getElementById('log'); if(lg) lg.dataset.fs = m;
+}
+setFsMode((function(){ try{ return localStorage.getItem('mangoi_warmup_fs'); }catch(e){ return 'm'; } })());
 
 /* ══ 뜻 보기 — 누른 문장만, 그때 번역 ══
    미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
@@ -2099,7 +2295,7 @@ function cmodesHtml(){
   return CMODE_CATALOG.map(function(m){
     var on = (m.id === _wuCorrMode);
     return '<button type="button" class="wus-card'+(on?' on':'')+'" data-cmode="'+m.id+'" aria-pressed="'+(on?'true':'false')+'" title="'+wuT(m.d, m.de)+'">'
-      + '<span class="wus-name">'+m.ic+' '+wuT(m.ko, m.en)
+      + '<span class="wus-name"><span class="wus-cm-ic">'+m.ic+' </span>'+wuT(m.ko, m.en)
       + (on ? '<span class="wus-now">'+wuT('지금','Now')+'</span>' : ((m.dflt && !_wuCorrMode) ? '<span class="wus-cmode-tag">'+wuT('기본','Default')+'</span>' : ''))
       + '</span><span class="wus-desc">'+wuT(m.d, m.de)+'</span></button>';
   }).join('');
@@ -2159,7 +2355,7 @@ function renderSetup(){
   /* 🔒 «펼친 순간» 의 수준으로 정렬한다 — 넘기지 않으면 수준을 고를 때마다 위쪽이 흔들린다. */
   if(bks && !isZh()) bks.innerHTML = btsListHtml(btsSortLevel(), true);
   renderTwoWay();
-  wusPcSync();          // 🖥️ PC 드롭다운 값·설명을 지금 상태로
+  wusSelSync();         // 🎚️ 드롭다운(수준·나이대 — 폰·PC 모두) 값·설명을 지금 상태로
   wusPcLayout();        // 🖥️ PC 면 3단계 카드로 옮긴다(자동 말하기 칸이 늦게 생겨도 여기서 따라옴)
   btsRenderBookNow();   // 📘 시작 버튼 위 «지금 교재» 줄 — 언어 전환·첫 그리기에서 함께
   var cta = document.getElementById('wusStart');
@@ -2262,7 +2458,21 @@ function wusPcLayout(){
     if(talk && cta && pc3.contains(talk)) cta.parentNode.insertBefore(talk, cta);
   }
 }
-function wusPcSync(){
+/* 🎚️ 드롭다운 두 개(나이대·대화 수준 — 폰·PC 모두)를 지금 상태로 채운다 + 교정 방식 설명 한 줄.
+   📱 교정 방식 설명 줄(#wusCModeNote)은 한 화면 배치(폰·태블릿)에서만 보인다 — 카드 설명을 접은 대신
+      «지금 무엇으로 고치는가» 를 여기서 말한다. 문장은 카탈로그 설명의 «첫 문장» 그대로(새 설명을 지어내지 않는다).
+   ⏱️ «실제로 쓰일» 방식(안 골랐으면 기본 dflt)이 집중교정이면 응대 속도 안내를 짧게 덧붙인다 —
+      한 화면 배치에서는 아래 긴 안내 상자(.wus-cm-speed)를 접기 때문이다(PC 는 그 상자가 그대로 보인다). */
+function wusFirstSentence(t){ t = String(t||''); var i = t.indexOf('. '); return i > 0 ? t.slice(0, i + 1) : t; }
+function wusSelSync(){
+  var cn = document.getElementById('wusCModeNote');
+  if(cn){
+    var cm = null, dm = null;
+    for(var ci=0; ci<CMODE_CATALOG.length; ci++){ if(CMODE_CATALOG[ci].id === _wuCorrMode) cm = CMODE_CATALOG[ci]; if(CMODE_CATALOG[ci].dflt) dm = CMODE_CATALOG[ci]; }
+    var em = cm || dm;
+    if(cn) cn.textContent = em ? ((cm ? '' : wuT('기본은 ' + em.ko + ' · ', 'Default: ' + em.en + ' · ')) + wusFirstSentence(wuT(em.d, em.de || em.d))
+      + (em.id === 'focused' ? wuT(' ⏱️ 응대가 조금 느릴 수 있어요.', ' ⏱️ Replies may be a bit slower.') : '')) : '';
+  }
   var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
   var esc = function(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
   if(as){
@@ -2279,10 +2489,12 @@ function wusPcSync(){
     if(ln) ln.textContent = cur ? (isZh() ? (cur.dz||cur.d) : wuT(cur.d, cur.de||cur.d)) : '';
   }
 }
-(function wirePcSelects(){
+/* ⛔ 드롭다운에 판정·저장을 새로 만들지 않는다 — 숨은 목록 버튼을 «대신 눌러» 기존 위임 처리(wireSetup)를 그대로 탄다.
+      (숨은 버튼도 el.click() 은 그대로 클릭 이벤트를 낸다.) */
+(function wireSelects(){
   var press = function(sel){ var b = document.querySelector(sel); if(b) b.click(); };
   var as = document.getElementById('wusAgeSel'), ls = document.getElementById('wusLevelSel');
-  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusPcSync(); });
+  if(as) as.addEventListener('change', function(){ press('#wusAges [data-age="'+as.value+'"]'); wusSelSync(); });
   if(ls) ls.addEventListener('change', function(){ press('#wusLevels [data-lvl="'+ls.value+'"]'); });
   if(WUS_PC_MQ){ var on = function(){ wusPcLayout(); }; if(WUS_PC_MQ.addEventListener) WUS_PC_MQ.addEventListener('change', on); else if(WUS_PC_MQ.addListener) WUS_PC_MQ.addListener(on); }
   document.addEventListener('DOMContentLoaded', function(){ wusPcLayout(); });
@@ -3008,12 +3220,28 @@ function _synthSpeak(text, btn, onDone){
     var _pit = (isZh() && _voiceGender()==='male') ? 0.85 : 1.02;
     u.lang=(_enVoice&&_enVoice.lang)||(isZh()?'zh-CN':'en-US'); u.rate=RATE_STEPS[_rateLevel]||0.95; u.pitch=_pit;
     if(_enVoice) u.voice=_enVoice;
-    var utteranceSeq=_speakSeq;
-    u.onstart=function(){ if(utteranceSeq!==_speakSeq)return; warmThought(false); _speechEverStarted=true; _latMark(); };
-    u.onend=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
-    u.onerror=function(){ if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){} if(onDone) onDone(); };
+    var utteranceSeq=_speakSeq, mouthTimer, finished=false, pose=0;
+    // Device speech has no audio element; a paused server clip must not drive its mouth.
+    var poses=['medium','wide','medium','closed'];
+    function moveMouth(){
+      if(finished || utteranceSeq!==_speakSeq){ clearInterval(mouthTimer); return; }
+      try{ window.MangoAvatar && MangoAvatar.mouth(poses[pose++ % poses.length]); }catch(e){}
+    }
+    u.onstart=function(){
+      if(finished || utteranceSeq!==_speakSeq)return;
+      warmThought(false); _speechEverStarted=true; _latMark();
+      moveMouth();
+      mouthTimer=setInterval(moveMouth, 150);
+    };
+    u.onend=u.onerror=function(){
+      clearInterval(mouthTimer);
+      if(finished || utteranceSeq!==_speakSeq)return;
+      finished=true;
+      if(btn) btn.classList.remove('playing');
+      try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+      if(onDone) onDone();
+    };
     window.speechSynthesis.cancel();
-    try{ window.MangoAvatar && MangoAvatar.plainStart(); }catch(e){}   // 👩‍🏫 실제 발화 시작 직전에 아바타 입 움직임 개시
     window.speechSynthesis.speak(u);
   }catch(e){ if(onDone) onDone(); }
 }
@@ -3027,7 +3255,7 @@ function _speechText(s){
     .replace(/[︀-️‍⃣]/g, '')                    // 변형선택자·ZWJ·키캡 결합문자
     .replace(/[\(\[（【][^\)\]）】]*[\)\]）】]/g, ' ')     // 괄호·대괄호 부가설명 제거 (예: "Hello (안녕) there" → "Hello there")
     .replace(/[*_`~#|\\^{}]/g, ' ')                        // 마크다운·특수기호 정리 (**굵게** ` # 등)
-    .replace(/\s+([,.!?;:’'”"])/g, '$1')                  // 문장부호 앞 공백 제거
+    .replace(/\s+([,.!?;:])/g, '$1')                  // 문장부호 앞 공백 제거
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -3047,6 +3275,10 @@ function _speechText(s){
    ⚠️ 이 함수는 반드시 «스크립트 최상위» 에 둡니다 — 다른 함수 안에 넣으면
       바깥 호출부가 전부 ReferenceError 인데 문자열 검사는 통과합니다(CLAUDE.md 2장). */
 var _ttsFellBack=false;   // 이 세션에서 기기 목소리로 읽은 적이 있는가(안내는 한 번만)
+// Speaker names alone cannot distinguish fallback audio from the selected engine.
+function _ttsCacheable(o, spk){
+  return (!o.got || o.got===spk) && (_warmLang!=='en' || /^(?:r2-cache:)?aura-2$/.test(o.eng));
+}
 function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
   fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
       /* 🀄 lang — 서버가 이 값으로 «무슨 목소리로 읽을지» 를 정한다(src/api-games.ts 의 /api/voice/tts).
@@ -3080,10 +3312,10 @@ function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
       }
       var u=URL.createObjectURL(o.blob);
       // 서버가 다른 화자로 대체했으면 캐시하지 않는다(캐시하면 그 문장이 그 목소리로 굳는다).
-      // 헤더가 없으면(옛 배포) 판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다.
+      // 영어는 정상 Aura-2임이 확인된 음성만 캐시한다.
       /* ⚠️ 엔진도 함께 기억해야 한다 — 안 그러면 캐시에서 꺼내 재생할 때
          «진짜 남자 성우» 를 또 굵게 굽는다(두 번 낮아져 괴물 목소리). */
-      if(!o.got || o.got===spk){ _ttsCache[key]=u; _ttsEng[key]=o.eng; }
+      if(_ttsCacheable(o, spk)){ _ttsCache[key]=u; _ttsEng[key]=o.eng; }
       play(u, o.eng);
     })
     .catch(function(err){
@@ -3153,40 +3385,50 @@ function _ttsPrefetch(text, spk){
     })
     .catch(function(){ return null; });
 }
-/* ⚡ (2026-10-20) 입모양 분석기(모델 37.8MB, 기기에 한 번 받으면 1년 캐시)를 화면이 열릴 때 미리 켠다 —
-   연령·수준을 고르는 동안 준비돼 첫 인사부터 정확한 입모양이 나오게. 재생은 이것을 기다리지 않는다
-   (mango-avatar.js v20 — 분석은 250ms 까지만 기다림). 이미 켜져 있으면 아무 일도 안 한다. */
-/* 📱 (2026-11-04 「처음 들어가면 특히 폰에서 아바타 말이 늦다」) 폰·느린 회선은 «첫 인사를 다 말할 때까지»
-   입모양 엔진을 켜지 않는다 — 켜는 순간 약 28.7MB(압축) 다운로드와 WASM 엔진 띄우기가 첫 인사의 AI 답·음성 받기와
-   같은 회선·CPU 를 나눠 쓴다. 그동안 입은 소리 크기로 움직이고(예전부터 있던 폴백), 첫 인사가 끝나면(aiDone) 켠다.
-   ⚠️ 공용 파일(js/avatar-visemes.js)은 안 건드리고 이 화면에서만 prepare·boot 를 감싼다 — 다른 화면은 예전 그대로.
-   ⚠️ 안전망: 30초 뒤에는 무조건 켠다(소리를 꺼 두었거나 인사가 안 나온 경우). 끄기: 주소에 ?visemes=now */
-var _visHold = (function(){
-  try{
-    if(/[?&]visemes=now\b/.test(location.search)) return false;
-    var c = navigator.connection;
-    if(c && (c.saveData || /2g|3g/.test(String(c.effectiveType||'')))) return true;
-    return !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-  }catch(e){ return false; }
+/* 👄 입모양 분석 엔진(Rhubarb) — 이 화면도 «다시 켠다» (2026-11-09 사장님 「웜업 입모양도 다시 켜줘」).
+   Lip-sync analysis is ON again (owner, 2026-11-09) — PC boots it shortly after load, phones after the first greeting.
+   📜 2026-10-20 «화면 열 때 미리 켜기» → 2026-11-04 «폰은 첫 인사까지 미루기» → 2026-11-05 «끝까지 끔»
+      (「입모양 일치하지 않아도 좋으니 최대한 빨리」) → 2026-11-09 11-04 방식으로 되돌림.
+   [대가] 대답마다 분석이 안 끝났으면 재생 «전» 최대 0.25초 대기(mango-avatar.js CUE_WAIT_MS) · 약 28.7MB(압축) 모델 다운로드.
+   [폰] 그 다운로드·WASM 이 «첫 인사» 를 받는 회선·CPU 와 겹치지 않게, 첫 인사가 끝날 때(aiDone) — 또는 학생이 먼저 보내면(sent) —
+        풀어 준다(_visRelease). 그 전까지 prepare 는 곧바로 null(소리 크기 입모양 — 예전부터 있던 폴백), boot 는 아무 일도 안 한다.
+   ⚠️ prepare 가 엔진을 스스로 켜므로(avatar-visemes.js) prepare 도 함께 막아야 미룸이 된다.
+   ⚠️ 공용 파일(js/avatar-visemes.js·js/mango-avatar.js)은 안 건드린다.
+   🔧 끄고 비교: 주소에 ?visemes=off (PC·폰 모두 끝까지 끔) */
+var _visOff = (function(){
+  try{ return /[?&]visemes=off\b/.test(location.search); }catch(e){ return false; }
 })();
-function _visemeRelease(){
-  if(!_visHold) return;
+var _visHold = (function(){
+  if(_visOff) return true;
+  try{ return !!(window.matchMedia && matchMedia('(pointer:coarse)').matches); }catch(e){ return false; }
+})();
+function _visRelease(){
+  if(_visOff || !_visHold) return;
   _visHold = false;
-  try{ var V = window.AvatarVisemes; if(V && V.boot) V.boot(); }catch(e){}
+  try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){}
 }
 function _visemeWrap(){
   var V = window.AvatarVisemes;
   if(!V || V.__warmHold || typeof V.prepare!=='function' || typeof V.boot!=='function') return;
   var p = V.prepare, b = V.boot;
-  V.prepare = function(){ return _visHold ? Promise.resolve(null) : p.apply(V, arguments); };
+  V.prepare = function(url){
+    var prompt=window.warmupTurnPrompt;
+    if(prompt && typeof url==='string'){
+      var prefix=location.origin+prompt.path;
+      var file=url.slice(prefix.length);
+      if(url.indexOf(prefix)===0 && Object.prototype.hasOwnProperty.call(prompt.cues,file)){
+        return Promise.resolve(prompt.cues[file]);
+      }
+    }
+    return _visHold ? Promise.resolve(null) : p.apply(V, arguments);
+  };
   V.boot = function(){ if(!_visHold) return b.apply(V, arguments); };
   V.__warmHold = true;
 }
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _visemeWrap); else _visemeWrap();
 window.addEventListener('load', function(){
   _visemeWrap();
-  setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // 붙잡혀 있으면 아무 일도 안 한다
-  if(_visHold) setTimeout(_visemeRelease, 30000);
+  if(!_visHold) setTimeout(function(){ try{ window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); }catch(e){} }, 1000);   // PC 는 화면이 열리고 1초 뒤 미리 켠다(폰은 _visRelease)
 });
 /* 🎙️ 영어 «남자» 목소리(Jake·Noah)는 너무 늘이지 않는다 (2026-10-02 피드백 「제이크랑 노아는 보이스가 어색함」).
    «보통» 이 0.8배라 브라우저가 소리를 늘여 재생하는데, 이 늘이기는 낮은 남자 목소리에서 «뚜벅뚜벅» 끊김이
@@ -3225,7 +3467,7 @@ function _speakChunks(chunks, spk, btn, done, play){
       pend[i].then(function(o){
         if(seq!==_speakSeq) return;
         if(!o || (o.got && o.got!==spk)){ viaTts(); return; }   // 🔁 대체 목소리는 미리받기로 재생하지 않고 다시 묻는다
-        if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }   // 남의 목소리는 캐시 안 함(_ttsSpeak 과 같은 규칙)
+        if(_ttsCacheable(o, spk)){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }   // 남의 목소리는 캐시 안 함(_ttsSpeak 과 같은 규칙)
         play(o.u, o.eng, next, c);
       });
       return;
@@ -3354,6 +3596,11 @@ function speak(text, btn){
      ⛔ 이 갈래를 «중국어 전체» 로 넓히지 마세요 — 메이(여자)는 서버 목소리 그대로가 맞습니다. */
   if(isZh() && _voiceGender()==='male' && _zhMaleVoiceReady()){ _synthSpeak(text, btn, done); return; }
   if(live && !btn){ _speakLive(live, spk, done, play); return; }   // 📡 P2 — 문장이 올 때마다 이어 읽기
+  var prompt=window.warmupTurnPrompt, promptFile=spk+'.mp3';
+  if(prompt && text===prompt.text && !isZh() && Object.prototype.hasOwnProperty.call(prompt.cues,promptFile)){
+    play0(location.origin+prompt.path+promptFile, false);
+    return;
+  }
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
   if(_ttsCache[key]){ play(_ttsCache[key], _ttsEng[key]); return; }
   /* ⚡ 첫 문장부터 먼저 읽기(2026-09-25) — 아래 _speakChunks 머리말. 한 조각이면 예전 그대로. */
@@ -3406,7 +3653,7 @@ function _speakLive(L, spk, done, play){
       p.then(function(o){
         if(seq!==_speakSeq) return;
         if(!o || (o.got && o.got!==spk)){ viaTts(); return; }   // 🔁 대체 목소리는 미리받기로 재생하지 않고 다시 묻는다
-        if(!o.got || o.got===spk){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }
+        if(_ttsCacheable(o, spk)){ _ttsCache[k]=o.u; _ttsEng[k]=o.eng; }
         play(o.u, o.eng, next, c);
       });
       return;
@@ -3428,6 +3675,13 @@ function _stmShow(L){
   log.scrollTop=log.scrollHeight;
 }
 function _stmDrop(L){ try{ if(L.el) L.el.remove(); }catch(e){} L.el=null; }
+/* ⚡ 이어 읽기(2026-11-05 「휴대폰에서 무조건 빨리」) — 서버가 미리듣기를 중간에 멈췄지만(같은 질문·길이 등) 다시 뽑지 않아
+   정본이 «이미 읽은 문장 + 나머지» 면, 처음부터 다시 읽지 않고 «나머지» 만 돌려준다 / continue instead of re-reading.
+   정본이 앞부분부터 달라졌으면(다시 뽑음·교정 말머리) null — 예전처럼 처음부터 읽는다. 다시 뽑기 예산(5초)을 줄이며 이 경우가 잦아졌다. */
+function _stmRest(said, full){
+  var a=String(said||'').replace(/\s+/g,' ').trim(), b=String(full||'').replace(/\s+/g,' ').trim();
+  return (a && b.indexOf(a)===0) ? b.slice(a.length).trim() : null;
+}
 function _stmSentence(L, sen, typing){
   if(L.dead) return;
   if(_warmPaused || L.epoch!==_warmEpoch){ L.dead=1; return; }
@@ -3455,7 +3709,7 @@ function _stmSentence(L, sen, typing){
   if(L.wake) L.wake();
 }
 /* SSE 읽기 — 30초 동안 아무것도 안 오면 끊는다(warmupFetch 의 20초 타이머는 «머리» 가 오면 꺼진다). */
-async function _stmRead(r, onSen, L){
+async function _stmRead(r, onSen, L, onFinal){
   var rd=r.body.getReader(), dec=new TextDecoder(), buf='', fin=null, idle=null;
   var kick=function(){ clearTimeout(idle); idle=setTimeout(function(){ try{ rd.cancel(); }catch(e){} }, 30000); };
   try{
@@ -3472,6 +3726,7 @@ async function _stmRead(r, onSen, L){
           var one=ln[j].trim(); if(one.indexOf('data:')!==0) continue;
           var o=null; try{ o=JSON.parse(one.slice(5).trim()); }catch(e){ continue; }
           if(o && o.done) fin=o;
+          else if(o && o.final && o.ok && o.status===200 && onFinal) onFinal(o);
           else if(o && typeof o.t==='string'){ try{ onSen(o.t); }catch(e){} }
         }
       }
@@ -3485,7 +3740,16 @@ async function _stmRead(r, onSen, L){
    자동 말하기 알림·지연 측정·교정 카드·등급을 건너뛰고, 실패하면 'fail' 을 돌려 부르는 쪽이 고정 인사말로 떨어진다. */
 async function _stmTurn(r, epoch, typing, lt0, ls, kick){
   var L={ q:[], i:0, pf:[], n:0, text:'', epoch:epoch, lt0:lt0, ls:ls, kick:!!kick };
-  var d=await _stmRead(r, function(s){ _stmSentence(L, s, typing); }, L);
+  var rendered=false;
+  var d=await _stmRead(r, function(s){ _stmSentence(L, s, typing); }, L, function(final){
+    if(rendered) return;
+    rendered=_stmRender(final, L, typing)==='done';
+  });
+  if(d&&d.done&&d.ok&&d.status===200&&!L.kick&&!_warmPaused&&epoch===_warmEpoch&&window.AiSpeakingSession)AiSpeakingSession.record(d.progress,wuProgressContext());
+  return rendered ? 'done' : _stmRender(d, L, typing);
+}
+function _stmRender(d, L, typing){
+  var epoch=L.epoch, lt0=L.lt0, ls=L.ls;
   if(_warmPaused || epoch!==_warmEpoch){ _stmDrop(L); return 'done'; }
   if(!d){
     if(!L.n) return 'retry';
@@ -3504,15 +3768,20 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
     return 'done';
   }
   if(!L.n && !L.kick){ _autoHook('reply'); _latCur={ t0:lt0, t1:Date.now(), wait:(ls?ls.wait:null), tStop:(ls?ls.at:null) }; }
-  var finalText=d.ai_response || '(응답이 비어 있어요)';
+  var finalText=warmupReplyText(d);
   _stmDrop(L);
-  if(spoken && (!d.replaced || interrupted)){
+  var rest=(spoken && d.replaced && !interrupted) ? _stmRest(L.text, finalText) : null;   // ⚡ 나머지만 이어 읽기(_stmRest)
+  if(spoken && (!d.replaced || interrupted || rest!==null)){
     /* 읽은 것이 정본과 같다(또는 학생이 끊었다) — 말풍선만 정본으로 바꾸고 다시 읽지 않는다.
        번갈아 모드: 이름표는 «그 문장을 읽은 사람» 이어야 하므로 그 차례로 잠깐 되돌렸다가 복원한다. */
     var mix1=_mixIdx; if(L.mix0!=null) _mixIdx=L.mix0;
     _addMsgQuiet=true; try{ addMsg(finalText, 'ai'); } finally{ _addMsgQuiet=false; }
     _mixIdx=mix1;
-    if(!interrupted) _stmEnd(L);
+    if(!interrupted){
+      var rs=rest ? _speechText(rest) : '';
+      if(rs){ L.q.push(rs); if(!_ttsCache[L.spk+'|'+rs]) L.pf[L.q.length-1]=_ttsPrefetch(rs, L.spk); }
+      _stmEnd(L);
+    }
   } else {
     /* 정본이 달라졌다(replaced) 또는 아직 안 읽었다 — 읽던 것을 멈추고 정본을 처음부터 읽는다 */
     if(spoken) _stopSpeak(true);
@@ -3521,6 +3790,7 @@ async function _stmTurn(r, epoch, typing, lt0, ls, kick){
   }
   if(d.cut && !L.kick) addMsg('답변이 중간에 끊겼어요. 이어서 말해 주세요.', 'sys');
   if(!L.kick){                 // 🚀 첫 인사는 학생 말이 아니다 — 교정·등급 없음
+    if(d.review_fix && window.MangoWarmupGuide) MangoWarmupGuide.fix(d.review_fix);
     showFixCard(d.fix, d.repeat);
     wuApplyGrade(d);
   }
@@ -3659,6 +3929,12 @@ var MIC_DANGLING=/^(i|a|an|and|or|but|to|the|my|your|his|her|our|their|is|are|am
 function micUnfinished(s){
   var raw=String(s||'').trim();
   var w=raw.split(/\s+/).filter(Boolean);
+  /* ⚡ (2026-11-05 사장님 「내가 답하면 최대한 빨리」) 아이들의 가장 흔한 대답(Yes·No·Okay·Thank you·I'm fine·Me too)은
+     두 낱말 이하라 아래 «3낱말 미만 = 덜 끝남» 에 걸려 5초를 기다렸다. 그 자체로 «끝난» 짧은 대답만 끝난 말로 본다.
+     («I'm fine thank you» · «Nice to meet you» 처럼 you 로 끝나 «덜 끝남» 이 되던 흔한 인사도 함께 — 5낱말까지)
+     ⛔ 목록에 없는 짧은 말(I · My dog · Yesterday)은 예전처럼 기다린다. ⛔ Hello·Hi·Never·Always 는 «Hello… my name is» 처럼
+        뒤에 말이 붙기 쉬워 여기 넣지 않는다(한 낱말 대답 2초로 간다). */
+  if(w.length<=5 && /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|fine|good|great|cool|nice|awesome|perfect|thanks|thank you|thank you so much|bye|goodbye|bye bye|me too|you too|me neither|not really|not yet|of course|yes please|no thanks|i see|i know|got it|im fine|im good|im okay|im ok|im great|im fine thank you|im good thank you|fine thank you|all right|alright|sounds good|why not|thats right|good job|nice to meet you|nice to meet you too|see you|see you later)$/.test(raw.toLowerCase().replace(/[^a-z\s]/g,'').replace(/\s+/g,' ').trim())) return false;
   if(w.length<3) return true;
   /* 🙋 (2026-11-02 사장님 「얼굴 크게(자동 말하기)에서 내가 질문하면 늦게 답한다」)
      질문은 «you·it·this·like» 로 끝나는 게 정상인데 위 목록이 그것을 «덜 끝남» 으로 봐서 5초를 기다렸다.
@@ -3674,6 +3950,17 @@ function micUnfinished(s){
   }
   return MIC_DANGLING.test(last);
 }
+/* ⚡ (2026-11-05) 한 낱말 대답(«Pizza» · «Blue» · «Ten») — «Do you like pizza or chicken?» 같은 양자택일 질문의 가장 흔한 답인데
+   위 판정으로는 «덜 끝남» 이라 5초를 기다렸다. 그런 한 낱말은 중간 대기(SIL_MID)로 보낸다 / one-word answers wait less.
+   ⛔ 뒤에 말이 붙기 쉬운 첫 낱말(I'm · Yesterday · Um · Well · Maybe)은 예전처럼 기다린다.
+   ⛔ 중국어(띄어쓰기 없음)는 낱말을 못 세므로 여기 안 걸린다(예전 그대로). MIC_DANGLING 말고는 밖의 변수를 쓰지 않는다. */
+function micOneWordReply(s){
+  var w=String(s||'').trim().split(/\s+/).filter(Boolean);
+  if(w.length!==1) return false;
+  var x=w[0].toLowerCase().replace(/[^a-z0-9]/g,'');   // I'm → im · It's → its (MIC_DANGLING 이 그 꼴로 적혀 있다) · 크롬은 숫자를 «10» 으로 적는다
+  if(!x || MIC_DANGLING.test(x)) return false;
+  return !/^(um+|uh+|er+|hm+|ah+|oh|well|so|actually|maybe|yesterday|today|tomorrow|tonight|usually|sometimes|often|first|then|after|before|last|next|every|also|just|now|wait|id|ill|ive|youre|theyre|were|hes|shes|thats|theres|whats|wheres|let)$/.test(x);
+}
 function sttSupported(){ return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
 /* 🎤 C — 브라우저 인식이 빈손일 때 서버 Whisper 로 «한 번만» 다시 듣기 위한 표시. */
 var _micWhisperRetried=false;
@@ -3681,6 +3968,8 @@ var _micWhisperRetried=false;
    위 «빈손이면 Whisper 로 한 번 더» 가 _micStopWanted 때문에 한 번도 안 돌고, 아무 말도 없이 끝났다.
    _micUserStop = 사람이 ⏹ 를 눌렀다 · _micPreferWhisper = 이 화면에서는 다음부터 녹음+Whisper 로 듣는다. */
 var _micUserStop=false, _micPreferWhisper=false;
+/* ⚡ 지금 인식 세션의 «빠른 마무리»(⏹ 용) — _startSttSession 이 채운다(_micFast(true)). 세션 밖에서 부를 길 */
+var _micFastStop=null;
 /* 💾 (2026-10-03 Maimai 「녹음하고 보내도 안 된다」 재제보) — #1348 은 «이 화면에서» 만 녹음 방식으로 바꿔서,
    다시 들어올 때마다 같은 기기가 «한 번 실패 → 다시 누르기» 를 되풀이했다. 그 사실을 기기에 14일 기억한다.
    ⚠️ 기간을 두는 이유: 일시적인 실패 한 번으로 실시간 자막을 영영 잃지 않게. ⛔ 서버로 보내지 않는다(기기 사정이다). */
@@ -3721,6 +4010,16 @@ function _setListenLabel(txt){
   var ind=document.getElementById('listening');
   if(ind){ ind.style.display='flex'; ind.innerHTML='<span class="dot"></span> '+txt; }
 }
+/* ⚡ 미리 받아쓰기 (2026-11-05 사장님 「듣기·녹음 시간을 최소화 — 특히 휴대폰」) — 정본 js/mangoi-voice-early.js
+   말이 멎고 0.35초면 지금까지 녹음분을 먼저 받아 적어 둔다 → 침묵 대기가 끝나면 그 글자를 바로 보낸다(다시 안 올림).
+   자동: 받은 글자가 «끝난 말»(브라우저 인식 경로와 같은 판정 micUnfinished)이면 1초 조용한 데서 끝낸다(1.6초를 다 안 채움).
+   ✋ 수동: 끝내는 것은 ⏹ 뿐 — 미리 받기만 해서 ⏹ 뒤 «받아적는 중» 을 줄인다. 모듈이 없거나 실패하면 예전 그대로.
+   EN: pre-transcribe on pause; auto mode ends early on a finished reply, manual mode only pre-transcribes. */
+function _micEarly(manual, o){
+  try{ return window.MangoiVoiceEarly ? MangoiVoiceEarly.wrap(o, manual ? {} : { accept:function(t){ return !micUnfinished(t); } }) : o; }
+  catch(e){ return o; }
+}
+var _prepositionRepeatEpoch=null;
 async function micViaWhisper(){
   if(_warmPaused)return;
   var epoch=_warmEpoch, voiceEpoch=_warmVoiceEpoch;
@@ -3734,8 +4033,13 @@ async function micViaWhisper(){
   _whisperOn=true; setMicState(true);
   var heard=false, errored=false; // 🔇 말소리가 한 번도 안 들렸나 — Whisper 는 무음에서 "Thank you." 를 지어낸다
   var recBlob=null;               // 🎤 녹음 파일 — 모듈의 소리크기 판정이 놓쳤을 때 다시 재 본다(_blobHasVoice)
-  var said = await MangoiVoice.record({
+  var prepositionUnconfirmed=false;
+  var opts = _micEarly(manual, {
     onAudio: function(b){ recBlob=b; },
+    transcribe: _wuCorrMode === 'focused' && _warmLang === 'en' ? function(fd){
+      fd.set('check_preposition', '1');
+      return MangoiVoice.post(fd);
+    } : undefined,
     firstMs: manual ? MIC_MANUAL_IDLE : 0,        // ✋ 수동: 판정이 말소리를 못 봐도 9초에 끊지 않는다(⏹ 로 끝냄). 0 = 모듈 기본값
     lang: _warmLang,              // 🀄 서버 Whisper 언어 힌트 — 안 주면 자동감지로 떨어져 오인식이 는다
     silenceMs: manual ? MIC_MANUAL_IDLE : 1600,   // ✋ 수동은 침묵으로 끝내지 않는다(30초는 안전장치). ⚡ 자동: 2.5초(기본) → 1.8초(2026-09-25) → 1.6초(2026-10-02). 녹음 경로는 «문장이 끝났나» 를 모르므로 1.5초까지는 안 줄인다
@@ -3754,6 +4058,16 @@ async function micViaWhisper(){
       }
     }
   });
+  if(opts.transcribe){
+    // Read the selected result after the early-recording wrapper has discarded stale snapshots.
+    var transcribe=opts.transcribe;
+    opts.transcribe=async function(fd){
+      var result=await transcribe(fd);
+      prepositionUnconfirmed=!!(result && result.ok && result.preposition_recheck==='unavailable');
+      return result;
+    };
+  }
+  var said=await MangoiVoice.record(opts);
   if(_warmPaused || epoch!==_warmEpoch || voiceEpoch!==_warmVoiceEpoch)return;
   _whisperOn=false; setMicState(false);
   /* 🔇 (2026-09-26) 말소리가 한 번도 안 들린 녹음의 전사는 버린다 — 학생이 하지도 않은 말로 대화가 이어진다.
@@ -3771,18 +4085,39 @@ async function micViaWhisper(){
   /* 🔁 (2026-10-02) 말소리는 들렸는데 받아쓴 글자가 비었다 = 서버가 «oah, oah…» 같은 반복 환각을 걸러냈거나
      알아듣지 못했다(src/stt-loop.ts). 아무 말 없이 넘어가면 학생은 기다리기만 한다 — 사실대로 말한다. */
   if(!said && heard && !errored) addMsg(wuT('🎤 잘 못 알아들었어요. 조금 더 또박또박 다시 말해 주세요.', '🎤 I didn\'t catch that. Please say it again more clearly.'), 'sys');
+  if(said && prepositionUnconfirmed){
+    if(_prepositionRepeatEpoch===epoch){
+      addMsg(wuT('🎤 아직 잘 안 들려요. 아래에 문장을 써 주세요.', '🎤 I still couldn’t hear that clearly. Please type your sentence below.'), 'sys');
+      return;
+    }
+    _prepositionRepeatEpoch=epoch;
+    ansCardClear(); fixCardClear();
+    var repeatPrompt='Please say that again.';
+    addMsg(repeatPrompt, 'ai');
+    _autoHook('sent'); _autoHook('reply');
+    speak(repeatPrompt);
+    return;
+  }
   if(said && manual && !_whisperUserStop){ _micManualHold(said); return; }   // ✋ 수동: ⏹ 를 눌러야 보낸다
   if(said){ document.getElementById('inp').value=said; sendMsg(); }
 }
 /* 🎤 녹음 파일 말소리 판정은 공용 정본 js/voice-has-speech.js — 없으면 null(예전대로 버림) */
 function _blobHasVoice(blob){
-  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
+  try{ return window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob, true) : Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
 }
 /* ✨ 자동 말하기(베타, 2026-09-24) — 켜는 «시점» 만 js/warmup-auto-talk.js 가 정한다.
    듣기·말 끝 판단·전송은 이 파일의 기존 코드 그대로다. 모듈이 없거나 죽어도 버튼 모드는 그대로 돈다. */
-function _autoHook(ev, a){ try{
-  if(ev==='aiDone') _visemeRelease();   // 📱 첫 인사를 다 말했다 — 미뤄 둔 입모양 엔진을 이제 켠다(_visemeRelease 는 스스로 try)
-  window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){} }
+var _autoDonePending=false;
+function _autoHook(ev, a){
+  if(ev==='sent' || ev==='aiStart') _autoDonePending=false;
+  if(ev==='aiDone' && sending){ _autoDonePending=true; return; }
+  if(ev==='aiDone' || ev==='sent') _visRelease();   // 👄 폰: 첫 인사가 끝나면(또는 학생이 먼저 보내면) 입모양 엔진을 켠다
+  try{ window.WarmupAutoTalk && WarmupAutoTalk.on(ev, a); }catch(e){}
+  if(ev==='settled' && _autoDonePending){
+    _autoDonePending=false;
+    if(!_warmPaused) _autoHook('aiDone');
+  }
+}
 /* 듣던 것을 «보내지 않고» 닫는다 — 자동으로 열려 있는데 AI 가 다시 말을 시작할 때만 쓴다
    (그대로 두면 AI 목소리를 학생 말로 받아 적는다). sendMsg 의 «먼저 보냄» 정리와 같은 방식. */
 function _micAbortQuiet(){
@@ -3795,7 +4130,7 @@ function toggleMic(){
   unlockAudio();                       // 마이크 탭 = 사용자 제스처 → 이후 음성 재생 허용
   _stopSpeak();                        // AI 낭독(서버 TTS/브라우저 음성) 중이면 멈추고 듣기
   if(_whisperOn){ _whisperUserStop=true; MangoiVoice.stop(); return; }
-  if(_recognizing){ _micStopWanted=true; _micUserStop=true; try{ _recog && _recog.stop(); }catch(e){} return; }
+  if(_recognizing){ _micStopWanted=true; _micUserStop=true; if(_micFastStop && _micFastStop()) return; try{ _recog && _recog.stop(); }catch(e){} return; }   // ⚡ 들은 말이 있으면 onend 를 안 기다리고 바로 보낸다(_micFast)
   if(!sttSupported() || _micPreferWhisper){ micViaWhisper(); return; }   // 음성인식 미지원(또는 이 화면에서 빈손이었음) → 녹음+Whisper 로
   _micBase=''; _micSess=''; _micBySilence=false; _micUserStop=false; _micStopWanted=false;
   _micWhisperRetried=false;   // 🎤 C — 새 세션이니 «한 번 더 듣기» 를 다시 쓸 수 있게
@@ -3814,8 +4149,9 @@ function _startSttSession(){
   // 🎤 말 중간에 잠깐 숨을 쉬어도 안 끊기게 continuous=true. 브라우저의 성급한 자동종료(엔드포인팅)를
   //    끄고, 대신 "말이 끝나고 조용해지면" 우리가 직접 종료(침묵 감시 타이머)한다.
   _recog.continuous=true;
-  var _silence=null;
-  _warmMicCancel=function(){clearTimeout(_silence);};
+  var _silence=null, _micGrace=null;
+  _warmMicCancel=function(){clearTimeout(_silence);clearTimeout(_micGrace);_micGrace=null;};
+  _micFastStop=function(){ return _micFast(true); };
   /* 🎤 (2026-07-23) 침묵 대기 시간을 상황에 맞게 — 2.6초 고정이라 "한두 마디 하면 꺼졌다".
      아직 아무 말도 못 들었으면 오래 기다리고(생각할 시간), 조각만 들렸으면 넉넉히,
      문장이 완성돼 보이면 예전처럼 빠르게 마무리한다. */
@@ -3824,13 +4160,57 @@ function _startSttSession(){
         「음…」 하고 쉬는 동안 끊겨 보내지는 2026-07-23 사고가 그 둘로 막혀 있다.
      감시는 test-harness/warmup_reply_speed_harness.mjs (판정을 오려 내 실제로 돌림). */
   /* ⚡ (2026-10-02 사장님 「학생이 답하면 빠르게 다시 질문」) SIL_DONE 1.5초 → 1.3초. 1.2초 아래로는 안 내린다(숨 한 번). */
-  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_DONE=1300;
+  /* ⚡ (2026-11-05 사장님 「최대한 빨리」) SIL_DONE 1.3초 → 1.2초(위 「1.2초 아래로는 안 내린다」 하한까지) ·
+     한 낱말 대답은 SIL_MID 2초(micOneWordReply). SIL_SHORT·SIL_FIRST 는 그대로다. */
+  var SIL_FIRST=9000, SIL_SHORT=5000, SIL_MID=2000, SIL_DONE=1200;
   function _micHeard(){ return _tidySpeech(_mergeSpeech(_micBase, _micSess)); }
+  /* ⚡ (2026-11-05) 침묵 시계는 «새 말이 들렸을 때» 부터 잰다 / the silence clock restarts only when new words arrive.
+     [왜] 예전에는 인식 결과가 «올 때마다» 처음부터 다시 셌는데, 인식기는 말이 끝난 뒤에도 같은 문장을 또 보낸다
+          (중간 결과 → 최종 확정 · 잡음에 흔들린 같은 글자 · 안드로이드 재시작). 그때마다 대기가 처음부터 다시 돌아
+          입력칸에 「we played soccer」 가 다 적혔는데도 «듣는 중» 이 길게 남았다(2026-11-05 사장님 화면).
+     ✅ 말 단위(띄어 쓴 ASCII 낱말 1 · 그 밖의 글자는 한 글자에 1 — 중국어는 글자마다)가 «늘었을 때만» 시계를 새로 시작한다.
+        ⛔ 한자 범위 정규식을 여기 쓰지 않는다 — 영어 판정 정본은 서버(src/warmup-graph.ts) 하나다(english_only_harness). 고쳐 적기(같은 수)는 시계를 이어 가되
+        판정(끝남·덜 끝남)은 새 글자로 다시 한다.
+     ⛔ 아직 아무 말도 없을 때(0)는 예전처럼 매번 새로 센다 — 생각할 시간(SIL_FIRST)을 줄이지 않는다. */
+  var _silUnits=0, _silAt=0;
+  function _micUnits(t){ return (String(t||'').replace(/[.,!?;:\u3002\uff0c\uff01\uff1f\u3001\u2026"\u201c\u201d]/g,'').match(/[^\x00-\x7f]|[\x21-\x7e]+/g)||[]).length; }
   function _armSilence(){
     if(_silence) clearTimeout(_silence);
     var t=_micHeard();
-    var ms = _micManual() ? MIC_MANUAL_IDLE : (!t ? SIL_FIRST : (micUnfinished(t) ? SIL_SHORT : SIL_DONE));
-    _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:ms, at:Date.now() }; try{ _recog && _recog.stop(); }catch(e){} }, ms);
+    var ms = _micManual() ? MIC_MANUAL_IDLE : (!t ? SIL_FIRST : (micUnfinished(t) ? (micOneWordReply(t) ? SIL_MID : SIL_SHORT) : SIL_DONE));
+    var n=_micUnits(t), now=Date.now();
+    if(!n || n>_silUnits) _silAt=now;   // 첫 말도 여기 걸린다(_silUnits 가 0 에서 시작)
+    _silUnits=n;
+    _silence=setTimeout(function(){ _micBySilence=true; _latSilence={ wait:Date.now()-_silAt, at:Date.now() }; if(_micFast()) return; try{ _recog && _recog.stop(); }catch(e){} }, Math.max(150, ms-(now-_silAt)));
+  }
+  /* ⚡ (2026-11-05 사장님 「듣기 시간을 최소화 — 특히 휴대폰」) 보낼 말이 있으면 브라우저의 onend 를 «한없이» 기다리지 않는다
+     / don't wait indefinitely for the recognizer's onend when there are words to send.
+     [왜] stop() 뒤 onend 까지 브라우저가 «최종 결과» 를 다시 받느라 더 기다렸다(느린 회선은 1초 넘게 — 그동안 화면은 «듣는 중» 그대로).
+     ✅ stop() 은 그대로 부른다 — abort() 는 «이미 말했지만 아직 안 적힌» 마지막 낱말을 버린다(⏹ 를 말 끝에 바로 누르면 흔하다 · 함정 대조).
+        그 최종 결과가 유예(침묵 끝 MIC_GRACE · ⏹ MIC_GRACE_USER) 안에 오면 예전처럼 onend 가 끝내고, 안 오면 그때까지 적힌 글자로 끝낸다.
+     ✅ 침묵 타이머를 먼저 지운다 — 안 지우면 옛 타이머가 «다음 턴» 의 전역(_recog·_micBase)에 대고 끊는다
+        (함정 대조 재현: ⏹ 뒤 다음 턴 31초에 학생이 말하는 도중 마이크가 꺼짐).
+     ✅ 유예가 끝나 직접 끝낼 때는 그 인식기의 onstart·onresult·onerror·onend 를 모두 떼고 abort — 늦게 온 결과가 같은 말을 또 보내거나
+        안드로이드 재시작의 onstart 가 «듣는 중» 을 다시 켜지 않게(pauseWarmup 과 같은 정리).
+     ✅ ⏹ 를 누른 것(byUser)도 같다 — 버튼 모드가 기본이고 폰 크롬·아이폰 버튼 모드가 이 경로다.
+     ⛔ 수동인데 침묵으로 끝난 것(입력칸에 남김)·빈손(서버 Whisper 로 한 번 더 듣기 / 다음부터 녹음 방식 — 마이크를 넘겨받아야 해서
+        인식기가 다 닫힌 뒤여야 함)은 예전처럼 onend 만 기다린다. */
+  var MIC_GRACE=400, MIC_GRACE_USER=800;
+  function _micFast(byUser){
+    if(_micGrace) return true;                                   // 이미 마무리 중(유예 사이 늦은 결과가 침묵 타이머를 다시 켰을 때)
+    if((!byUser && _micManual()) || !_micHeard() || !_recog) return false;
+    var r=_recog;
+    if(_silence){ clearTimeout(_silence); _silence=null; }
+    try{ r.stop(); }catch(e){}
+    _micGrace=setTimeout(function(){
+      _micGrace=null;
+      if(_silence){ clearTimeout(_silence); _silence=null; }
+      if(_recog!==r || !_recognizing) return;                    // onend 가 이미 끝냈다(또는 새 세션이다)
+      r.onstart=null; r.onresult=null; r.onerror=null; r.onend=null;
+      try{ r.abort(); }catch(e){}
+      _finishMic();
+    }, byUser ? MIC_GRACE_USER : MIC_GRACE);
+    return true;
   }
   /* 🎤 진짜로 말이 끝났을 때만 여기로 온다 → 들은 말을 합쳐서 전송 */
   function _finishMic(){
@@ -3890,7 +4270,7 @@ function _startSttSession(){
     }
     return s;
   }
-  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _armSilence(); };
+  _recog.onstart=function(){if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return; _micBySilence=false; _micSess=''; setMicState(true); _silUnits=0; _armSilence(); };   // _silUnits=0: (다시) 켜진 세션은 시계를 새로 — 안드로이드 재시작 공백(삐 소리)을 침묵으로 세지 않는다
   _recog.onresult=function(e){
     if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     /* 결과가 올 때마다 이번 녹음의 전체 결과 목록(0~끝)을 겹침 제거하며 처음부터 다시 조립
@@ -3900,13 +4280,14 @@ function _startSttSession(){
     _micSess=full;
     if(full) _autoHook('phase','speak');
     document.getElementById('inp').value=_tidySpeech(_mergeSpeech(_micBase, _micSess));
-    _armSilence();                     // 말할 때마다 종료 타이머 리셋 → 계속 말하면 절대 안 끊김
+    _armSilence();                     // 판정은 매번 새 글자로 · 대기 시계는 «새 말» 이 들렸을 때만 처음부터(위 _armSilence) → 계속 말하면 안 끊김
   };
   /* 오류 — no-speech(아직 말을 못 꺼냄)만 다시 듣기 허용, 나머지는 그대로 종료 */
   _recog.onerror=function(e){
     if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
     if(e.error==='no-speech') return;  // onend 에서 다시 듣는다 (안내문으로 말을 끊지 않음)
+    if(_micGrace){ clearTimeout(_micGrace); _micGrace=null; }   // 여기서 끝낸다 — 빠른 마무리 유예는 거둔다
     _micStopWanted=true;
     setMicState(false);
     _micBase=''; _micSess='';
@@ -3927,6 +4308,7 @@ function _startSttSession(){
   _recog.onend=function(){
     if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;
     if(_silence) clearTimeout(_silence);
+    if(_micGrace){ clearTimeout(_micGrace); _micGrace=null; }   // 최종 결과가 유예 안에 왔다 — 예전처럼 여기서 끝낸다
     /* 아직 한 마디도 못 들었으면 재시작을 3회로 제한 — 안드로이드는 start() 마다
        '삐' 소리가 나서, 학생이 말을 안 하는데 8번씩 재시작하면 그게 더 성가시다. */
     var heardAnything = !!(_micBase || _micSess);
@@ -3938,7 +4320,7 @@ function _startSttSession(){
       _micRestarts++;
       try{ _recog.start(); return; }   // UI 는 계속 '듣는 중' 유지
       catch(err){
-        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
+        setTimeout(function(){ if(_warmPaused || micEpoch!==_warmEpoch || micVoiceEpoch!==_warmVoiceEpoch || _micGrace)return;try{ _recog.start(); }catch(e2){ _finishMic(); } }, 250);
         return;
       }
     }
@@ -4107,6 +4489,7 @@ function fallbackGreeting(){
     + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
   addMsg(fbEn, 'ai');
 }
+function wuProgressContext(){return [SESSION_ID,_warmLang,_warmLevel,WCTX.textbook,WCTX.lesson_no,LESSON_TOPIC].join('|');}
 function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
   body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
@@ -4120,6 +4503,10 @@ function withCtx(body){
   //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
   //    「번갈아」면 _voicePerson() 이 그 턴의 사람을 준다 — 목소리와 같은 사람이 된다.
   try{ body.friend = _voicePerson(); }catch(e){}
+  try {
+    var timing = window.AiSpeakSettings && AiSpeakSettings.read(localStorage).timing;
+    if(timing && _warmLang === 'en') body.correction_timing = timing;
+  } catch(e){}
   if(_wuCorrMode) body.correction_mode = _wuCorrMode;   // 🎚️ 사람이 고른 교정 방식만(안 골랐으면 안 보냄)
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
@@ -4272,6 +4659,7 @@ function newWarmupChat(){
   try{ closeMenu(); }catch(e){}
   pauseWarmup();
   SESSION_ID = _newWarmupSid();
+  if(window.AiSpeakingProgress) AiSpeakingProgress.reset();   // 새 대화 = 새 진행 기록(안 하면 옛 기록이 새 SESSION_ID 의 턴을 못 받는다 · 2026-11-09)
   try{ sessionStorage.setItem('mangoi_warmup_sid', SESSION_ID); }catch(e){}
   var ms=document.getElementById('m-session'); if(ms) ms.textContent=SESSION_ID.slice(0,22);
   ansCardClear();
@@ -4656,6 +5044,15 @@ function saveApi(v){
   });
 })();
 
+function warmupReplyText(d){
+  var reply=d.ai_response || '(응답이 비어 있어요)';
+  if(isZh() || !d.fix || !d.fix.now ||
+     !reply.startsWith('You can say... "') || !reply.endsWith('Can you say it with me?')) return reply;
+  // 집중교정의 카드, 따라 말하기, 자동 낭독이 같은 문장을 쓰게 한다.
+  d.fix.now=d.fix.now.replace(/\breally hel(?:p)?ful\b/gi, 'actually helpful');
+  return 'Try saying it with me: ' + d.fix.now;
+}
+
 async function sendMsg(){
   await warmupRatePreference.ready;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
@@ -4665,6 +5062,7 @@ async function sendMsg(){
   inp._bargeDone = false;                  // ⏹ 다음 답변에도 끼어들 수 있게
   var text = (inp.value||'').trim();
   if(!text || sending) return;
+  _prepositionRepeatEpoch=null;
   _stopSpeak();
   /* ⏱ 이번 턴 재기 시작 — 침묵 타이머가 2.5초 안에 끊은 것만 «말로 보낸 것» 으로 본다(글로 친 것·옛 기록 제외) */
   var _lt0=Date.now(), _ls=_latSilence; _latSilence=null; _latCur=null;
@@ -4705,7 +5103,8 @@ async function sendMsg(){
 
   try{
     var body = withCtx({ session_id: SESSION_ID, student_input: text });
-    var _stmOn = _stmWanted(); if(_stmOn) body.stream = 1;   // 📡 P2 — 문장 단위로 먼저 받기(옵트인)
+    if(window.AiSpeakingProgress) Object.assign(body, await window.AiSpeakingProgress.beforeTurn());
+    var _stmOn = _stmWanted(); if(_stmOn){ body.stream = 1; body.final_reply = 1; }
     var r = await warmupFetch(warmupEndpoint(), {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
@@ -4730,9 +5129,12 @@ async function sendMsg(){
     } else {
       var d = await r.json();
       if(_warmPaused || epoch!==_warmEpoch)return;
+      if(window.AiSpeakingSession)AiSpeakingSession.record(d.progress,wuProgressContext());
       _autoHook('reply');
       _latCur={ t0:_lt0, t1:Date.now(), wait:(_ls?_ls.wait:null), tStop:(_ls?_ls.at:null) };   // ⏱ 첫 소리가 나면 _latMark 가 닫는다
-      addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
+      d.ai_response=warmupReplyText(d);
+      addMsg(d.ai_response, 'ai');
+      if(d.review_fix && window.MangoWarmupGuide) MangoWarmupGuide.fix(d.review_fix);
       showFixCard(d.fix, d.repeat);         // ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림)
       wuApplyGrade(d);                      // 🎯 등급이 «완벽» 일 때만 콤보·팡파레
       showAnswerChips(d.answer_chips,d.speaking_help);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
@@ -4866,7 +5268,7 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
   .meta{ padding:4px 12px 0; }
 }
 </style>
-<link rel="stylesheet" href="/css/warmup-guide.css?v=8" />
+<link rel="stylesheet" href="/css/warmup-guide.css?v=9" />
 <!-- ══════════════════════════════════════════════════════════════
      📱 휴대폰·태블릿(터치) 전용 — 입력 묶음이 대화창을 가리지 않게 (2026-09-25 · 시안 A+C 중간안)
      사장님 「1번(입력 묶음)이 너무 커서 2번(선생님이 방금 한 말)이 안 보여」 → 시안 5종 중 A+C,
@@ -5039,25 +5441,32 @@ document.addEventListener('DOMContentLoaded', function(){ try{ wuApplyStatic(); 
   body .qs-row .qs-get, body .qs-row .wg-btn{ min-height:34px!important; padding:4px 12px!important; font-size:13px!important; }
 }
 </style>
-<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
+<script defer src="/js/mangoi-voice-input.js?v=9"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-early.js?v=2"></script><!-- ⚡ 녹음 경로 «미리 받아쓰기» — 말이 멎으면 먼저 받아 적기 / early transcription -->
+<script defer src="/js/voice-has-speech.js?v=2"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
 <script defer src="/js/ai-diff.js?v=2"></script>
-<script defer src="/js/warmup-howto.js?v=11"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
+<script defer src="/js/warmup-howto.js?v=12"></script><!-- 📘 A.i말하기 사용방법 쉽게 알기 안내창 (2026-10-03) --><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/flow.js?v=23"></script>
 <!-- BUILD:20260813015745 -->
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
-<script src="/js/warmup-auto-talk.js?v=8" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
-<script src="/js/warmup-facetalk.js?v=4" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
-<script src="/js/warmup-touch-bar.js?v=2" defer></script>
+<script src="/js/warmup-auto-talk.js?v=10" defer></script><!-- ✨ 자동 말하기(베타) — 기본은 버튼 모드 -->
+<script src="/js/ftk-call.js?v=7" defer></script><!-- 📞 얼굴 대화를 영상통화 화면처럼(2026-11-08) -->
+<script src="/js/warmup-facetalk.js?v=13" defer></script><!-- 😊 선생님 얼굴 누르면 «얼굴과만 자동 대화» (2026-09-26 사장님 1안 — 자동 말하기 엔진을 켜고 모양만 바꿈) -->
+<script src="/js/warmup-touch-bar.js?v=3" defer></script>
 <script src="/js/warmup-dock.js?v=2" defer></script><!-- 📱 세로 화면: 아래 버튼 줄 자동 접힘·손잡이 (2026-11-02) --><!-- 📱 터치 기기 전용 아래 3칸 바(도움·말하기·글쓰기) — 2026-09-26 시안 4 -->
-<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
+<link rel="stylesheet" href="/css/ai-speaking-progress.css?v=6">
+<script defer src="/js/ai-speaking-progress-view.js?v=12"></script>
+<script defer src="/js/ai-speaking-progress.js?v=13"></script>
+<script src="/js/ai-speaking-settings.js?v=4" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — setCorrMode 가 씀 (2026-11-04) -->
+<script src="/js/ai-speaking-session.js?v=10" defer></script>
+<style>#wgSpeakingProgress{overflow-wrap:anywhere;max-width:100%;line-height:1.5}#wgSpeakingProgress .ai-progress-skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}#wgSpeakingProgress dd{margin:0}#wgSpeakingProgress .ai-progress-correction{padding:8px;border:1px solid currentColor;border-radius:8px}</style>
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
-<script defer src="/js/warmup-photo-icons.js?v=5"></script>
+<script defer src="/js/warmup-photo-icons.js?v=7"></script>
 <link rel="stylesheet" href="/css/warmup-flow.css?v=6" />
-<script defer src="/js/warmup-flow.js?v=5"></script>
-<script defer src="/js/warmup-points.js?v=1"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
+<script defer src="/js/warmup-flow.js?v=8"></script>
+<script defer src="/js/warmup-points.js?v=5"></script><!-- 🪙 «끝내고 요약 보기» 창에 받은 포인트 한 줄 (2026-11-03) / points line in the summary -->
 <link rel="stylesheet" href="/css/warmup-topbar.css?v=2" />
 <script defer src="/js/warmup-topbar.js?v=2"></script><!-- 📱 휴대폰 위쪽 버튼 한 줄 — 세로 B(아이콘 한 줄) · 가로 C(떠 있는 바 + 숨기기) (2026-11-03) / one-row top bar on phones -->
 <link rel="stylesheet" href="/css/warmup-body.css?v=1" />

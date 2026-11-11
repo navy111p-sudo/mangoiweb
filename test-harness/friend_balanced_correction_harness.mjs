@@ -42,7 +42,7 @@ const ok = (name, cond, extra = '') => {
 const count = (hay, needle) => String(hay).split(needle).length - 1;
 
 const F = load('friend-correction-flow.ts');
-const API = fs.readFileSync(path.join(CF, 'src/api-ai.ts'), 'utf8');
+const API = fs.readFileSync(path.join(CF, 'src/api-ai.ts'), 'utf8').replace(/\r\n/g, '\n');
 
 /* 사장님 화면의 그 문장 / The sentence from the owner's screen */
 const SAID = 'My birthday was tomorrow.';
@@ -211,11 +211,11 @@ console.log('\nE. 진짜 Worker 라우트(/api/ai/chat-friend) — 메모리 D1 
   const post = (route, body, token) => worker.fetch(new Request('https://mangoi.ai' + route, { method: 'POST', headers: {
     'Content-Type': 'application/json', Origin: 'https://mangoi.ai', ...(token ? { Authorization: 'Bearer ' + token } : {}),
   }, body: JSON.stringify(body) }), env, { waitUntil() {}, passThroughOnException() {} });
-  async function turn(mode, msg, stream, level = 'S6') {
+  async function turn(mode, msg, stream, level = 'S6', timing) {
     rechecks = 0; evs.length = 0;
     const t0 = Date.now();
     const auth = await (await post('/api/ai/chat-guest-token', {})).json();
-    const res = await post('/api/ai/chat-friend', { uid: auth.uid, msg, correction_mode: mode, stream, level }, auth.token);
+    const res = await post('/api/ai/chat-friend', { uid: auth.uid, msg, correction_mode: mode, correction_timing: timing, stream, level }, auth.token);
     let body, events = [], firstTAt = 0;
     if (stream) {
       /* 이벤트가 «도착한 시각» 도 잰다 — 미리듣기가 다른 처리보다 먼저 나갔는지 보려고. */
@@ -249,6 +249,13 @@ console.log('\nE. 진짜 Worker 라우트(/api/ai/chat-friend) — 메모리 D1 
     ok(`E-3 [${tag}] 다시 묻기는 한 번만 부른다`, rechecks === 1, String(rechecks));
     ok(`E-4 [${tag}] 학생이 들은 문장 그대로 저장된다(다음 턴 기록)`, r.saved === r.body.reply, r.saved);
     if (stream) ok('E-5 [SSE] 교정 턴에는 질문을 먼저 흘려보내지 않는다(미리듣기 0문장)', r.t.length === 0, r.t);
+  }
+  main = { reply: Q, fix: FIX };
+  for (const stream of [0, 1]) {
+    const r = await turn('focused', SAID, stream, 'S6', 'after-lesson');
+    ok('deferred timing returns the verified fix for review only',
+      r.body.fix === null && r.body.repeat === false && r.body.review_fix?.now === FIX.now &&
+        !r.body.reply.includes(FIX.now) && r.saved === r.body.reply, r.body);
   }
   // ② 맞는 문장 — 다시 묻기도 «없음» → 미리듣기는 그대로 나가고, 답장도 그대로(칭찬 포함)
   //    ⚠️ 학생 문장은 기존 답장 손질(공감·눈높이)이 칭찬을 따로 떼지 않는 것으로 고른다 —

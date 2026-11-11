@@ -55,6 +55,8 @@ async function setup(w,h,query=''){
       requests.push(body);
       const zh=body.lang==='zh';
       await route.fulfill({json:{ai_response:zh?'你想学什么？':requests.length===1?'What would you like to learn?':'Pasta sounds good. Who would you cook it for?',
+        ...(body.correction_timing === 'after-lesson' && body.student_input?.includes('Pasta!')
+          ? {review_fix:{now:'I would like to cook pasta.'}} : {}),
         speaking_help:zh?{words:['想','学'],frame:'我想学____。',example:'我想学做饭。'}:{words:['cook','family'],frame:'I want to cook for ____.',example:'I want to cook for my family.'},answer_chips:[]}});return;
     }
     if(url.pathname==='/api/warmup/context'){await route.fulfill({json:{ok:true,textbook:'SIU ADVANCE 009',sentences:['I want to learn something new.']}});return;}
@@ -89,8 +91,11 @@ try{
     ck(w+' the example sentence itself is the button (no extra edit buttons)',await page.locator('#wgHelpActions .wg-say').count()===1&&!(await page.locator('#wgHelp').innerText()).includes('입력칸에 넣고 고치기'));
     await page.locator('#wgHelpActions .wg-say').click();
     ck(w+' example fills draft without submitting',await page.locator('#log .msg.me').count()===0);
-    await page.locator('#inp').fill('I want to cook pasta.');await page.locator('#sendBtn').click();
+    await page.evaluate(()=>localStorage.setItem('mangoi_ai_correction_timing','after-lesson'));
+    await page.locator('#inp').fill('I want to cook pasta. Pasta!');await page.locator('#sendBtn').click();
     await page.waitForFunction(()=>!sending);
+    ck(w+' sends the selected correction timing',requests.some(r=>r.correction_timing==='after-lesson'&&r.student_input?.includes('Pasta!')));
+    ck(w+' deferred correction stays out of live cards',await page.locator('#log .fix-card').count()===0);
     ck(w+' one submitted answer',await page.locator('#log .msg.me').count()===1);
     ck(w+' latest question visible',(await page.locator('#log').innerText()).includes('Who would you cook it for'));
     ck(w+' older turn collapsed',await page.locator('#log .msg.ai:visible').count()===1);
@@ -102,6 +107,10 @@ try{
     await page.locator('#wgFinish').click();
     ck(w+' finish stops microphone',await page.evaluate(()=>__mic.abort===1&&!_recognizing&&_warmPaused));
     ck(w+' summary contains actual reply',(await page.locator('#wgSummaryText').innerText()).includes('I want to cook pasta.'));
+    ck(w+' summary counts unique English words from student replies',
+      (await page.locator('#wgSummaryText').innerText()).includes('Unique English words in recent replies / 최근 답변의 고유 영어 단어: 5'));
+    ck(w+' deferred correction appears in the summary',
+      (await page.locator('#wgSummaryText').innerText()).includes('I would like to cook pasta.'));
     ck(w+' summary distinguishes example assistance',(await page.locator('#wgSummaryText').innerText()).includes('With example / 예시 사용: 1'));
     await page.locator('#wgSummaryBack').click();
     ck(w+' returning does not restart mic',await page.evaluate(()=>__mic.start===1&&!_warmPaused));

@@ -1,0 +1,243 @@
+// Shipped translation IIFE + shared-PDF loader. Synthetic DOM, clock and promises only.
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {readFileSync,existsSync} from 'node:fs';import vm from 'node:vm';import {createRequire} from 'node:module';
+const pub=process.env.KAYE_PUBLIC_SOURCE || fileURLToPath(new URL('../cloudflare-deploy/public/',import.meta.url));
+const chat=readFileSync(pub+'/js/idx-vc-chat.js','utf8'),mainOnly=readFileSync(pub+'/js/idx-main.js','utf8'),annotations=existsSync(pub+'/js/idx-vc-pdf-annotations.js')?readFileSync(pub+'/js/idx-vc-pdf-annotations.js','utf8'):'';
+const main=annotations+'\n'+mainOnly;
+const flush=async()=>{for(let i=0;i<50;i++)await Promise.resolve()};
+const defer=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}};
+let pass=0,fail=0;async function test(n,f){try{await f();pass++;console.log('PASS '+n)}catch(e){fail++;console.log('FAIL '+n+' '+e.message)}}
+function messaging(mode='ok'){
+ const timers=new Map(),requests=[],sent=[],notes=[],wait=defer();let id=0,accept=true;
+ const store=new Map([['mangoi_vc_chat_tr','en'],['mangoi_lang','ko']]);
+ const input={value:'안녕하세요',placeholder:'Message',focus(){}};
+ const c={AbortController,Promise,console:{warn(){}},vcRoomId:'A',vcUserId:'u',vcConn:{},vcChatTarget:null,
+ localStorage:{getItem:k=>store.get(k)||'',setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)},
+ vcAccountSnapshot:()=>store.get('account')||'account-A',vcAddChatSystem:s=>notes.push(s),
+ document:{readyState:'loading',getElementById:k=>k==='vc-chat-input'?input:null,addEventListener(){}},addEventListener(){},
+ setTimeout(f,ms){timers.set(++id,{f,ms});return id},clearTimeout(i){timers.delete(i)},
+ fetch(u,o){requests.push({u,o});if(mode==='hang')return requests.length===1?wait.promise:new Promise(()=>{});if(mode==='network')return Promise.reject(Error('synthetic network'));if(mode==='body-hang')return Promise.resolve({ok:true,json:()=>wait.promise});return Promise.resolve({ok:mode!=='http',json:async()=>{if(mode==='json')throw SyntaxError('synthetic JSON');return {ok:mode!=='bad',map:mode==='empty'?{}:{'안녕하세요':mode==='identity'?'안녕하세요':'Hello'}}}})},
+ vcSendChat(){const draft=input.__vcUnsentScope;if(draft&&draft.text===input.value.trim()&&(draft.room!==c.vcRoomId||draft.self!==c.vcUserId||draft.account!==c.vcAccountSnapshot()||draft.target!==((c.vcChatTarget&&c.vcChatTarget.userId)||null))){notes.push('base draft scope blocked');return}if(accept){sent.push(input.value);input.value=''}},vcReceiveChat(){}};
+ c.window=c;vm.runInNewContext(chat,c);
+ return{c,input,store,timers,requests,sent,notes,wait,deny:()=>accept=false,async tick(){for(const [i,t]of [...timers]){timers.delete(i);t.f()}await flush()}};
+}
+await test('translation success sends once',async()=>{const h=messaging();h.c.vcSendChat();await flush();assert.deepEqual(h.sent,['Hello']);assert.equal(h.input.value,'');assert.equal(h.timers.size,0)});
+for(const mode of ['network','http','json','bad','empty','identity'])await test('unconfirmed '+mode+' retains original and explains',async()=>{const h=messaging(mode);h.c.vcSendChat();await flush();assert.equal(h.sent.length,0);assert.equal(h.input.value,'안녕하세요');assert.ok(h.notes.length);assert.equal(h.timers.size,0)});
+for(const mode of ['hang','body-hang'])await test('deadline '+mode+' aborts without sending and unlocks retry',async()=>{const h=messaging(mode);h.c.vcSendChat();await flush();await h.tick();assert.equal(h.sent.length,0);assert.equal(h.input.value,'안녕하세요');assert.ok(h.requests[0].o.signal?.aborted);h.c.vcSendChat();await flush();assert.equal(h.requests.length,2);h.wait.resolve({ok:true,json:async()=>({ok:true,map:{'안녕하세요':'Late'}})});await flush();assert.equal(h.sent.length,0)});
+for(const boundary of ['room','self','account','recipient','connection','draft','language'])await test('pending translation cancelled at '+boundary,async()=>{const h=messaging('hang');h.c.vcSendChat();await flush();if(boundary==='room')h.c.vcRoomId='B';if(boundary==='self')h.c.vcUserId='v';if(boundary==='account')h.store.set('account','B');if(boundary==='recipient')h.c.vcChatTarget={userId:'private'};if(boundary==='connection')h.c.vcConn={};if(boundary==='draft')h.input.value='새로운 입력';if(boundary==='language')h.store.set('mangoi_vc_chat_tr','zh');h.wait.resolve({ok:true,json:async()=>({ok:true,map:{'안녕하세요':'Hello'}})});await flush();assert.equal(h.sent.length,0);assert.equal(h.input.value,boundary==='draft'?'새로운 입력':'안녕하세요')});
+await test('repeated enter shares one pending translation',async()=>{const h=messaging('hang');h.c.vcSendChat();h.c.vcSendChat();await flush();assert.equal(h.requests.length,1);h.wait.resolve({ok:true,json:async()=>({ok:true,map:{'안녕하세요':'Hello'}})});await flush();assert.deepEqual(h.sent,['Hello'])});
+await test('failed socket write restores original scoped draft',async()=>{const h=messaging();h.deny();h.c.vcSendChat();await flush();assert.equal(h.input.value,'안녕하세요');assert.equal(h.input.__vcUnsentScope.text,'안녕하세요');assert.equal(h.sent.length,0)});
+await test('old scoped draft cannot bypass the base check through translation',async()=>{const h=messaging();h.input.__vcUnsentScope={room:'old',self:'u',account:'account-A',target:null,text:h.input.value};h.c.vcSendChat();await flush();assert.equal(h.requests.length,0);assert.equal(h.sent.length,0)});
+await test('translation off preserves original send',async()=>{const h=messaging();h.store.delete('mangoi_vc_chat_tr');h.c.vcSendChat();await flush();assert.deepEqual(h.sent,['안녕하세요']);assert.equal(h.requests.length,0)});
+const begin=main.indexOf('window.vcApplySharedPdf = function'),end=main.indexOf('window.vcStartPdfPoll = function',begin);assert.ok(begin>0&&end>begin);
+function pdf(){const loads=[],render=[];const c={console:{warn(){}},location:{origin:'https://fixture.invalid'},Date,vcRoomId:'A',vcUserId:'u',vcConn:{},vcAccountSnapshot:()=>c.account||'A',pdfPageNum:1,pdfCurrentId:'',vcSwitchTab(){},pdfRender(){render.push(c.pdfPageNum)},pdfLoad(url){const d=defer();loads.push({url,...d});return d.promise}};c.window=c;vm.createContext(c);vm.runInContext(main.slice(begin,end),c);return{c,loads,render}}
+for(const outcome of ['resolve','reject'])for(const boundary of ['room','self','account','connection'])await test('stale PDF '+outcome+' cancelled at '+boundary,async()=>{const h=pdf();h.c.vcApplySharedPdf('/old.pdf','pdf',9);await flush();if(boundary==='room')h.c.vcRoomId='B';if(boundary==='self')h.c.vcUserId='v';if(boundary==='account')h.c.account='B';if(boundary==='connection')h.c.vcConn={};h.loads[0][outcome]();await flush();assert.equal(h.render.length,0);assert.equal(h.loads.length,1);assert.equal(h.c._vcShownPdfUrl,undefined)});
+await test('newer book wins despite reversed load completion',async()=>{const h=pdf();h.c.vcApplySharedPdf('/old.pdf','pdf',9);await flush();h.c.vcApplySharedPdf('/new.pdf','pdf',3);await flush();h.loads[1].resolve();await flush();h.loads[0].resolve();await flush();assert.equal(h.c._vcShownPdfUrl,'https://fixture.invalid/new.pdf');assert.equal(h.c.pdfPageNum,3)});
+await test('return to already shown book invalidates a pending different book',async()=>{const h=pdf();h.c._vcShownPdfUrl='https://fixture.invalid/a.pdf';h.c.vcApplySharedPdf('/b.pdf','pdf',9);await flush();h.c.vcApplySharedPdf('/a.pdf','pdf',3);await flush();assert.equal(h.loads.length,2);h.loads[1].resolve();await flush();h.loads[0].resolve();await flush();assert.equal(h.c._vcShownPdfUrl,'https://fixture.invalid/a.pdf');assert.equal(h.c.pdfPageNum,3)});
+await test('current PDF failure still retries and restores its page',async()=>{const h=pdf();h.c.vcApplySharedPdf('/book.pdf','pdf',4);await flush();h.loads[0].reject();await flush();assert.equal(h.loads.length,2);h.loads[1].resolve();await flush();assert.equal(h.c.pdfPageNum,4);assert.equal(h.c._vcShownPdfUrl,'https://fixture.invalid/book.pdf')});
+const ts=createRequire(new URL('../cloudflare-deploy/package.json',import.meta.url))('typescript');
+const ast=ts.createSourceFile('main.js',main,ts.ScriptTarget.Latest,true);
+const realLoad=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='pdfLoad').getText(ast);
+function withRealLoader(){const h=pdf();Object.assign(h.c,{URL,TextEncoder,document:{getElementById:()=>null},setTimeout:()=>0,pdfDoc:{id:'a'},pdfAnnotations:{},pdfAnnotationsByDoc:new Map(),pdfBuildImageDoc(url){const d=defer();h.loads.push({url,...d});return d.promise}});vm.runInContext('let pdfLoadGeneration=0;'+realLoad,h.c);for(const name of ['pdfAnnotationScope','vcResetEarlyPdfAnnotations','vcPdfAnnotationGate','vcFlushPdfAnnotations','vcReplayPdfAnnotations']){const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name);if(f)vm.runInContext(f.getText(ast),h.c)}return h}
+await test('real PDF loader cannot overwrite a return to the displayed book',async()=>{const h=withRealLoader();h.c._vcShownPdfUrl='https://fixture.invalid/a.png';h.c._vcCurrentPdfUrl=h.c._vcShownPdfUrl;h.c.vcApplySharedPdf('/b.png','image',9);await flush();h.c.vcApplySharedPdf('/a.png','image',3);await flush();assert.equal(h.loads.length,2);h.loads[1].resolve({id:'a'});await flush();h.loads[0].resolve({id:'b'});await flush();assert.equal(h.c.pdfDoc.id,'a');assert.equal(h.c.pdfPageNum,3);assert.equal(h.c._vcShownPdfUrl,'https://fixture.invalid/a.png')});
+await test('real loader false sentinel is not reported as a displayed book',async()=>{const h=withRealLoader();h.c.vcApplySharedPdf('/old.png','image',9);await flush();const manual=h.c.pdfLoad('/manual.png','image');await flush();h.loads[1].resolve({id:'manual'});await manual;h.loads[0].resolve({id:'old'});await flush();assert.equal(h.c.pdfDoc.id,'manual');assert.equal(h.c._vcShownPdfKey,'');assert.equal(h.c._vcShownPdfUrl,'')});
+await test('same book pending reconnect retries actual loader and restores page nine',async()=>{const h=withRealLoader();h.c.vcApplySharedPdf('/book.png','image',9);h.c.vcUserId='rejoined';h.c.vcApplySharedPdf('/book.png','image',9);await flush();assert.equal(h.loads.length,2);h.loads[1].resolve({id:'new'});await flush();h.loads[0].resolve({id:'old'});await flush();assert.equal(h.c.pdfDoc.id,'new');assert.equal(h.c.pdfPageNum,9)});
+await test('stopped share cancels actual loader before document commit',async()=>{const h=withRealLoader();h.c.document.getElementById=()=>({blur(){},getContext:()=>({clearRect(){}})});const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='pdfClearRemote');vm.runInContext(f.getText(ast),h.c);h.c.vcApplySharedPdf('/book.png','image',9);await flush();h.c.pdfClearRemote();h.loads[0].resolve({id:'late'});await flush();assert.equal(h.c.pdfDoc,null)});
+await test('failed same-book load can retry after both formats fail',async()=>{const h=pdf();h.c.vcApplySharedPdf('/book.pdf','pdf',9);h.loads[0].reject(Error('first'));await flush();h.loads[1].reject(Error('second'));await flush();h.c.vcApplySharedPdf('/book.pdf','pdf',9);assert.equal(h.loads.length,3);h.loads[2].resolve();await flush();assert.equal(h.c.pdfPageNum,9)});
+await test('recipient cancellation refreshes current public hint without sending private draft',async()=>{const h=messaging('hang');h.input.getAttribute=()=> 'Public message';h.c.miIsEn=()=>true;h.c.vcRefreshChatTargets=()=>{};for(const name of ['vcRefreshChatPlaceholder','vcSetChatTarget']){const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name);if(f)vm.runInNewContext(f.getText(ast),h.c)}h.c.vcSetChatTarget('alice','Alice');assert.match(h.input.placeholder,/Alice/);h.c.vcSendChat();h.c.vcSetChatTarget(null);h.wait.resolve({ok:true,json:async()=>({ok:true,map:{'안녕하세요':'Hello'}})});await flush();assert.equal(h.sent.length,0);assert.equal(h.input.placeholder,'Public message');h.store.delete('mangoi_vc_chat_tr');h.c.vcSendChat();await flush();assert.deepEqual(h.sent,['안녕하세요']);assert.equal(h.c.vcChatTarget,null)});
+
+await test('actual existing-users reentry path restores pending ninth page after user id changes',async()=>{const h=withRealLoader();h.c.console.log=()=>{};const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='vcHandleMessage');vm.runInContext(f.getText(ast),h.c);const msg={type:'existing-users',data:{users:[],pdfState:{url:'/book.png',kind:'image',currentPage:9}}};h.c.vcHandleMessage(msg);h.c.vcUserId='reentered';h.c.vcHandleMessage(msg);assert.equal(h.loads.length,2);h.loads[0].resolve({id:'old'});h.loads[1].resolve({id:'new'});await flush();assert.equal(h.c.pdfDoc.id,'new');assert.equal(h.c.pdfPageNum,9)});
+await test('staff stop cancels pending actual loader; denied student stop preserves it',async()=>{for(const allowed of [false,true]){const h=withRealLoader();h.c.document.getElementById=()=>({blur(){},getContext:()=>({clearRect(){}})});h.c.vcCanControlTextbook=()=>allowed;h.c.vcTextbookDenied=()=>{};h.c.vcConn.send=()=>{};const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='pdfStopShare');vm.runInContext(f.getText(ast),h.c);h.c.vcApplySharedPdf('/book.png','image',9);h.c.pdfStopShare();h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfDoc?.id,allowed?undefined:'book');if(allowed)assert.equal(h.c.pdfDoc,null)}});
+function annotationWorld(){const h=withRealLoader();h.c.console.log=()=>{};h.c._pdfRemoteStrokes={};h.c.pdfReceiveAnnoStart=d=>{(h.c.pdfAnnotations[d.page] ||= []).push({_id:d.id})};h.c.pdfReceiveAnnoPoint=()=>{};h.c.pdfReceiveAnnoText=d=>{(h.c.pdfAnnotations[d.page] ||= []).push(d.stroke)};vm.runInContext(ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='vcHandleMessage').getText(ast),h.c);return h}
+const replay=(url='/book.png',id='fixture')=>({type:'pdf-anno-replay',data:{documentUrl:url,ops:[{t:'stroke',d:{page:3,id,points:[[0.1,0.2]]}}]}});
+await test('replay waits for actual document commit and keeps page scope',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',9);h.c.vcHandleMessage(replay());assert.equal(h.c.pdfAnnotations[3],undefined);h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfPageNum,9);assert.equal(h.c.pdfAnnotations[3][0]._id,'fixture')});
+await test('pending replay cannot cross books or connections',async()=>{for(const boundary of ['book','connection']){const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',9);h.c.vcHandleMessage(replay());if(boundary==='book')h.c.vcApplySharedPdf('/new.png','image',2);else{h.c.vcConn={};h.c.vcApplySharedPdf('/book.png','image',9)}h.loads[1].resolve({id:'new'});h.loads[0].resolve({id:'old'});await flush();assert.equal(h.c.pdfAnnotations[3],undefined)}});
+await test('live notes received while loading replay after the document',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',1);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/book.png',page:2,stroke:{text:'synthetic'}}});h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfAnnotations[2][0].text,'synthetic');h.c.vcApplySharedPdf('/book.png','image',3);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/book.png',page:4,stroke:{text:'later'}}});assert.equal(h.c.pdfAnnotations[4][0].text,'later')});
+await test('wrong document replay is discarded and queue byte overflow fails closed',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',1);h.c.vcHandleMessage(replay('/other.png'));assert.equal(h.c.__vcPdfAnnoContext.queue.length,0);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/book.png',page:2,stroke:{text:'x'.repeat(4*1024*1024)}}});assert.equal(h.c.__vcPdfAnnoContext.failed,true);h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfAnnotations[2],undefined)});
+await test('scoped snapshot replay is idempotent and a new class isolates the same URL',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',3,null,null,false,1);const first=replay('/book.png','old');first.data.annotationSession=1;h.c.vcHandleMessage(first);h.loads[0].resolve({id:'first'});await flush();h.c.vcHandleMessage(first);assert.equal(h.c.pdfAnnotations[3].length,1);h.c.vcApplySharedPdf('/book.png','image',3,null,null,false,2);assert.equal(h.loads.length,2);h.c.vcHandleMessage(first);const next=replay('/book.png','new');next.data.annotationSession=2;h.c.vcHandleMessage(next);h.loads[1].resolve({id:'next'});await flush();assert.equal(h.c.pdfAnnotations[3].length,1);assert.equal(h.c.pdfAnnotations[3][0]._id,'new')});
+await test('page change while pending retains same-document queued annotations',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',9);h.c.vcHandleMessage(replay());h.c.vcApplySharedPdf('/book.png','image',4);assert.equal(h.loads.length,2);h.loads[1].resolve({id:'latest'});h.loads[0].resolve({id:'stale'});await flush();assert.equal(h.c.pdfPageNum,4);assert.equal(h.c.pdfAnnotations[3][0]._id,'fixture')});
+await test('shipped annotation sender carries server document/session proof',async()=>{const h=annotationWorld(),sent=[];h.c.vcConn.send=m=>sent.push(m);const f=ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='pdfAnnoSend');vm.runInContext(f.getText(ast),h.c);h.c.vcApplySharedPdf('/book.png','image',3,null,null,false,7);h.loads[0].resolve({id:'book'});await flush();h.c.pdfAnnoSend('pdf-anno-text',{page:2,stroke:{text:'fixture'}});assert.equal(sent[0].data.annotationSession,7);assert.equal(sent[0].data.documentUrl,'/book.png')});
+await test('annotation queue count limit drops whole incomplete replay',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',1);for(let i=0;i<2001;i++)h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/book.png',page:1,stroke:{text:'x'}}});assert.equal(h.c.__vcPdfAnnoContext.failed,true);assert.equal(h.c.__vcPdfAnnoContext.queue.length,0);h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfAnnotations[1],undefined)});
+await test('staff stop sender captures document/session before cancellation clears globals',async()=>{const h=withRealLoader(),sent=[];h.c.document.getElementById=()=>({blur(){},getContext:()=>({clearRect(){}})});h.c.vcCanControlTextbook=()=>true;h.c.vcConn.send=m=>sent.push(m);vm.runInContext(ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='pdfStopShare').getText(ast),h.c);h.c.vcApplySharedPdf('/book.png','image',1,null,null,false,7);h.c.pdfStopShare();assert.equal(sent[0].data.annotationSession,7);assert.equal(sent[0].data.documentUrl,'/book.png');assert.equal(h.c.__vcPdfAnnotationSession,undefined)});
+await test('page broadcast debounce cannot carry an old page into a new book',async()=>{for(const boundary of ['none','book','session','connection','room']){const h=withRealLoader(),sent=[],timers=[];h.c.vcCanControlTextbook=()=>true;h.c.vcConn.send=m=>sent.push(m);h.c.setTimeout=f=>{timers.push(f);return timers.length};h.c.clearTimeout=()=>{};h.c._pdfSyncShownKey=()=>{};h.c.pdfPageNum=9;h.c._vcCurrentPdfUrl='https://fixture.invalid/book.png';h.c.__vcPdfAnnotationSource='/book.png';h.c.__vcPdfAnnotationSession=7;vm.runInContext('let _pdfBcTimer=null;'+ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='_pdfBroadcastPage').getText(ast),h.c);h.c._pdfBroadcastPage();if(boundary==='book')h.c._vcCurrentPdfUrl='https://fixture.invalid/new.png';if(boundary==='session')h.c.__vcPdfAnnotationSession=8;if(boundary==='connection')h.c.vcConn={send:m=>sent.push(m)};if(boundary==='room')h.c.vcRoomId='B';timers[0]();assert.equal(sent.length,boundary==='none'?1:0);if(sent.length){assert.equal(sent[0].data.annotationSession,7);assert.equal(sent[0].data.currentPage,9)}}});
+await test('unversioned legacy replay holds rather than deleting newer local work',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/book.png','image',3);h.loads[0].resolve({id:'book'});await flush();h.c.pdfAnnotations[3]=[{_id:'own',points:[[0,0]]}];h.c.vcHandleMessage({type:'pdf-anno-replay',data:{documentUrl:'/book.png',ops:[{t:'pdf-anno-clear',d:{pages:[3]}}]}});assert.equal(h.c.pdfAnnotations[3][0]._id,'own')});
+function delayedModuleWorld(){const h=annotationWorld();h.c.vcFlushPdfAnnotations=undefined;h.c.pdfAnnoElForPage=()=>null;h.c.pdfRedrawAnno=()=>{};const listeners={},scripts=[],timers=[];h.c.addEventListener=(event,fn)=>listeners[event]=fn;h.c.document.createElement=()=>({});h.c.document.head={appendChild:s=>scripts.push(s)};h.c.setTimeout=(fn,ms)=>{timers.push({fn,ms});return timers.length};const start=mainOnly.indexOf('// The deferred receiver may still be downloading'),end=mainOnly.indexOf('function vcHandleMessage(msg)',start);assert.ok(start>=0&&end>start);vm.runInContext(mainOnly.slice(start,end),h.c);return{...h,listeners,scripts,timers,load(){vm.runInContext(annotations,h.c)}}}
+for(const order of ['module-first','document-first'])await test('deferred receiver '+order+' restores early real-frame replay',async()=>{const h=delayedModuleWorld();h.c.vcApplySharedPdf('/book.png','image',3);h.c.vcHandleMessage(replay());assert.equal(h.c.__vcEarlyPdfAnnotations.length,1);if(order==='document-first'){h.loads[0].resolve({id:'book'});await flush()}h.load();if(order==='module-first'){assert.equal(h.c.pdfAnnotations[3],undefined);h.loads[0].resolve({id:'book'});await flush()}assert.equal(h.c.pdfAnnotations[3][0]._id,'fixture')});
+await test('deferred receiver discards early frames from a previous connection',async()=>{const h=delayedModuleWorld();h.c.vcApplySharedPdf('/book.png','image',3);h.c.vcHandleMessage(replay());h.c.vcConn={};h.load();h.loads[0].resolve({id:'old'});await flush();assert.equal(h.c.pdfAnnotations[3],undefined)});
+await test('deferred module retry is bounded and online can recover it',async()=>{const h=delayedModuleWorld();h.c.vcApplySharedPdf('/book.png','image',3);h.c.vcHandleMessage(replay());h.c.vcPdfAnnotationModuleError();for(let i=0;i<2;i++){h.c.vcEnsurePdfAnnotationModule();h.scripts.at(-1).onerror()}const count=h.scripts.length;h.c.vcEnsurePdfAnnotationModule();assert.equal(h.scripts.length,count);h.listeners.online();assert.equal(h.scripts.length,count+1);h.load();assert.equal(h.c.__vcPdfAnnotationModuleReady,true)});
+await test('manual document commit supersedes an old coordinator annotation scope',async()=>{const h=annotationWorld();h.c.vcApplySharedPdf('/old.png','image',3);h.loads[0].resolve({id:'old'});await flush();const loading=h.c.pdfLoad('/manual.png','image');h.loads[1].resolve({id:'manual'});await loading;h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/manual.png',page:1,stroke:{text:'manual-note'}}});assert.equal(h.c.pdfAnnotations[1][0].text,'manual-note')});
+await test('expired transport buffer is held without blocking later live notes',async()=>{const h=annotationWorld();let now=100000;h.c.Date={now:()=>now};h.c.vcApplySharedPdf('/book.png','image',3);h.c.vcHandleMessage(replay());now+=30001;h.c.vcHandleMessage(replay());assert.equal(h.c.__vcPdfAnnoContext.failed,true);h.loads[0].resolve({id:'book'});await flush();assert.equal(h.c.pdfAnnotations[3],undefined);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/book.png',page:1,stroke:{text:'current'}}});assert.equal(h.c.pdfAnnotations[1][0].text,'current')});
+await test('failed B load before deferred module cannot write B notes into displayed A',async()=>{const h=delayedModuleWorld();h.c.pdfDoc={id:'A'};h.c._vcCurrentPdfUrl='https://fixture.invalid/A.png';h.c.pdfAnnotations[1]=[{text:'A-note'}];h.c.vcApplySharedPdf('/B.png','image',1);h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/B.png',page:1,stroke:{text:'B-queued'}}});h.loads[0].reject(Error('synthetic B failure'));await flush();assert.equal(h.c.__vcPdfAnnoContext.failed,true);h.load();h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/B.png',page:1,stroke:{text:'B-late'}}});assert.equal(h.c.pdfDoc.id,'A');assert.deepEqual(h.c.pdfAnnotations[1],[{text:'A-note'}]);h.c.vcApplySharedPdf('/B.png','image',1);h.loads[1].resolve({id:'B'});await flush();h.c.vcHandleMessage({type:'pdf-anno-text',data:{documentUrl:'/B.png',page:1,stroke:{text:'B-valid'}}});assert.equal(h.c.pdfDoc.id,'B');assert.equal(h.c.pdfAnnotations[1][0].text,'B-valid')});
+
+for (const stop of ['pdfClearRemote', 'pdfStopShare']) {
+    await test(stop + ' retires deferred clear before same-book resume', async () => {
+        const h = delayedModuleWorld();
+        h.c.document.getElementById = () => ({ blur() {}, getContext: () => ({ clearRect() {} }) });
+        h.c.vcCanControlTextbook = () => true;
+        h.c.vcConn.send = () => {};
+        h.c.pdfApplyClear = pages => pages.forEach(page => { h.c.pdfAnnotations[page] = []; });
+        vm.runInContext(ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === stop).getText(ast), h.c);
+        h.c.vcApplySharedPdf('/book.png', 'image', 1);
+        h.loads[0].resolve({ id: 'old' });
+        await flush();
+        h.c.vcHandleMessage({ type: 'pdf-anno-clear', data: { documentUrl: '/book.png', pages: [1] } });
+        assert.equal(h.c.__vcEarlyPdfAnnotations.length, 1);
+        h.c.__vcEarlyPdfPointer = { data: { sticky: true } };
+        h.c[stop]();
+        assert.equal(h.c.__vcEarlyPdfPointer, null);
+        assert.equal(h.c.__vcEarlyPdfAnnotationBytes, 0);
+        // A frame arriving while sharing is stopped also belongs to no open document.
+        h.c.vcHandleMessage({ type: 'pdf-anno-clear', data: { documentUrl: '/book.png', pages: [1] } });
+        h.c.vcApplySharedPdf('/book.png', 'image', 1);
+        h.loads[1].resolve({ id: 'resumed' });
+        await flush();
+        h.c.pdfAnnotations[1] = [{ text: 'new-note' }];
+        h.load();
+        assert.equal(h.c.pdfAnnotations[1][0]?.text, 'new-note');
+        // A new clear in the current sharing session must still work.
+        h.c.vcHandleMessage({ type: 'pdf-anno-clear', data: { documentUrl: '/book.png', pages: [1] } });
+        assert.equal(h.c.pdfAnnotations[1].length, 0);
+    });
+}
+
+await test('denied stop preserves active deferred annotations', async () => {
+    const h = delayedModuleWorld();
+    h.c.vcCanControlTextbook = () => false;
+    h.c.vcTextbookDenied = () => {};
+    vm.runInContext(ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'pdfStopShare').getText(ast), h.c);
+    h.c.vcApplySharedPdf('/book.png', 'image', 3);
+    h.c.vcHandleMessage(replay());
+    h.c.pdfStopShare();
+    assert.equal(h.c.__vcEarlyPdfAnnotations.length, 1);
+    h.load();
+    h.loads[0].resolve({ id: 'book' });
+    await flush();
+    assert.equal(h.c.pdfAnnotations[3][0]._id, 'fixture');
+});
+
+for(const action of ['page','stop'])await test('manual B '+action+' carries actual B rather than leftover A proof',async()=>{
+    const h=withRealLoader(),sent=[],timers=[];h.c.vcCanControlTextbook=()=>true;h.c.vcConn.send=m=>sent.push(m);
+    h.c.document.getElementById=()=>({blur(){},getContext:()=>({clearRect(){}})});
+    h.c.__vcPdfAnnotationSource='/A.png';const loading=h.c.pdfLoad('/B.png','image');h.loads[0].resolve({id:'B'});await loading;
+    h.c.setTimeout=f=>{timers.push(f);return timers.length};h.c.clearTimeout=()=>{};h.c._pdfSyncShownKey=()=>{};
+    const name=action==='page'?'_pdfBroadcastPage':'pdfStopShare';
+    vm.runInContext((action==='page'?'let _pdfBcTimer=null;':'')+ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name).getText(ast),h.c);
+    h.c[name]();if(action==='page')timers[0]();assert.equal(sent[0].data.documentUrl,'/B.png');
+});
+await test('delayed page cannot move the same book after account changes',async()=>{
+    const h=withRealLoader(),sent=[],timers=[];h.c.vcCanControlTextbook=()=>true;h.c.vcConn.send=m=>sent.push(m);
+    h.c.setTimeout=f=>{timers.push(f);return timers.length};h.c.clearTimeout=()=>{};h.c._pdfSyncShownKey=()=>{};h.c._vcCurrentPdfUrl='/book.png';
+    vm.runInContext('let _pdfBcTimer=null;'+ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='_pdfBroadcastPage').getText(ast),h.c);
+    h.c._pdfBroadcastPage();h.c.account='different';timers[0]();assert.equal(sent.length,0);
+});
+
+for(const boundary of ['account','room','session','url'])await test('annotation cache isolates '+boundary+' and restores its original owner',async()=>{
+    const h=withRealLoader();h.c.account='account-A';h.c.__vcPdfAnnotationSession=1;
+    async function load(url){const pending=h.c.pdfLoad(url,'image');h.loads.at(-1).resolve({id:url});await pending;}
+    await load('/A.png');h.c.pdfAnnotations[1]=[{text:'A-owner-note'}];
+    if(boundary==='account')h.c.account='account-B';if(boundary==='room')h.c.vcRoomId='room-B';if(boundary==='session')h.c.__vcPdfAnnotationSession=2;
+    await load(boundary==='url'?'/B.png':'/A.png');
+    assert.equal(h.c.pdfAnnotations[1]?.length||0,0);
+    h.c.pdfAnnotations[1]=[{text:'B-owner-note'}];
+    h.c.account='account-A';h.c.vcRoomId='A';h.c.__vcPdfAnnotationSession=1;
+    await load('/A.png');assert.equal(h.c.pdfAnnotations[1][0].text,'A-owner-note');
+});
+for(const boundary of ['account','room'])await test('manual loader cannot commit across '+boundary+' ownership change',async()=>{
+    const h=withRealLoader();h.c.account='account-A';const before=h.c.pdfDoc;
+    const pending=h.c.pdfLoad('/private-A.png','image');
+    if(boundary==='account')h.c.account='account-B';else h.c.vcRoomId='room-B';
+    h.loads[0].resolve({id:'late-A'});assert.equal(await pending,false);
+    assert.equal(h.c.pdfDoc,before);assert.equal(h.c._vcCurrentPdfUrl,undefined);
+    assert.equal(h.c.pdfAnnotationsByDoc.size,0);assert.equal(h.render.length,0);
+});
+await test('same-account reconnect preserves the same document notes',async()=>{
+    const h=withRealLoader();const first=h.c.pdfLoad('/book.png','image');h.loads[0].resolve({id:'first'});await first;
+    h.c.pdfAnnotations[1]=[{text:'preserve-on-reconnect'}];h.c.vcConn={};h.c.vcUserId='rejoined';
+    const second=h.c.pdfLoad('/book.png','image');h.loads[1].resolve({id:'second'});await second;
+    assert.equal(h.c.pdfAnnotations[1][0].text,'preserve-on-reconnect');
+});
+
+for(const boundary of ['name','uid','role','default-role'])await test('login identity cache handles '+boundary+' changes',async()=>{
+    const h=withRealLoader();const original={uid:'uid-A',name:'Name A'};if(boundary!=='default-role')original.role='student';
+    h.c.account=JSON.stringify(original);
+    async function load(){const pending=h.c.pdfLoad('/book.png','image');h.loads.at(-1).resolve({id:'book'});await pending;}
+    await load();h.c.pdfAnnotations[1]=[{text:'owner-A'}];
+    const next={...original};if(boundary==='name')next.name='Name B';if(boundary==='uid')next.uid='uid-B';if(boundary==='role')next.role='teacher';if(boundary==='default-role')next.role='student';
+    h.c.account=JSON.stringify(next);await load();
+    if(boundary==='name'||boundary==='default-role')assert.equal(h.c.pdfAnnotations[1][0]?.text,'owner-A');
+    else {assert.equal(h.c.pdfAnnotations[1]?.length||0,0);h.c.account=JSON.stringify(original);await load();assert.equal(h.c.pdfAnnotations[1][0].text,'owner-A');}
+});
+
+function epochClientWorld(){
+    const h=annotationWorld(),sent=[],notes=[],timers=new Map();let id=0;const resolved=new Set();
+    h.c.queueMicrotask=queueMicrotask;h.c.crypto={randomUUID:()=>`epoch-request-${++id}`};h.c.showToast=text=>notes.push(text);
+    h.c.setTimeout=(fn,ms)=>{const key=++id;timers.set(key,{fn,ms});return key};h.c.clearTimeout=key=>timers.delete(key);
+    h.c.updateUserCount=()=>{};h.c.vcRegisterRosterIdentity=()=>{};h.c.vcCanControlTextbook=()=>true;
+    h.c.pdfAnnoElForPage=()=>null;h.c.pdfRedrawAnno=()=>{};h.c.pdfApplyClear=pages=>pages.forEach(page=>h.c.pdfAnnotations[page]=[]);
+    h.c.document.getElementById=key=>key==='pdf-canvas'?{getContext:()=>({clearRect(){}})}:key==='pdf-page-info'?{textContent:''}:null;
+    h.c.vcConn={ws:{readyState:1,send:raw=>sent.push(JSON.parse(raw))},send(frame){return h.c.vcPdfEpochSend(frame,this)}};
+    for(const name of ['vcAcceptPdfShareEpoch','pdfAnnoSend','pdfStopShare','pdfClearRemote'])vm.runInContext(ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name).getText(ast),h.c);
+    vm.runInContext(annotations,h.c);vm.runInContext(readFileSync(pub+'/js/idx-vc-pdf-epoch.js','utf8'),h.c);
+    const state=(epoch,revision)=>({url:'/same.png',kind:'image',currentPage:1,shareEpoch:epoch,shareRevision:revision});
+    return{...h,sent,notes,timers,state,async settle(){await flush();for(const load of h.loads){if(!resolved.has(load)){resolved.add(load);load.resolve({id:load.url})}}await flush()},
+        async join(){h.c.vcHandleMessage({type:'room-joined',data:{roomId:'A',userId:'u',userCount:1,epochReady:true,shareEpoch:'e0',shareRevision:1,pdfState:null}},h.c.vcConn.ws);await flush()},
+        async ack(epoch,revision,pdfState){const request=sent.at(-1);h.c.vcHandleMessage({type:'pdf-share-epoch',data:{roomId:'A',epochReady:true,ok:true,epochRequestId:request.data.epochRequestId,shareEpoch:epoch,shareRevision:revision,pdfState}},h.c.vcConn.ws);await this.settle()}};
+}
+await test('protected same-URL stop/re-share rejects retired and missing-epoch clears',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e1',2,h.state('e1',2));
+    const old={type:'pdf-anno-clear',data:{documentUrl:'/same.png',shareEpoch:'e1',pages:[1]}};
+    h.c.pdfStopShare();await h.ack('e2',3,null);h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e3',4,h.state('e3',4));
+    h.c.pdfAnnotations[1]=[{text:'new generation'}];h.c.vcHandleMessage(old);h.c.vcHandleMessage({...old,data:{...old.data,shareEpoch:undefined}});
+    assert.equal(h.c.pdfAnnotations[1][0].text,'new generation');h.c.vcHandleMessage({...old,data:{...old.data,shareEpoch:'e3'}});assert.equal(h.c.pdfAnnotations[1].length,0);
+});
+await test('protected receiver holds late snapshots and stop broadcasts',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e3',4,h.state('e3',4));const doc=h.c.pdfDoc;
+    assert.equal(h.c.vcPdfEpochSnapshot({epochReady:true,shareEpoch:'e1',shareRevision:2,pdfState:null}),false);
+    h.c.vcHandleMessage({type:'pdf-stop-share',data:{epochReady:true,shareEpoch:'e1',shareRevision:2}});assert.equal(h.c.pdfDoc,doc);
+    assert.equal(h.c.__vcPdfShareEpoch,'e3');
+});
+await test('protected raw annotation sender uses current epoch and refuses while control is pending',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e1',2,h.state('e1',2));
+    h.c.pdfAnnoSend('pdf-anno-text',{page:1,stroke:{text:'valid'}});assert.equal(h.sent.at(-1).data.shareEpoch,'e1');
+    h.c.vcConn.send({type:'pdf-stop-share',data:{documentUrl:'/same.png'}});const count=h.sent.length;h.c.pdfAnnoSend('pdf-anno-text',{page:1,stroke:{text:'held'}});assert.equal(h.sent.length,count);
+});
+await test('protected ack for another request or old socket cannot replace the visible document',async()=>{
+    const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});await h.ack('e1',2,h.state('e1',2));const doc=h.c.pdfDoc;
+    const data={roomId:'A',epochReady:true,ok:true,epochRequestId:'not-pending',shareEpoch:'wrong',shareRevision:99,pdfState:{...h.state('wrong',99),url:'/other.png'}};
+    h.c.vcHandleMessage({type:'pdf-share-epoch',data},h.c.vcConn.ws);h.c.vcHandleMessage({type:'pdf-sync',data:data.pdfState},{});
+    assert.equal(h.c.pdfDoc,doc);assert.equal(h.c.__vcPdfShareEpoch,'e1');
+});
+await test('manual pending loader cannot commit across a share epoch change',async()=>{
+    const h=withRealLoader();h.c.__vcPdfShareEpoch='e1';const before=h.c.pdfDoc;const pending=h.c.pdfLoad('/old.png','image');h.c.__vcPdfShareEpoch='e2';h.loads[0].resolve({id:'old'});assert.equal(await pending,false);assert.equal(h.c.pdfDoc,before);
+});
+
+await test('unavailable protected ACK blocks further writes while retaining media controls',async()=>{
+ const h=epochClientWorld();await h.join();h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png',kind:'image'}});const pending=h.sent[0];
+ h.c.vcHandleMessage({type:'pdf-share-epoch',data:{roomId:'A',ok:false,epochReady:false,epochRequestId:pending.data.epochRequestId}},h.c.vcConn.ws);
+ assert.equal(h.c.__vcPdfEpochUnavailable,true);const count=h.sent.length;
+ assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/other.png'}}),false);assert.equal(h.sent.length,count);
+ assert.equal(h.c.vcPdfEpochSend({type:'video-share',data:{url:'fixture'}},h.c.vcConn),undefined);
+});
+
+await test('protected new account cannot reuse the old socket admission even after a snapshot',async()=>{
+ const h=epochClientWorld();await h.join();h.c.account='account-B';h.c.vcPdfEpochSnapshot({epochReady:true,shareEpoch:'e0',shareRevision:1,pdfState:null});
+ assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png'}}),false);assert.equal(h.sent.length,0);
+ await h.join();assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png'}}),true);assert.equal(h.sent.length,1);
+});
+
+function lazyEpochWorld(){const h=epochClientWorld(),scripts=[];vm.runInContext('window.vcPdfEpochReceive=undefined;window.vcPdfEpochSend=undefined;window.vcPdfEpochSnapshot=undefined;',h.c);
+ h.c.document.createElement=()=>({remove(){}});h.c.document.head={appendChild:script=>scripts.push(script)};
+ vm.runInContext(ast.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='vcEnsurePdfEpochModule').getText(ast),h.c);
+ return{...h,scripts,load(){vm.runInContext(readFileSync(pub+'/js/idx-vc-pdf-epoch.js','utf8'),h.c)}};}
+for(const accountChange of [false,true])await test('late epoch module preserves join admission only for its owner '+accountChange,async()=>{
+ const h=lazyEpochWorld();h.c.vcHandleMessage({type:'room-joined',data:{roomId:'A',userId:'u',userCount:1,epochReady:true,shareEpoch:'e0',shareRevision:1,pdfState:null}},h.c.vcConn.ws);
+ h.c.vcHandleMessage({type:'pdf-sync',data:h.state('e1',2)},h.c.vcConn.ws);assert.equal(h.scripts.length,1);
+ if(accountChange)h.c.account='B';h.load();await h.settle();
+ assert.equal(h.c.vcConn.send({type:'pdf-share',data:{url:'/same.png'}}),!accountChange);assert.equal(h.sent.length,accountChange?0:1);
+});
+await test('epoch module download retries are bounded and report exhausted attempts',async()=>{
+ const h=lazyEpochWorld();for(let i=0;i<3;i++){h.c.vcEnsurePdfEpochModule();h.scripts.at(-1).onerror();}
+ h.c.vcEnsurePdfEpochModule();assert.equal(h.scripts.length,3);assert.ok(h.notes.some(text=>text.includes('새로고침')));
+});
+console.log(`${pass} PASS / ${fail} FAIL (synthetic translation/DOM/load promises only)`);process.exitCode=fail?1:0;

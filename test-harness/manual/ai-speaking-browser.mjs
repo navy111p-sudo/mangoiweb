@@ -65,6 +65,16 @@ try {
       // Allow one CSS pixel of browser rounding, never a clipped control.
       const overflow = await page.evaluate(()=>({ok:document.documentElement.scrollWidth<=innerWidth+1,width:innerWidth,scroll:document.documentElement.scrollWidth,wide:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.right>innerWidth+0.01;}).slice(0,12).map(e=>({tag:e.tagName,id:e.id,cls:e.className,width:e.getBoundingClientRect().width,text:e.textContent.slice(0,65)}))}));
       check(overflow.ok,'practice has no horizontal overflow: '+JSON.stringify(overflow));
+      // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화(영상통화 화면)가 뜬다 — 웜업은 설정 화면이 먼저라 안 뜬다.
+      // 돌아가는 길은 사람과 같게: ✕ 로 얼굴 화면을 닫고(실제 포인터) 그다음 «모드 선택».
+      if(mode!=='textbook'){
+        await page.waitForFunction(()=>window.MangoiFaceTalk&&MangoiFaceTalk.isActive(),null,{timeout:6000}).catch(()=>{});
+        check(await page.evaluate(()=>!!(window.MangoiFaceTalk&&MangoiFaceTalk.isActive())),'friend opens face talk by default');
+        await page.locator('#ftk .fc-close').click();
+        check(await page.evaluate(()=>!MangoiFaceTalk.isActive()),'face talk closes with X');
+      } else {
+        check(await page.evaluate(()=>!(window.MangoiFaceTalk&&MangoiFaceTalk.isActive())),'warmup setup is not covered by face talk');
+      }
       // Actual pointer hit-testing, not JS .click(): catches links obscured by onboarding.
       await page.locator('a[href="/ai-speaking.html"]:visible').first().click();
       await page.waitForURL('**/ai-speaking.html');

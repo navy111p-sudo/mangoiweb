@@ -119,6 +119,60 @@ export function fragmentQuestionHint(bad: string[], difficulty: number): string 
     'e.g. "Do you like space?". Keep it short and keep the same JSON format.)';
 }
 
-/** 조각 질문 재시도는 이 턴이 이미 이만큼 걸렸으면 하지 않는다(ms) — 한 번에 받는 경로는 화면이 20초에 끊는다
- *  (warmup.html). 그 턴은 앞에서 빈 응답·무너짐·이름 재시도가 이미 돌았을 수 있다. 넘으면 원래 답을 그대로 둔다. */
-export const FRAG_RETRY_BUDGET_MS = 9000;
+/** 조각 질문·같은 질문 «다시 뽑기» 는 이 턴이 이미 이만큼 걸렸으면 하지 않는다(ms) — 넘으면 원래 답을 그대로 둔다.
+ *  ⚡ (2026-11-05 사장님 「휴대폰에서 무조건 빨리 답변」) 9초 → 5초. [잰 것 — D1 ai_latency_log, 최근 7일 웜업 514턴]
+ *     모델을 한 번 부른 턴은 서버 5.4초, 다시 뽑은 턴은 7.5초(2번)·9.7초(3번)였고 초급(S1)은 35% 가 다시 뽑았다.
+ *     예산이 9초면 이미 8초 걸린 턴도 다시 뽑아 12초를 넘겼다. 이제 첫 답이 «빨리» 왔을 때만 다시 뽑는다.
+ *  ⚠️ 맞바꿈: 첫 답이 5초를 넘긴 턴은 조각 질문(«like space?»)·같은 질문이 남을 수 있다 — 속도를 고른 사람의 결정.
+ *  ⛔ 빈 응답·무너진 출력·이름 재시도에는 이 예산이 안 걸린다(그건 «답이 망가진» 경우라 그대로 다시 뽑는다).
+ *  ⚠️ A.i 말하기(웜업) 전용이다 — 미리듣기를 멈췄는데 다시 안 뽑은 턴을 웜업 화면은 «나머지만 이어 읽기» 로 받는다(_stmRest).
+ *     A.i 친구 화면은 그때 처음부터 다시 읽어서 아래 FRIEND_FRAG_RETRY_BUDGET_MS(9초)를 따로 둔다. */
+export const FRAG_RETRY_BUDGET_MS = 5000;
+/** A.i 친구(api-ai.ts) 다시 뽑기 예산 — 9초 그대로(2026-11-05). 그 화면(ai-friend.html)은 미리듣기를 멈춘 뒤 다시 안 뽑으면
+ *  정본을 처음부터 다시 읽어, 예산을 줄이면 «멈췄는데 안 뽑음» 이 잦아져 같은 문장을 두 번 듣는다. 줄이려면 그 화면부터 이어 읽기로. */
+export const FRIEND_FRAG_RETRY_BUDGET_MS = 9000;
+
+// Coordinated shopping attributes request separate answers even with one verb and question mark.
+const ATTRIBUTE = '(?:colou?rs?|sizes?|styles?|shapes?|brands?|prices?)';
+const ATTRIBUTE_LIST = new RegExp(
+  `\\b(?:what|which)\\s+${ATTRIBUTE}\\b((?:(?:\\s+and\\s+|,\\s*(?:and\\s+)?)(?:(?:what|which)\\s+)?${ATTRIBUTE}\\b)+)`, 'i',
+);
+
+/** 상황별 말하기: 실제로 묻는 첫 질문만 남긴다. 따옴표 속 따라 말하기 예문은 질문 수에서 뺀다. */
+export function firstQuestionOnly(text: string): string {
+  const outside = text.replace(/"[^"]*"|“[^”]*”|‘[^’]*’|(?<!\w)'(?:[^']|'(?=\w))*?'(?!\w)/g,
+    quoted => ' '.repeat(quoted.length));
+  const questions = [...outside.matchAll(/[?？]+/g)];
+  const first = questions[0];
+  if (!first) return text;
+  const end = first.index!;
+  const before = outside.slice(0, end);
+  const boundary = [...before.matchAll(/[.!?]\s+/g)].at(-1);
+  const sentenceStart = boundary ? boundary.index! + boundary[0].length : 0;
+  const question = before.slice(sentenceStart);
+  let stop = end;
+  // A second interrogative clause can share the first question mark. Keep alternatives and confirmation tags.
+  for (const join of question.matchAll(/[,;]\s*(?:and\s+)?|\s+and\s+/gi)) {
+    const split = join.index!;
+    const lead = question.slice(0, split);
+    if (join[0].startsWith(',') && /\b(?:what|which)\s+\w+,\s*[^,]+\s+or\s+[^,]+$/i.test(lead.trim())) continue;
+    if (!lead.split(/[,;:]/).some(part => partStarts(part) === true)) continue;
+    const next = question.slice(split + join[0].length).trim().toLowerCase();
+    if (/^(?:do you know|can you tell me|can you guess)$/.test(next)) continue;
+    // Two separately determined objects can each need a yes or no.
+    const twoItems = /^\s*(?:do|did) you have (?:a|an|the|your)\s+[^,]+$/i.test(lead)
+      && /^(?:a|an|the|your)\s+/.test(next) && !/\bor\b/i.test(lead + ' ' + next);
+    const [head, subject] = next.split(/\s+/, 2);
+    if (twoItems || WH.test(head) || (AUX.has(head) && /^(?:you|we|i|it|he|she|they|there|this|that)$/.test(subject))) {
+      stop = sentenceStart + split;
+      break;
+    }
+  }
+  const attributes = ATTRIBUTE_LIST.exec(outside.slice(sentenceStart, stop));
+  if (attributes) {
+    const afterList = sentenceStart + attributes.index + attributes[0].length;
+    return (text.slice(0, afterList - attributes[1].length) + text.slice(afterList, stop)).trimEnd() + first[0];
+  }
+  if (stop !== end) return text.slice(0, stop).trimEnd() + first[0];
+  return questions.length > 1 ? text.slice(0, end + first[0].length).trimEnd() : text;
+}

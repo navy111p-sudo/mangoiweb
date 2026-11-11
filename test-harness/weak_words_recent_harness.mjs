@@ -1,3 +1,5 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 게임 «약점 단어» 정본(src/weak-words.ts) — 개선안 2순위 ⑥
 //   정본을 타입 제거로 실제 실행하고, 그 조각을 진짜 SQLite 에 돌립니다.
 //   짝: «오래된 약점은 빠진다» 옆에 «최근 약점은 남는다»·«정답이 앞선 단어는 원래처럼 빠진다».
@@ -7,11 +9,11 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const R = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
 const MOD = R('cloudflare-deploy/src/weak-words.ts', 'WW_SRC');
 const AI = R('cloudflare-deploy/src/api-ai.ts', 'AI_SRC');
-const AD = R('cloudflare-deploy/src/api-admin.ts', 'AD_SRC');
+const AD = readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile, 'AD_SRC'));
 const IX = R('cloudflare-deploy/src/index.ts', 'IX_SRC');
 const GR = R('cloudflare-deploy/public/game-report.html', 'GR_SRC');
 let pass = 0, fail = 0;

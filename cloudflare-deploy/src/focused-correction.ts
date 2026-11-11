@@ -1,5 +1,6 @@
 import { parseWarmupOutput, verifyWarmupFix, type WarmupFix } from './warmup-correction';
 import { replyBreakReason } from './reply-sanity';
+import { backfillPastTenseFix } from './tense-backfill';
 
 // The model supplies one correction; the server, not the model, repeats it.
 export const FOCUSED_DRAFT_RULE = '[집중교정 출력 계약 — 앞의 답장 규칙보다 우선] 첫 턴부터 사소한 오류도 fix에 담아. 교정이 있으면 reply에는 고친 문장을 한 번만 적고 질문·인사·칭찬을 넣지 마. 교정 문장만 총 3번 반복하고, 처음의 You can say... 한 번 및 마지막 Can you say it with me?는 서버가 붙인다. 반복 때문에 fix JSON이 잘리지 않게 해. 교정이 없으면 자연스럽게 대화해.';
@@ -7,6 +8,91 @@ export const FOCUSED_DRAFT_RULE = '[집중교정 출력 계약 — 앞의 답장
 export function focusedCandidate(raw: unknown, input: string): WarmupFix | null {
   const fix = verifyWarmupFix(raw, input);
   return fix && !replyBreakReason(fix.now) ? fix : null;
+}
+
+export function focusedPastTenseFix(input: string): WarmupFix | null {
+  // shortcut: only simple clauses with an explicit past marker, use the model for more complex tense choices.
+  if (!/^[a-z]+(?: *,? +[a-z]+)*[.!]?$/i.test(input) ||
+      /\b(?:and|or|but|when|while|if|because|before|after|since|that|every|usually|always)\b/i.test(input)) return null;
+  const front = /^((?:yesterday|last [a-z]+),? )(.+?)([.!]?)$/i.exec(input);
+  const clauseText = front?.[2] ?? input;
+  if (/^[a-z]+ go\b/i.test(clauseText) && !/^[a-z]+ go (?:to|home|out|back|there|away)\b/i.test(clauseText)) return null;
+  if (!front) return focusedCandidate(backfillPastTenseFix(input), input);
+  const [, prefix, clause, end] = front;
+  const marker = prefix.replace(/,? $/, '');
+  const suffix = ' ' + marker;
+  const fix = backfillPastTenseFix(clause + suffix);
+  if (!fix || !fix.now.endsWith(suffix)) return null;
+  return focusedCandidate({ ...fix, was: input, now: prefix + fix.now.slice(0, -suffix.length) + end }, input);
+}
+
+export function focusedArticleFix(input: string): WarmupFix | null {
+  // shortcut: only known singular count nouns in simple frames, use the model when definiteness depends on context.
+  const match = /^((?:(?:my|your|his|her|our|their) favou?rite animal is|(?:i|we) saw|(?:this|that) is) )(bear|bird|cat|dog|elephant|giraffe|horse|lion|monkey|owl|panda|rabbit|tiger|zebra)([.!]?)$/i.exec(input);
+  if (!match) return null;
+  const [, prefix, noun, end] = match;
+  const article = /^[aeiou]/i.test(noun) ? 'an' : 'a';
+  return focusedCandidate({
+    was: input, now: prefix + article + ' ' + noun + end,
+    why_ko: '셀 수 있는 명사 하나를 말할 때는 명사 앞에 a나 an을 써요.',
+    tag: 'article', severity: 'minor',
+  }, input);
+}
+
+const THIRD_PERSON: Readonly<Record<string, string>> = {
+  do: 'does', eat: 'eats', go: 'goes', have: 'has', like: 'likes', live: 'lives',
+  play: 'plays', read: 'reads', speak: 'speaks', study: 'studies', want: 'wants', watch: 'watches', work: 'works',
+};
+
+export function focusedAgreementFix(input: string): WarmupFix | null {
+  // shortcut: simple pronoun-led statements only, use the model for compound subjects or clauses.
+  const match = /^(i|you|he|she|it|we|they) ([a-z]+)((?: [a-z]+)*[.!]?)$/i.exec(input);
+  if (!match || /\b(?:and|or|but|when|while|if|because|that|yesterday|last|ago)\b/i.test(match[3])) return null;
+  const [, subject, verb, rest] = match;
+  const third = /^(he|she|it)$/i.test(subject);
+  const base = verb.toLowerCase();
+  let corrected = '';
+  if (/^(am|are|is)$/.test(base)) corrected = /^i$/i.test(subject) ? 'am' : third ? 'is' : 'are';
+  else if (third && Object.hasOwn(THIRD_PERSON, base)) corrected = THIRD_PERSON[base];
+  if (!corrected || corrected === base) return null;
+  return focusedCandidate({
+    was: input, now: subject + ' ' + corrected + rest,
+    why_ko: '주어에 맞게 동사 형태를 바꿔요.', tag: 'subject_verb', severity: 'minor',
+  }, input);
+}
+
+const ADJECTIVE_PREPOSITIONS: Readonly<Record<string, string>> = {
+  'interested on': 'in', 'afraid from': 'of', 'responsible of': 'for',
+};
+
+export function focusedPrepositionFix(input: string): WarmupFix | null {
+  // shortcut: only clear adjective–preposition pairs, use the model for context-dependent prepositions.
+  const match = /^((?:(?:i|you|he|she|it|we|they) (?:am|is|are|was|were)|i['’]m|(?:he|she|it)['’]s|(?:you|we|they)['’]re) (interested|afraid|responsible) )(on|from|of)((?: [a-z]+)+[.!]?)$/i.exec(input);
+  if (!match || /\b(?:and|or|but|when|while|if|because|that)\b/i.test(match[4])) return null;
+  const [, prefix, adjective, preposition, rest] = match;
+  if (/^on$/i.test(preposition) &&
+      !/^ (?:art|books|chess|cooking|dancing|history|math|movies|music|science|sports|travel)[.!]?$/i.test(rest)) return null;
+  const corrected = ADJECTIVE_PREPOSITIONS[(adjective + ' ' + preposition).toLowerCase()];
+  if (!corrected) return null;
+  return focusedCandidate({
+    was: input, now: prefix + corrected + rest,
+    why_ko: adjective + ' 뒤에는 ' + corrected + '을 써요.', tag: 'preposition', severity: 'minor',
+  }, input);
+}
+
+/** In an adjective clause, the verb after "for + object pronoun" needs infinitive to. */
+export function focusedInfinitiveFix(input: string): WarmupFix | null {
+  const clause = /^(?:(?:yeah|yes|well),? )?it(?:['’]s| is| was) (?:not )?(?:(?:really|very|too|so|quite) )?(?:hard|easy|helpful|useful|important|difficult|necessary|possible|impossible|safe) for (?:me|you|him|her|us|them) /i.exec(input);
+  if (!clause) return null;
+  const tail = input.slice(clause[0].length);
+  if (!/^(?:be|communicate|concentrate|decide|explain|finish|improve|learn|listen|participate|practice|prepare|pronounce|read|remember|speak|study|understand|write)(?: |[.!?]?$)/i.test(tail)) return null;
+  return focusedCandidate({
+    was: input,
+    now: clause[0] + 'to ' + tail,
+    why_ko: 'for + 사람 뒤에는 to와 동사원형을 써요.',
+    tag: 'verb_form',
+    severity: 'minor',
+  }, input);
 }
 
 /** An explicit quoted correction can survive even when the trailing fix JSON was cut off.

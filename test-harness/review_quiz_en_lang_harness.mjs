@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url';
 // 영어 복습퀴즈(BTS/SIU) 화면 EN/KO (2026-11-04)
 // 옛 isEn() 은 어디서도 안 정해지는 window.langCurrent 를 봐서 EN 학생도 늘 한국어였다.
 // 화면 조각(목록·문제·결과·🌐 배선)을 소스에서 오려 내 가짜 DOM 으로 «실제로» 그려 본다 — EN 은 한국어 0글자, KO 는 그대로(짝).
 import fs from 'node:fs';
-const root = new URL('../', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../', import.meta.url));
 const SRC = process.env.RQ_EN || root + 'cloudflare-deploy/public/review-quiz.html';
 const h = fs.readFileSync(SRC, 'utf8');
 let pass = 0, fail = 0;

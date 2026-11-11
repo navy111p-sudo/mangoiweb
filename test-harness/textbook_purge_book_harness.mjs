@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* 🗑️ 교재 «묶음 통째» 영구 삭제 회귀 감시 (2026-09-07 사장님 결정 B안)
    ═══════════════════════════════════════════════════════════════════════════
    [무엇을 지키나]
@@ -24,7 +25,7 @@ const ok  = (t, c, why='') => { c ? (pass++, console.log('  ✅ ' + t)) : (fail+
 const sk  = (t, why) => { skip++; console.log('  ⏭ ' + t + (why ? ' — ' + why : '')); };
 
 const gateSrc  = rd('textbook-purge-gate.ts');
-const adminSrc = rd('api-admin.ts');
+const adminSrc = readAdminModuleGraph(adminModuleFile => rd(adminModuleFile));
 const authSrc  = rd('auth-admin.ts');
 const indexSrc = rd('index.ts');
 

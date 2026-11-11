@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * Atomic group moves: actual production module and SQL, local SQLite only.
  * D1.batch is modelled as one real transaction with rollback, not Promise.all.
@@ -30,7 +31,7 @@ if (process.env.SGM_CHILD === '1') {
   const { DatabaseSync } = await import('node:sqlite');
   const sq = new DatabaseSync(':memory:');
   let beforeBatch = null, afterBatch = null, afterRead = null, readFailure = null, writeFailure = null;
-  const batches = [], writes = [];
+  const batches = [], writes = [], firstQueries = [];
   const norm = v => v === undefined ? null : typeof v === 'boolean' ? Number(v) : v;
   const readFault = (sql, method) => {
     if (!readFailure || !readFailure.match(sql, method)) return null;
@@ -44,6 +45,7 @@ if (process.env.SGM_CHILD === '1') {
     sql, args,
     bind: (...a) => statement(sql, a.map(norm)),
     async first(col) {
+      firstQueries.push({ sql, args });
       const failure = readFault(sql, 'first'); if (failure) return failure;
       const row = sq.prepare(sql).get(...args);
       readHook(sql, 'first');
@@ -87,7 +89,7 @@ if (process.env.SGM_CHILD === '1') {
   const { moveSchedulesAtomically: move, scheduleMoveVersion: version } = await imp('class-schedule-move.ts');
   const { ensureClassAuditTable } = await imp('class-audit.ts');
   const { ensureRoomOverrideTable } = await imp('class-room-override.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   const lessonSrc = readFileSync(join(SRC, 'api-lessons.ts'), 'utf8');
   const scopeSrc = readFileSync(join(SRC, 'scope.ts'), 'utf8');
   const ddl = (src, table, needs = '') => {
@@ -142,7 +144,7 @@ if (process.env.SGM_CHILD === '1') {
     beforeBatch = afterBatch = afterRead = readFailure = writeFailure = null;
     sq.exec('DELETE FROM class_schedules; DELETE FROM teacher_unavailability; DELETE FROM calendar_events; DELETE FROM class_audit_log; DELETE FROM class_room_override;');
     sq.exec("UPDATE teachers SET name=CASE id WHEN 1 THEN 'ALPHA' WHEN 2 THEN 'BETA' ELSE 'GAMMA' END; UPDATE admin_scope SET scope_type='hq';");
-    batches.length = writes.length = 0;
+    batches.length = writes.length = firstQueries.length = 0;
   };
   const reject = async (name, request, error = 'schedule_changed', status = 409, acting = actor, originals) => {
     const before = snapshot(), auditBefore = auditCount();
@@ -153,10 +155,29 @@ if (process.env.SGM_CHILD === '1') {
     return result;
   };
 
+  const restoreCancelled = id => move(env, actor, { ids: [id], patch: {} }, undefined, { restoreCancelled: true });
+  reset();
+  let cancelledId = seed({status:'cancelled'});
+  let cancelledResult = await restoreCancelled(cancelledId);
+  check('cancelled future restores same ID atomically', cancelledResult.ok && row(cancelledId).status === 'active' && auditCount() === 1, cancelledResult);
+  cancelledResult = await restoreCancelled(cancelledId);
+  check('cancelled repeated restore is rejected', !cancelledResult.ok && auditCount() === 1, cancelledResult);
+  for (const scenario of ['past','overlap','leave','race','audit']) {
+    reset(); cancelledId = seed({status:'cancelled', ...(scenario === 'past' ? {scheduled_date:'2026-10-04',start_time:'11:59'} : {})});
+    if (scenario === 'overlap') seed({user_id:'another',start_time:'09:10'});
+    if (scenario === 'leave') block({teacher_id:'1',start_time:'09:00',end_time:'10:00'});
+    if (scenario === 'race') beforeBatch = () => seed({user_id:'race',start_time:'09:10'});
+    if (scenario === 'audit') writeFailure = {match:sql=>/^INSERT INTO class_audit_log/.test(sql)};
+    cancelledResult = await restoreCancelled(cancelledId);
+    check('cancelled fails closed: '+scenario, !cancelledResult.ok && row(cancelledId).status === 'cancelled' && auditCount() === 0, cancelledResult);
+  }
   const restore = (id, originals) => move(env, actor, { ids: [id], patch: {} }, originals, { restorePostponed: true });
   reset();
   let restoredId = seed({ status: 'postponed', start_time: '07:40' });
   let restored = await restore(restoredId);
+  const attendanceLookups = () => firstQueries.filter(q => q.sql.startsWith('SELECT name FROM sqlite_master')
+    && (q.args[0] === 'attendance' || q.sql.includes("name='attendance'"))).length;
+  check('restore checks attendance table existence once', attendanceLookups() === 1, firstQueries);
   check('restore: exact original 07:40 remains morning, same ID and count', restored.ok && row(restoredId).start_time === '07:40' && row(restoredId).status === 'active' && sq.prepare('SELECT count(*) n FROM class_schedules').get().n === 1, restored);
   check('restore: one atomic restore audit', auditCount() === 1 && sq.prepare('SELECT action FROM class_audit_log').get().action === 'restore' && guardEmpty());
   let twice = await restore(restoredId);
@@ -221,6 +242,7 @@ if (process.env.SGM_CHILD === '1') {
   for (const [i, id] of ids.entries()) insert('class_room_override', { schedule_id: id, ymd: '20261005', room_id: 'meet-distinct-' + i, created_by: 'admin', created_at: NOW });
   const roomsBefore = JSON.stringify(sq.prepare('SELECT * FROM class_room_override ORDER BY schedule_id').all());
   const first = await move(env, actor, input(ids, {}, { source_date: '2026-10-05' }));
+  check('ordinary move does not query attendance table existence', attendanceLookups() === 0, firstQueries);
   check('group success: all members moved in one batch', first.ok && batches.length === 1 && ids.every(id => row(id).teacher_id === '2' && row(id).start_time === '10:00'), { first, batches: batches.length });
   check('group success: IDs and separate room overrides unchanged', ids.every(id => row(id).id === id) && roomsBefore === JSON.stringify(sq.prepare('SELECT * FROM class_room_override ORDER BY schedule_id').all()));
   check('group success: one audit per member and no guard residue', auditCount() === ids.length && guardEmpty());

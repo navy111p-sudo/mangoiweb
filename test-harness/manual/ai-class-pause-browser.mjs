@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // ⏸ A.i 선생님 수업 «잠깐 멈추기» — 브라우저 하니스 (CDP 직접, 라이브러리 없음) · 2026-10-14
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:
 //      REPS=100 node test-harness/manual/ai-class-pause-browser.mjs
@@ -15,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const REPS = +(process.env.REPS || 20);
 const PORT = 9300 + Math.floor(Math.random() * 400);
 const PUB = process.env.PUB || path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');

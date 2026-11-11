@@ -109,6 +109,8 @@ async function run(pagePath, mode) {
   await send('Network.enable'); await send('Page.enable'); await send('Runtime.enable');
   await send('Page.navigate', { url }); await sleep(6000);
   const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.value;
+  // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 화면을 보므로 먼저 닫는다(✕ 와 같은 길)
+  await ev("(window.MangoiFaceTalk && MangoiFaceTalk.isActive() && MangoiFaceTalk.exit(), true)");
 
   /* ⏳ «고정 대기» 로 재면 파이썬 http.server 가 한 번에 하나씩만 응답하는 탓에
         942KB 영상이 늦어져 «안 그려졌다» 는 거짓 실패가 난다(실제로 한 번 밟았다).

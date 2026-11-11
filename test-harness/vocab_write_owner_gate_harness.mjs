@@ -1,3 +1,5 @@
+import { gamesSrc } from './_srcbundle.mjs';
+import { fileURLToPath } from 'node:url';
 /**
  * 🔐 단어장 «쓰기» 본인 확인 하니스 (2026-10-19)
  *
@@ -22,9 +24,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const R = (rel, env) => fs.readFileSync(process.env[env] || path.join(ROOT, rel), 'utf8');
-const GAMES = R('cloudflare-deploy/src/api-games.ts', 'VWG_GAMES');
+const GAMES = gamesSrc(process.env.VWG_GAMES ? { 'api-games.ts': fs.readFileSync(process.env.VWG_GAMES, 'utf8') } : {}, process.env.VWG_SRC_DIR || path.join(ROOT, 'cloudflare-deploy/src'));
 const MQ = R('cloudflare-deploy/public/micro-quiz.html', 'VWG_MQ');
 const VOC = R('cloudflare-deploy/public/vocab.html', 'VWG_VOCAB');
 

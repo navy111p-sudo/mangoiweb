@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🔤 아이디 대소문자 무시 하니스 — 2026-08-24 (사장님 지시)
 //
 // [무엇이 문제였나]
@@ -157,7 +158,7 @@ console.log('\n════ ④ 연결표 조회 ════');
      admin_account 건(①~④)과 같은 뿌리인데 표만 다르다. */
 console.log('\n════ ⑤ 학생 계정(students_erp)도 대소문자를 무시하는가 ════');
 {
-  const sadmin = rd('../cloudflare-deploy/src/api-admin.ts');
+  const sadmin = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
   const sstu = rd('../cloudflare-deploy/src/api-students.ts');
 
   /* «찾는 쪽» 이 실제로 무엇을 고르는지는 눈으로 알 수 없다 — 소스에서 오려 내 돌린다. */

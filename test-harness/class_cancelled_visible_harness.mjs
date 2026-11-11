@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /**
  * 취소한 수업이 «사라지지 않고» 취소·연기 상태로 남는가 — 샌드박스 끝-끝 검사 (2026-11-03)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ if (process.env.CCV_CHILD === '1') {
   const { handleTeacherApi } = await imp('api-teacher.ts');
   const { checkAdminSession } = await imp('auth-admin.ts');
   const { getScope } = await imp('scope.ts');
-  const adminSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const adminSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {
@@ -573,14 +574,14 @@ const cleanup = () => { try { rmSync(tmp, { recursive: true, force: true }); } c
 writeFileSync(join(tmp, 'hooks.mjs'), `
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-export async function resolve(spec, ctx, next) {
+export function resolve(spec, ctx, next) {
   if ((spec.startsWith('./') || spec.startsWith('../')) && !/\\.(ts|js|mjs|json)$/.test(spec) && ctx.parentURL) {
     const u = new URL(spec + '.ts', ctx.parentURL);
-    if (existsSync(fileURLToPath(u))) return next(u.href, ctx);
+    if (existsSync(fileURLToPath(u))) return { url: u.href, shortCircuit: true };
   }
   return next(spec, ctx);
 }`);
-writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
+writeFileSync(join(tmp, 'reg.mjs'), `import { registerHooks } from 'node:module'; import { resolve } from './hooks.mjs'; registerHooks({ resolve });`);
 
 /* ⏱ (2026-11-04) 변이가 40종을 넘어 «하나씩» 돌리면 --fast 동시 실행에서 90초 상한을 넘었다 — 변이만 동시에 돌린다.
    결과 줄은 원래 순서대로 찍는다(출력이 매번 같게). CCV_JOBS=1 이면 예전처럼 하나씩. */
@@ -629,29 +630,29 @@ const MUTANTS = [
   { name: '매주 행의 cancelled 까지 받아 오고 관리자 방어 줄도 걷어냄(두 겹 모두)', expect: /A7 /,
     edits: [['class-change-state.ts', "OR substr(COALESCE(${a}scheduled_date,''),1,10) BETWEEN ? AND ?)`;",
              "OR COALESCE(${a}scheduled_date,'') = '' OR substr(COALESCE(${a}scheduled_date,''),1,10) BETWEEN ? AND ?)`;"],
-            ['api-admin.ts', "if (String(s.status || '').trim().toLowerCase() === 'cancelled' && !isCancelledOccurrence(s)) continue;", '']] },
+            ['api-admin-class-days.ts', "if (String(s.status || '').trim().toLowerCase() === 'cancelled' && !isCancelledOccurrence(s)) continue;", '']] },
   { name: '취소 줄의 입장을 안 닫음', expect: /A3 /,
-    edits: [['api-admin.ts', 'join_open: !_postponed && !_holOff && !_cancelled && ', 'join_open: !_postponed && !_holOff && ']] },
+    edits: [['api-admin-class-days.ts', 'join_open: !_postponed && !_holOff && !_cancelled && ', 'join_open: !_postponed && !_holOff && ']] },
   { name: '본사가 아닌데도 누가·사유를 실음', expect: /B2 /,
-    edits: [['api-admin.ts', '{ showActor: _ctSeeContact }', '{ showActor: true }']] },
+    edits: [['api-admin-class-days.ts', '{ showActor: _ctSeeContact }', '{ showActor: true }']] },
   { name: '강사 시간표에서 취소를 다시 뺌', expect: /D2 |D5 |D6 /,
     edits: [['api-teacher.ts', 'if (!_cancelled || isCancelledOccurrence(s)) {', 'if (!_cancelled) {']] },
   { name: '출결 판정이 «취소» 를 모름(결석으로 말함)', expect: /A6 /,
     edits: [['class-today-extras.ts', "if (status === 'cancelled') return { state: 'cancelled', at: null, late_min: null };", '']] },
   { name: '주간 시간표: 취소·연기 회차를 안 실음(옛 동작)', expect: /G1 |G5 /,
-    edits: [['api-admin.ts', 'if (!change) continue;\n          offItems.push({', 'if (!change || true) continue;\n          offItems.push({']] },
+    edits: [['api-admin-scheduling.ts', 'if (!change) continue;\n          offItems.push({', 'if (!change || true) continue;\n          offItems.push({']] },
   { name: '주간 시간표: 취소 회차를 items 에 섞음(옛 화면이 살아 있는 수업으로 그림)', expect: /G3 /,
-    edits: [['api-admin.ts', "`SELECT * FROM class_schedules WHERE (status IS NULL OR status='active')`", "`SELECT * FROM class_schedules WHERE (status IS NULL OR status='active' OR scheduled_date IS NOT NULL)`"]] },
+    edits: [['api-admin-scheduling.ts', "`SELECT * FROM class_schedules WHERE (status IS NULL OR status='active')`", "`SELECT * FROM class_schedules WHERE (status IS NULL OR status='active' OR scheduled_date IS NOT NULL)`"]] },
   { name: '주간 시간표: «그 주 하루만» 빠진 날에도 반복 수업을 그림', expect: /G9 /,
-    edits: [['api-admin.ts', 'if (recurSkippedOn(r, d)) continue;\n              items.push', 'items.push']] },
+    edits: [['api-admin-scheduling.ts', 'if (recurSkippedOn(r, d)) continue;\n              items.push', 'items.push']] },
   { name: '주간 시간표: LMS 자리표시 거르기를 뺌', expect: /G7 /,
-    edits: [['api-admin.ts', "if (['lms', 'type_seed'].includes(String(r.user_id || '').trim().toLowerCase())) return false;\n          return isCancelledOccurrence", 'return isCancelledOccurrence']] },
+    edits: [['api-admin-scheduling.ts', "if (['lms', 'type_seed'].includes(String(r.user_id || '').trim().toLowerCase())) return false;\n          return isCancelledOccurrence", 'return isCancelledOccurrence']] },
   { name: '주간 시간표: 누구에게나 누가·사유를 실음', expect: /G12 /,
-    edits: [['api-admin.ts', "const _offShowActor = !_offIsTeacher && !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');", 'const _offShowActor = true;']] },
+    edits: [['api-admin-scheduling.ts', "const _offShowActor = !_offIsTeacher && !!_offScope && (_offScope.type === 'hq' || _offScope.type === 'none');", 'const _offShowActor = true;']] },
   { name: '주간 시간표: 역할은 안 보고 스코프만 봄(hq·none 스코프 강사에게 누가·사유가 샘)', expect: /G13 |G14 /,
-    edits: [['api-admin.ts', 'const _offShowActor = !_offIsTeacher && !!_offScope', 'const _offShowActor = !!_offScope']] },
+    edits: [['api-admin-scheduling.ts', 'const _offShowActor = !_offIsTeacher && !!_offScope', 'const _offShowActor = !!_offScope']] },
   { name: '주간 시간표: 역할 판정을 꺼 버림(강사도 본사처럼 봄)', expect: /G13 |G14 /,
-    edits: [['api-admin.ts', '_offIsTeacher = !_offActor || !_offActor.ok || !!_offActor.isTeacher;', '_offIsTeacher = !!(_offActor && _offActor.ok && _offActor.isTeacher) && false;']] },
+    edits: [['api-admin-scheduling.ts', '_offIsTeacher = !_offActor || !_offActor.ok || !!_offActor.isTeacher;', '_offIsTeacher = !!(_offActor && _offActor.ok && _offActor.isTeacher) && false;']] },
   { name: '원래 날짜 줄: 판정 조건 뒤집기(같은 날짜일 때만 줄을 만듦)', expect: /H1 |H2 |H5 /,
     edits: [['class-change-state.ts', "if (cur === from) return null;", "if (cur !== from) return null;"]] },
   { name: '원래 날짜 줄: 요청 승인 기록을 안 읽음', expect: /H1b /,
@@ -659,36 +660,36 @@ const MUTANTS = [
   { name: '원래 날짜 줄: 끌어 옮기기 이력을 안 읽음', expect: /H2 /,
     edits: [['class-change-state.ts', "WHERE action IN (${acts}) AND created_at >= ?", "WHERE action IN ('never') AND created_at >= ?"]] },
   { name: '원래 날짜 줄: 출결 판정을 태움(결석으로 그릴 수 있음)', expect: /H4 /,
-    edits: [['api-admin.ts', 'sessions.filter(x => !x.moved_away), dateStr', 'sessions, dateStr']] },
+    edits: [['api-admin-class-days.ts', 'sessions.filter(x => !x.moved_away), dateStr', 'sessions, dateStr']] },
   { name: '원래 날짜 줄: 지사에도 누가·사유를 실음', expect: /H11 /,
-    edits: [['api-admin.ts', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact },', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: true },']] },
+    edits: [['api-admin-class-days.ts', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: _ctSeeContact },', 'judgeMovedAway(s, _mvEv.byKey.get(movedAwayKey(s.id, dateStr)), { showActor: true },']] },
   { name: '원래 날짜 줄: 스코프 조건을 뺌(지사에 남의 학생이 샘)', expect: /H11b /,
-    edits: [['api-admin.ts', "AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')\n                        ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}`,\n            { tail: _ctStu.binds });",
+    edits: [['api-admin-class-days.ts', "AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')\n                        ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}`,\n            { tail: _ctStu.binds });",
              "AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')`,\n            { tail: [] });"]] },
   { name: '원래 날짜 줄: 망고아이 수업 수에 섞음', expect: /H8 /,
-    edits: [['api-admin.ts', 'mangoi: sessions.length - c24Count - sessions.filter(x => x.moved_away).length,', 'mangoi: sessions.length - c24Count,']] },
+    edits: [['api-admin-class-days.ts', 'mangoi: sessions.length - c24Count - sessions.filter(x => x.moved_away).length,', 'mangoi: sessions.length - c24Count,']] },
   { name: '강사 주간 달력: 원래 날짜 줄을 안 넣음', expect: /H14 /,
     edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = weekDays.find((x: any) => x.date === m.date); if (d && !mvShadowed(d, m)) d.items.push({ ...m.item }); }', '']] },
   { name: '강사 월간 달력: 원래 날짜 줄을 안 넣음', expect: /H17 /,
     edits: [['api-teacher.ts', 'for (const m of _mvAwayItems) { const d = monthDays.find((x: any) => x.date === m.date); if (d && !mvShadowed(d, m)) d.items.push({ ...m.item }); }', '']] },
   { name: '후속: 강사의 연기 이력 직접 쓰기를 다시 열어 둠', expect: /H19 /,
-    edits: [['api-admin.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (false && _cawActor.isTeacher) {"]] },
+    edits: [['api-admin-class-days.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (false && _cawActor.isTeacher) {"]] },
   { name: '후속: 강사의 모든 기록을 막음(end 까지)', expect: /H19b /,
-    edits: [['api-admin.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (_cawActor.isTeacher) {"]] },
+    edits: [['api-admin-class-days.ts', "if (_cawActor.isTeacher && ['postpone', 'reschedule', 'remove', 'restore'].includes(action)) {", "if (_cawActor.isTeacher) {"]] },
   { name: '후속: 연락처 없음 건수에 원래 날짜 줄을 섞음', expect: /H20 /,
-    edits: [['api-admin.ts', 'contact_missing: sessions.filter(x => !x.contact_phone && !x.moved_away).length,', 'contact_missing: sessions.filter(x => !x.contact_phone).length,']] },
+    edits: [['api-admin-class-days.ts', 'contact_missing: sessions.filter(x => !x.contact_phone && !x.moved_away).length,', 'contact_missing: sessions.filter(x => !x.contact_phone).length,']] },
   { name: '후속: 잘려도 complete 를 참으로 둠', expect: /H21 /,
     edits: [['class-change-state.ts', "if (list.length > CAP) complete = false;\n    for (const r of list.slice(0, CAP)) {\n      put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date)", "for (const r of list.slice(0, CAP)) {\n      put({ schedule_id: String(r.schedule_id ?? '').trim(), from_date: ymd(r.orig_date)"]] },
   { name: '후속: 400일 경계를 거꾸로(옛 기록만 읽음)', expect: /H22 /,
     edits: [['class-change-state.ts', "WHERE status = 'approved' AND created_at >= ?", "WHERE status = 'approved' AND created_at < ?"]] },
   { name: '주간 시간표: 조건 뒤집기 — 취소 회차를 거꾸로 거름', expect: /G1 |G5 /,
-    edits: [['api-admin.ts', 'return isCancelledOccurrence(r) || isPostponedOccurrence(r);', 'return !(isCancelledOccurrence(r) || isPostponedOccurrence(r));']] },
+    edits: [['api-admin-scheduling.ts', 'return isCancelledOccurrence(r) || isPostponedOccurrence(r);', 'return !(isCancelledOccurrence(r) || isPostponedOccurrence(r));']] },
   { name: '🔒 취소: 강사 막기를 걷어냄(옛 동작)', expect: /K1 /,
-    edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (false) {']] },
+    edits: [['api-admin-scheduling.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (false) {']] },
   { name: '🔒 취소: 조건 뒤집기 — 본사를 막고 강사를 통과', expect: /K1 |K4 /,
-    edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (!_delActor || !_delActor.ok || !_delActor.isTeacher) {']] },
+    edits: [['api-admin-scheduling.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (!_delActor || !_delActor.ok || !_delActor.isTeacher) {']] },
   { name: '🔒 취소: 역할을 못 읽어도 통과(«모르면 막기» 해제)', expect: /K2 /,
-    edits: [['api-admin.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (_delActor && _delActor.ok && _delActor.isTeacher) {']] },
+    edits: [['api-admin-scheduling.ts', 'if (!_delActor || !_delActor.ok || _delActor.isTeacher) {', 'if (_delActor && _delActor.ok && _delActor.isTeacher) {']] },
   { name: '반복: skip_dates 확인을 뺌(옛 «기록만» 승인에도 원래 날짜 줄)', expect: /I4 |J1 /,
     edits: [['class-change-state.ts', 'if (!normSkipDates(row.skip_dates).includes(from)) return null;', '']] },
   { name: '반복: 판정 조건 뒤집기(skip_dates 에 «없을 때» 줄을 만듦)', expect: /I1 |I4 |J1 /,
@@ -700,13 +701,13 @@ const MUTANTS = [
   { name: '반복: 기록 detail 의 새 날짜를 안 읽음', expect: /J7 /,
     edits: [['class-change-state.ts', '        ...moveToOf(r.detail) });', '        });']] },
   { name: '반복: 하루짜리 줄 조회를 안 함(오늘 수업 — 기록의 옛 새 날짜로 말함)', expect: /I1 /,
-    edits: [['api-admin.ts', 'const _rw = _rwIds.length ? await loadRecurWeekChildren(env.DB, _rwIds) : null;', 'const _rw = null;']] },
+    edits: [['api-admin-class-days.ts', 'const _rw = _rwIds.length ? await loadRecurWeekChildren(env.DB, _rwIds) : null;', 'const _rw = null;']] },
   { name: '반복: 같은 자리 빼기를 뺌(오늘 수업)', expect: /I3 /,
-    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;', 'if (movedAwayBlocked(_slot, _isRecur, new Set(), _ghostAt)) continue;']] },
+    edits: [['api-admin-class-days.ts', 'if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;', 'if (movedAwayBlocked(_slot, _isRecur, new Set(), _ghostAt)) continue;']] },
   { name: '한 자리에 하나: 옮겨 감 줄끼리 겹침을 안 봄(오늘 수업 — 함정 대조가 찾은 두 줄)', expect: /I12 /,
-    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;', 'if (movedAwayBlocked(_slot, _isRecur, _taken, new Set())) continue;']] },
+    edits: [['api-admin-class-days.ts', 'if (movedAwayBlocked(_slot, _isRecur, _taken, _ghostAt)) continue;', 'if (movedAwayBlocked(_slot, _isRecur, _taken, new Set())) continue;']] },
   { name: '한 자리에 하나: 차례 정렬을 뺌(오늘 수업 — 반복 행 쪽이 남음)', expect: /I12 /,
-    edits: [['api-admin.ts', '[..._mvRows].sort((a: any, b: any) => movedAwayOrder(a) - movedAwayOrder(b))', '_mvRows']] },
+    edits: [['api-admin-class-days.ts', '[..._mvRows].sort((a: any, b: any) => movedAwayOrder(a) - movedAwayOrder(b))', '_mvRows']] },
   { name: '한 자리에 하나: 조건 뒤집기(진짜 줄 비켜 가기를 날짜 지정 행에 걺)', expect: /I3 /,
     edits: [['class-change-state.ts', 'return ghosts.has(key) || (recur && taken.has(key));', 'return ghosts.has(key) || (!recur && taken.has(key));']] },
   { name: '한 자리에 하나: 차례 뒤집기(반복 행 먼저)', expect: /I12 |I14 |J9 /,
@@ -724,13 +725,13 @@ const MUTANTS = [
   { name: '반복: 강사 달력이 하루짜리 줄을 안 넘김', expect: /I6 /,
     edits: [['api-teacher.ts', "_recur ? recurWeekChildFor(_mvKids.get(String(r.id)), ev.from_date) : null);", 'null);']] },
   { name: '주간 시간표: 옮겨 간 칸을 안 실음', expect: /I8 |I9 /,
-    edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = null && judgeMovedAway(r, ev, { showActor: _offShowActor },']] },
+    edits: [['api-admin-scheduling.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = null && judgeMovedAway(r, ev, { showActor: _offShowActor },']] },
   { name: '주간 시간표: 같은 자리 빼기를 뺌', expect: /I10 /,
-    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, new Set(), _ghostW)) continue;']] },
+    edits: [['api-admin-scheduling.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, new Set(), _ghostW)) continue;']] },
   { name: '주간 시간표: 옮겨 감 칸끼리 겹침을 안 봄', expect: /I14 /,
-    edits: [['api-admin.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, _takenW, new Set())) continue;']] },
+    edits: [['api-admin-scheduling.ts', 'if (movedAwayBlocked(_slotW, _recur, _takenW, _ghostW)) continue;', 'if (movedAwayBlocked(_slotW, _recur, _takenW, new Set())) continue;']] },
   { name: '주간 시간표: 차례 정렬을 뺌', expect: /I14 /,
-    edits: [['api-admin.ts', '.sort((a, b) => movedAwayOrder(_mvWById.get(String(a.schedule_id))) - movedAwayOrder(_mvWById.get(String(b.schedule_id))));', ';']] },
+    edits: [['api-admin-scheduling.ts', '.sort((a, b) => movedAwayOrder(_mvWById.get(String(a.schedule_id))) - movedAwayOrder(_mvWById.get(String(b.schedule_id))));', ';']] },
   { name: '색인: 하루짜리 줄 조회 전에 색인을 안 만듦', expect: /L1 |L2 /,
     edits: [['class-change-state.ts', '  await ensureScheduleSourceIndex(db);\n', '']] },
   { name: '색인: 엉뚱한 칸에 만듦(notes)', expect: /L1 |L2 /,
@@ -744,28 +745,31 @@ const MUTANTS = [
     edits: [['class-change-state.ts', "  const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\\d+$/.test(x))))",
              "  await ensureScheduleSourceIndex(db);\n  const srcs = Array.from(new Set((parentIds || []).map(x => String(x ?? '').trim()).filter(x => /^\\d+$/.test(x))))"]] },
   { name: '주간 시간표: 옮겨 간 칸에 누구에게나 누가·사유', expect: /I11 /,
-    edits: [['api-admin.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
+    edits: [['api-admin-scheduling.ts', 'const ch = judgeMovedAway(r, ev, { showActor: _offShowActor },', 'const ch = judgeMovedAway(r, ev, { showActor: true },']] },
 ];
-const prepared = MUTANTS.map((m, idx) => {
-  const dir = join(tmp, 'm-' + idx);
-  cpSync(REAL_SRC, dir, { recursive: true });
-  let missing = '';
-  for (const [f, from, to] of m.edits) {
-    const p = join(dir, f), s = readFileSync(p, 'utf8');
-    if (!s.includes(from)) { missing = f; break; }
-    writeFileSync(p, s.replace(from, to));
-  }
-  return { m, dir, missing };
-});
+const prepared = MUTANTS.map(m => ({ m, missing: '' }));
 const JOBS = Math.max(1, Number(process.env.CCV_JOBS) || Math.min(4, (availableParallelism && availableParallelism()) || 2));
 const outcomes = new Array(prepared.length);
 let next = 0;
-await Promise.all(Array.from({ length: JOBS }, async () => {
+await Promise.all(Array.from({ length: JOBS }, async (_, worker) => {
+  // One private tree per worker; restore every edit before its next fresh child.
+  const dir = join(tmp, 'worker-' + worker);
+  cpSync(REAL_SRC, dir, { recursive: true });
   for (;;) {
     const k = next++;
     if (k >= prepared.length) return;
-    if (prepared[k].missing) continue;
-    outcomes[k] = await runChildAsync(prepared[k].dir);
+    const originals = new Map();
+    try {
+      for (const [f, from, to] of prepared[k].m.edits) {
+        const p = join(dir, f), s = readFileSync(p, 'utf8');
+        if (!originals.has(p)) originals.set(p, s);
+        if (!s.includes(from)) { prepared[k].missing = f; break; }
+        writeFileSync(p, s.replace(from, to));
+      }
+      if (!prepared[k].missing) outcomes[k] = await runChildAsync(dir);
+    } finally {
+      for (const [p, s] of originals) writeFileSync(p, s);
+    }
   }
 }));
 for (let k = 0; k < prepared.length; k++) {

@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // 📚 수강신청 «확정 파이프라인» 하니스 — 2026-08-08
 //
 //   배경: 관리자 「수강신청 관리」의 액션 버튼은 `UPDATE enrollments SET status` 한 줄이 전부였다.
@@ -28,7 +29,7 @@ const SRC = join(ROOT, 'cloudflare-deploy', 'src');
 
 const actSrc = readFileSync(join(SRC, 'enroll-activate.ts'), 'utf8');
 const idxSrc = readFileSync(join(SRC, 'index.ts'), 'utf8');
-const admSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const admSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const coreSrc = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'js', 'adm-core.js'), 'utf8');
 
 let pass = 0, fail = 0;

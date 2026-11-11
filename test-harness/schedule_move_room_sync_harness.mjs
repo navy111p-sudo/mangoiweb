@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 수업을 옮긴 뒤 «강사와 학생이 같은 방·같은 시각» 을 받는가 — 샌드박스 끝-끝 검사
  * ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ if (process.env.SMRS_CHILD === '1') {
   const { getScope } = await imp('scope.ts');
 
   const readSrc = (f) => readFileSync(join(SRC, f), 'utf8');
-  const adminSrc = readSrc('api-admin.ts');
+  const adminSrc = readAdminModuleGraph(adminModuleFile => readSrc(adminModuleFile));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {
@@ -403,6 +404,17 @@ if (process.env.SMRS_CHILD === '1') {
   const pastDecision=await callAdmin('POST','/api/admin/schedule-requests/decide',{cookie:'tok_admin',body:{id:pastRebook.body.id,action:'approve'}});
   ok('7e past unheld original can use existing rebook path',pastDecision.body.ok===true&&getRow(pastId).scheduled_date==='2026-10-09'&&getRow(pastId).start_time==='19:40'&&getRow(pastId).status==='active',JSON.stringify({pastRebook,pastDecision}));
 
+  const historicalId = mkClass('stu_b','dated',null,'2026-09-30','06:20','2');
+  ins("INSERT INTO class_audit_log(action,schedule_id,lesson_date,lesson_time,actor,actor_role,source,created_at) VALUES('postpone',?,'2026-09-28','06:20','fixture','admin','ui',?)",historicalId,Date.now()-1000);
+  const historicalResult = await callAdmin('POST',`/api/admin/class-schedules/${historicalId}`,{cookie:'tok_admin',body:{action:'undo_move',from_date:'2026-09-28',historical_correction:true}});
+  ok('7f historical recovery stays postponed on original date',historicalResult.status===200&&getRow(historicalId).status==='postponed'&&getRow(historicalId).scheduled_date==='2026-09-28',JSON.stringify(historicalResult));
+  await both('7g historical recovery never opens a current class',historicalId,'stu_b','tok_beta',null,{present:false});
+  const historicalPortal = await portal('tok_beta');
+  ok('7h teacher future view loses removed destination',(historicalPortal.upcoming||[]).every(u=>Number(u.id)!==historicalId),JSON.stringify(historicalPortal.upcoming));
+  const historicalManager = await callAdmin('GET','/api/admin/classes/today?date=2026-09-28',{cookie:'tok_admin'});
+  const historicalView = (historicalManager.body.sessions||[]).find(s=>Number(s.schedule_id)===historicalId);
+  ok('7i manager historical row remains closed and postponed',!!historicalView&&historicalView.postponed&&!historicalView.join_open&&!historicalView.observable,JSON.stringify(historicalView));
+
   // Fuzz real API restore guards at distinct times, preserving counts and credits.
   for(let i=0;i<100;i++){
     const hh=String(7+Math.floor(i/3)%14).padStart(2,'0'),mm=['00','20','40'][i%3];
@@ -467,13 +479,13 @@ const MUT = [
     from: 'room_id: `class-${s.id}-${ymd}`, // ← 결정론적', to: 'room_id: `class-${s.id}`, // ← 결정론적' },
   { name: 'Ⓑ 강사 포털이 「오늘은 이 방」 지정을 무시', file: 'api-teacher.ts',
     from: 'await applyRoomOverrides(env.DB, classes, ymd);', to: '/* mut */' },
-  { name: 'Ⓒ PATCH 가 teacher_id 를 안 바꿈', file: 'api-admin.ts',
+  { name: 'Ⓒ PATCH 가 teacher_id 를 안 바꿈', file: 'api-admin-scheduling.ts',
     from: "sets.push('teacher_id = ?'); binds.push(_tid);", to: '/* mut */' },
   { name: 'Ⓓ 학생 쪽이 scheduled_date 를 무시하고 요일만 봄', file: 'api-mango.ts',
     from: 'if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);\n          else if', to: 'if (false) occurs = false;\n          else if' },
   { name: 'Ⓔ 강사 포털이 KST 대신 UTC 날짜로 방 번호를 만듦', file: 'api-teacher.ts',
     from: 'const k = new Date(now + KST);', to: 'const k = new Date(now);' },
-  { name: 'Ⓕ 승인이 새 시각을 안 적음(날짜만)', file: 'api-admin.ts',
+  { name: 'Ⓕ 승인이 새 시각을 안 적음(날짜만)', file: 'api-admin-class-days.ts',
     from: "`UPDATE class_schedules SET scheduled_date = ?, start_time = ?, updated_at = ? WHERE id = ?`\n              ).bind(row.new_date, row.new_time, scheduleUpdatedAt, row.schedule_id)",
     to: "`UPDATE class_schedules SET scheduled_date = ?, updated_at = ? WHERE id = ?`\n              ).bind(row.new_date, scheduleUpdatedAt, row.schedule_id)" },
 ];

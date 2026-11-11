@@ -6,7 +6,9 @@
 (function () {
   'use strict';
   var NEED = 3;
+  var pending = {};
   var done = {};   // session_id → 마지막 결과(성공·한도만 기억)
+  var FINAL = { daily_cap_reached: 1, daily_total_cap_reached: 1, claim_not_awarded: 1, session_mismatch: 1 };
 
   function en() { try { return (typeof window.getLang === 'function' ? window.getLang() : '') === 'en'; } catch (e) { return false; } }
   function uid() {
@@ -35,6 +37,9 @@
     }
     if (e === 'daily_cap_reached') return { cls: 'info', ko: '✅ 오늘 A.i 말하기 포인트는 이미 받았어요 — 내일 또 받아요', en: "✅ You already got today's speaking points — come back tomorrow" };
     if (e === 'daily_total_cap_reached' || e === 'game_daily_cap_reached') return { cls: 'info', ko: '✅ 오늘 받을 수 있는 포인트를 다 채웠어요 — 내일 또 만나요', en: "✅ You've reached today's point limit — see you tomorrow" };
+    /* Final refusals: pressing again cannot change them, so never say «try again». */
+    if (e === 'claim_not_awarded') return { cls: 'info', ko: '✅ 이번 대화로는 포인트가 더 붙지 않았어요 — 오늘 이미 받았거나 오늘 받을 수 있는 포인트를 다 채웠어요', en: '✅ No more points from this conversation — you already got them today or reached the daily limit' };
+    if (e === 'session_mismatch') return { cls: 'info', ko: '🔑 이 대화는 다른 계정에서 시작했어요 — 지금 계정으로 새 대화를 하면 받을 수 있어요', en: '🔑 This conversation started on another account — start a new one with this account to earn points' };
     if (e === 'auth_required') return { cls: 'warn', ko: '🔑 로그인이 풀렸어요 — 다시 로그인하면 포인트를 받을 수 있어요', en: '🔑 Your login expired — log in again to earn points' };
     return { cls: 'warn', ko: '⚠️ 포인트를 확인하지 못했어요 — 잠시 뒤 다시 «끝내고 요약 보기» 를 눌러 주세요', en: "⚠️ Couldn't check points — press «Finish» again in a moment" };
   }
@@ -56,25 +61,28 @@
     var b = box(); if (!b) return;
     var c = COLORS[v.cls] || COLORS.info;
     b.style.background = c[0]; b.style.color = c[1];
-    b.textContent = en() ? v.en : v.ko;
+    /* 🎁 받았을 때만 사용처 한 줄 (2026-11-09) — 사실은 ai-guide.html «포인트는 어디에 쓰나요?» 와 같다(교환 최소 3,000P) */
+    b.textContent = (en() ? v.en : v.ko) + (v.cls !== 'earn' ? '' : en() ? ' 🎁 From 3,000P, exchange for gift coupons at the Point Shop on the home screen.' : ' 🎁 3,000P부터 홈 화면 포인트상점에서 기프티콘으로 바꿀 수 있어요.');
   }
 
   function run() {
     var sid = String(window.SESSION_ID || '');
     var u = uid();
     if (!u || /^guest/i.test(u)) { paint(view(null, { guest: true })); return; }
-    if (done[sid]) { paint(view(done[sid])); return; }
+    if (done[sid]) { paint(view(done[sid])); return Promise.resolve(done[sid]); }
+    if (pending[sid]) return pending[sid];
     paint(view(null, { pending: true }));
     var tk = ''; try { tk = localStorage.getItem('mango_token') || ''; } catch (e) {}
     var headers = { 'Content-Type': 'application/json' };
     if (tk) headers.Authorization = 'Bearer ' + tk;
-    fetch('/api/points/earn-by-rule', {
+    return pending[sid] = fetch('/api/points/earn-by-rule', {
       method: 'POST', headers: headers,
       body: JSON.stringify({ user_id: u, rule_code: 'warmup_talk', token: tk || undefined, meta: { session_id: sid } })
     }).then(function (r) { return r.json(); }).then(function (d) {
-      if (d && (d.ok === true || d.error === 'daily_cap_reached' || d.error === 'daily_total_cap_reached')) done[sid] = d;
-      paint(view(d));
-    }).catch(function () { paint(view(null)); });
+      if (d && (d.ok === true || FINAL[d.error])) done[sid] = d;
+      delete pending[sid];
+      paint(view(d)); return d;
+    }).catch(function () { delete pending[sid]; paint(view(null)); return null; });
   }
 
   function arm() {

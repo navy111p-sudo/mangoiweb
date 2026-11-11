@@ -1,3 +1,5 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
+import { adminSrc as readAdminSource } from './_srcbundle.mjs';
 // class_today_extras_harness.mjs — 「오늘 수업」 일곱 칸 (2026-09-23 매니저 요청)
 //   날짜 · 강사 입장 · 결제유형 · 일정 · 지난/오늘 평가 · 학생 출결
 //   정본 src/class-today-extras.ts 를 node 타입 제거로 «실제로» 돌린다(컴파일 없음).
@@ -25,12 +27,12 @@ for (const f of ['class-today-extras', 'no-show-truth', 'd1-chunk', 'student-sch
 writeFileSync(join(tmp, 'auth-admin.ts'), 'export async function getAdminActor() { throw new Error("unexpected auth in read-only enrichment"); }');
 // 요일 정본(api-admin.ts admDowMatches)을 «그대로» 오려 와 주입한다 — 하니스에 규칙을 베끼지 않는다.
 {
-  const apiSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const apiSrc = readAdminSource({}, SRC);
   const a0 = apiSrc.indexOf('const ADM_DOW_MAP');
   const f0 = apiSrc.indexOf('function admDowMatches', a0);
   let i = apiSrc.indexOf('{', apiSrc.indexOf(')', f0)), d = 0;
   for (; i < apiSrc.length; i++) { if (apiSrc[i] === '{') d++; else if (apiSrc[i] === '}') { d--; if (!d) break; } }
-  const dowSrc = a0 > 0 && f0 > a0 ? apiSrc.slice(a0, i + 1) : '';
+  const dowSrc = a0 > 0 && f0 > a0 ? apiSrc.slice(a0, i + 1).replace("export function admDowMatches", "function admDowMatches") : '';
   ok('요일 정본 admDowMatches 를 오려 냈다', dowSrc.length > 200 && /function admDowMatches/.test(dowSrc));
   writeFileSync(join(tmp, 'dow.ts'), dowSrc + '\nexport { admDowMatches };\n');
 }
@@ -72,6 +74,7 @@ out.e_today = pk.today && pk.today.id; out.e_last = pk.last && pk.last.id;
 const pk2 = X.pickEvals(evs, 'class-5-20260923', '2026-09-23', day);
 out.e_other_today = pk2.today; out.e_other_last = pk2.last && pk2.last.id;
 out.brief = X.briefEval(evs[1]);
+out.savedBrief = X.briefEval({ student_level: 'Lv 5', attendance_status: 'late' });
 // ➕ (2026-10-28) 「지난 피드백 추가」 — 지난 수업 방 번호로 «오늘» 쓴 글은 지난 평가다(오늘 평가가 아니다)
 {
   const late = { id: 7, room_id: 'class-9-20260921', created_at: S + 30*M, note_en: 'added later' };
@@ -224,6 +227,8 @@ if (o) {
     ok('로더: 학생 줄에 prev_classes 를 싣는다(예약 행 번호로)', kim.length > 0 && kim[0].room_id === 'class-32-20260918', kim);
   }
   ok('평가: roomYmd 는 결정론 방 번호만 날짜로 읽는다', JSON.stringify(o.room_ymd) === JSON.stringify(['2026-09-21', '', '', '']), o.room_ymd);
+  ok('Log snapshots survive the summary', o.savedBrief.student_level === 'Lv 5' && o.savedBrief.attendance_status === 'late');
+  ok('Legacy summaries do not invent snapshots', o.brief.student_level === null && o.brief.attendance_status === null);
   ok('평가: 100점 만점 값은 max=100', o.brief.max === 100 && o.brief.score === 88);
   ok('지사·대리점(evals:false): 평가 내용이 응답에 없다', o.hid.today === null && o.hid.last === null, o.hid);
   ok('지사·대리점(evals:false): 평가 표를 «조회조차» 안 한다', o.hid.queried === false, o.hid);
@@ -260,7 +265,7 @@ if (o) {
 }
 
 console.log('B. 배선');
-const api = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+const api = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
 const i0 = api.indexOf("path === '/api/admin/classes/today'");
 const iE = api.indexOf('await enrichClassesToday(', i0);
 const iJ = api.indexOf('const res = json({', i0);
@@ -271,7 +276,8 @@ ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
 // 머리칸은 '<th>' 글자 또는 tcTh(...) 호출(2026-09-28 정렬 머리글) — 둘 다 «thead 안» 에서 센다.
 const thead = adm.slice(adm.indexOf("'<thead><tr>'"), adm.indexOf("'</tr></thead>"));
-const th = (thead.match(/'<th>'/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
+// (2026-11-11) 속성 달린 '<th style=…>'(☑ 전체 선택 칸)도 센다 — td 쪽과 같은 규칙('<td[ >]').
+const th = (thead.match(/'<th[ >]/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
 // ✕ (2026-11-03) 줄 여는 태그에 클래스가 붙을 수 있다(취소 줄 «tc-row-cancelled») — «return '<tr» 로 찾는다.
 const tr0 = adm.indexOf("return '<tr");
 const tb = adm.slice(tr0, adm.indexOf("'</tr>';", tr0));
@@ -385,7 +391,7 @@ ok('강사 포털: 조건 없이 try 로 감싼다', /\n[ \t]*try \{ await enric
   // 두 요일 파서가 같은 답을 내는가 — 한쪽만 좁으면 강사 화면 7칸이 관리자와 다르게 나온다
   const cut = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return ''; let d = 0, j = src.indexOf('{', i); for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } } return src.slice(i, j + 1); };
   const mapOf = (src, name) => { const i = src.indexOf('const ' + name); return i < 0 ? '' : src.slice(src.indexOf('{', i), src.indexOf('};', i) + 1); };
-  const admSrc = readFileSync(join(SRC, 'api-admin.ts'), 'utf8');
+  const admSrc = readAdminSourceFromFile(join(SRC, 'api-admin.ts'));
   let tDow = null, aDow = null;
   try { tDow = new Function('const DOW_MAP = ' + mapOf(tea, 'DOW_MAP:').replace(/^[^{]*/, '') + ';' + cut(tea, 'dowMatches').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + ' return dowMatches;')(); } catch (e) {}
   try { aDow = new Function('const ADM_DOW_MAP = ' + mapOf(admSrc, 'ADM_DOW_MAP:').replace(/^[^{]*/, '') + ';' + cut(admSrc, 'admDowMatches').replace(/\(raw: any, target: number\): boolean/, '(raw, target)') + ' return admDowMatches;')(); } catch (e) {}

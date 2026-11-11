@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // leveltest_level_display_harness.mjs — «AI 진단 완료 · C2» 의 C2 를 사람이 읽게 (2026-09-14, 사장님 B안)
 //
 // ── 왜 ───────────────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CF = join(__dir, '../cloudflare-deploy');
 const PLACE = readFileSync(join(CF, 'src/student-placement.ts'), 'utf8');
-const ADMIN = readFileSync(join(CF, 'src/api-admin.ts'), 'utf8');
+const ADMIN = readAdminSourceFromFile(join(CF, 'src/api-admin.ts'));
 const CARD  = readFileSync(join(CF, 'public/js/idx-leveltest-card.js'), 'utf8');
 
 let pass = 0, fail = 0;

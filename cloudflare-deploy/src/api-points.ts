@@ -7,6 +7,8 @@
 import { SCENE_WORDS_POINT_RULE, SCENE_WORDS_POINT_AMOUNT, SCENE_WORDS_POINT_DAILY_CAP, sceneWordsPointGate } from './scene-words-points';   // ✍️ 교재 낱말 쓰기 숙제 포인트 정본(2026-11-03)
 import { AI_CLASS_POINT_RULE, AI_CLASS_POINT_AMOUNT, AI_CLASS_POINT_DAILY_CAP, aiClassPointGate } from './ai-class-points';   // 🧑‍🏫 A.i 선생님 수업 포인트 정본(2026-11-03)
 import { WARMUP_POINT_RULE, WARMUP_POINT_AMOUNT, WARMUP_POINT_DAILY_CAP, WARMUP_POINT_MIN_TURNS, warmupPointGate } from './warmup-points';   // 🗣️ 웜업 포인트 정본(2026-11-03)
+import { creditWarmupPoints } from './warmup-point-credit';
+import { FRIEND_AWARDS } from './ai-friend-point-credit';
 import { json, today } from './api-util';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, getAdminActor, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
@@ -302,6 +304,11 @@ export async function handlePointsApi(
       if ((await resolveOwnerScope(request, url, env as any, userId, body)) === 'deny') {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인만 적립됩니다.' }, 401);
       }
+      // These awards require a saved, successful server chat and its request ID.
+      // The generic rule endpoint cannot establish that evidence, even for an owner.
+      if (Object.prototype.hasOwnProperty.call(FRIEND_AWARDS, ruleCode)) {
+        return json({ ok: false, error: 'server_verified_award_required' }, 403);
+      }
       // 🌟 실시간 수업 칭찬 포인트 — 학생 본인 브라우저가 자기 계정으로 적립하는 경로.
       //   awardId(멱등키)를 함께 넘겨, 서버-선생님적립 경로(/api/points/award-praise)와 겹쳐도 1점만 적립.
       if (ruleCode === 'teacher_praise_point') {
@@ -342,8 +349,12 @@ export async function handlePointsApi(
           const row: any = sid ? await env.DB.prepare(`SELECT user_id FROM warmup_session_log WHERE session_id = ?`).bind(sid).first() : null;
           sessionOwner = row && row.user_id ? String(row.user_id) : null;
         } catch (e: any) { sessionOwner = /no such table/i.test(String(e?.message || e)) ? null : undefined; }
-        const g = warmupPointGate({ sessionId: sid, historyRaw, userId, sessionOwner });
+        const g = warmupPointGate({ sessionId: sid, historyRaw, userId, sessionOwner, requireConfirmed: true });
         if (!g.ok) return json({ ok: false, error: g.error, have: g.have, need: WARMUP_POINT_MIN_TURNS });
+        const tokenUid = await authUidGlobal(request, url, env, body);
+        const sameLogin = tokenUid === userId || (await checkAdminSession(request, env as any))?.username === userId;
+        if (!sameLogin || /^(guest|anon)/i.test(userId)) return json({ok:false,error:'auth_required'},401);
+        if (sessionOwner !== userId) return json({ok:false,error:'session_mismatch'},403);
         body.meta = { session_id: sid, turns: g.have };
       }
       // 🧑‍🏫 A.i 선생님 수업 — 수업을 끝까지 마치고 별 1개 이상이면 한 번. 정본 src/ai-class-points.ts (2026-11-03).
@@ -400,6 +411,9 @@ export async function handlePointsApi(
       }
       // 적립
       try {
+        if (ruleCode === WARMUP_POINT_RULE) {
+          return json(await creditWarmupPoints(env.DB, userId, body.meta.session_id, body.meta.turns));
+        }
         const r = await applyPointTransaction(env, {
           userId, studentName: body.student_name, type: 'earn',
           amount: rule.amount, reason: rule.label, ruleCode, meta: body.meta,

@@ -238,6 +238,10 @@
         return wait(run, function (fin) {
           // Keep the original timeline for voices, captions and cues when skipping an embedded title.
           var start = sc.playbackStartSec || 0;
+          function canSeekAll(target) {
+            return (!videoOk || C.canSeekMedia(v, target)) && tracks.every(function (tr) { return C.canSeekMedia(tr.el, target); });
+          }
+          if (start && !canSeekAll(start)) start = 0;
           try { if (v) v.currentTime = start; } catch (e) {}
           tracks.forEach(function (t) { try { t.el.currentTime = start; } catch (e) {} });
           if (v && videoOk) playEl(run, v);
@@ -251,12 +255,14 @@
           }
           function publish() {
             if (kit.onProgress) kit.onProgress({ current: Math.max(0, ((clock && clock.currentTime) || start) - start),
-              duration: Math.max(0, endTime() - start), seekable: endTime() > start, rate: rate });
+              duration: Math.max(0, endTime() - start), seekable: endTime() > start && canSeekAll(endTime() - 0.06), rate: rate });
           }
           run.seek = function (seconds) {
             var end = endTime();
             if (!(end > start)) return false;
             var target = Math.max(start, Math.min(end - 0.06, start + seconds));
+            // Unseekable streams may silently reset to zero; never move only part of the group.
+            if (!canSeekAll(target)) { publish(); return false; }
             try { if (clock) clock.currentTime = target; } catch (e) { return false; }
             if (v && v !== clock) { try { v.currentTime = target; } catch (e) {} }
             tracks.forEach(function (tr) { try { tr.el.currentTime = target; } catch (e) {} });

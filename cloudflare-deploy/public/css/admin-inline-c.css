@@ -3573,12 +3573,6 @@ button.chip:hover,
   #en-multi-table tbody tr td.en-c-classmin { order: 7; grid-column: span 4; }
   #en-multi-table tbody tr td.en-c-start    { order: 8; grid-column: span 6; }
   #en-multi-table tbody tr td.en-c-dur      { order: 9; grid-column: span 6; }
-  /* 📞 (2026-09-10) 학부모 연락처 — 한 줄을 통째로 쓴다(span 12).
-     ⚠️ 이 블록은 12칸 그리드라 **줄마다 합이 정확히 12** 여야 한다. 기존 세 줄
-        (3+3+4+2 / 4+4+4 / 6+6)은 이미 12로 맞아 있으므로, 새 칸을 4나 6으로 끼우면
-        그 줄들이 어긋나 배치가 통째로 무너진다(규칙서 2장 「열을 하나 더했는데 맨 앞으로 튀어나옴」).
-     ⚠️ order 를 안 주면 기본값 0 이라 학생 아이디보다 «앞» 에 놓인다. */
-  #en-multi-table tbody tr td.en-c-phone    { order: 10; grid-column: span 12; }
   @media (max-width: 1100px) {
     #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
     #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }
@@ -10395,3 +10389,20 @@ html[data-admin-theme="ivory"] [id^="card-"] .lib-doc .lib-doc-t span.lib-lvl:no
 #sm-today-classes span.tc-st-cancelled{display:inline-block;padding:2px 9px;border-radius:99px;
   background-color:#fdecea !important;color:#b42318 !important;border:1px solid #f3a8a0 !important;font-weight:800 !important;box-sizing:border-box}
 #sm-today-classes tr.tc-row-cancelled > td:not(.tc-td-st){opacity:.6}
+
+/* 📋 (2026-11-05 사장님 «기존 망고아이처럼») 수강신청 목록 — 옛 망고아이처럼 촘촘한 표.
+   전역 규칙 details.menu-card button(padding:9px 18px !important)이 줄마다 «⚙ 후속·✕ 취소·🗑» 를
+   73×34 알약으로 부풀려 표가 옆으로 1,500px 까지 밀렸다. ID 두 개(2,0,x)로 그 규칙만 되돌린다 —
+   색·배경은 그리는 쪽(adm-core.js _renderEnrollments)의 인라인 값을 그대로 둔다.
+   ⛔ hover 에 transform 을 넣지 말 것(CLAUDE.md 1-3). */
+#card-enrollments #enrollments-table td{font-size:12px !important}
+#card-enrollments #enrollments-table td button{padding:3px 8px !important;font-size:11px !important;
+  min-height:0 !important;line-height:1.3 !important;border-radius:5px !important;box-sizing:border-box;margin:1px 2px !important}
+#card-enrollments #enrollments-table tr:hover > td{background-color:#f9fafb}
+#card-enrollments table[data-gc="📋 신청 목록"] th{padding:6px 5px !important;font-size:11.5px !important;white-space:normal !important;word-break:keep-all}
+#card-enrollments #enrollments-table td{padding:4px 6px !important}
+/* 관리 칸은 버튼이 두 줄로 접히게 두고(옆으로 밀지 않게), 옆으로 굴려도 늘 보이게 오른쪽에 붙인다 */
+#card-enrollments #enrollments-table td.en-act{min-width:200px;position:sticky;right:0;background-color:#ffffff;box-shadow:-6px 0 6px -6px rgba(15,23,42,.18)}
+#card-enrollments table[data-gc="📋 신청 목록"] th:last-child{position:sticky;right:0;z-index:1}
+/* 전역 표 규칙의 overflow:hidden 이 있으면 sticky 가 «표» 안에서만 붙어 아무 일도 안 한다(실측) — 바깥 상자가 굴리게 푼다 */
+#card-enrollments table[data-gc="📋 신청 목록"]{overflow:visible !important}

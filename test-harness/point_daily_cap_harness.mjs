@@ -1,3 +1,5 @@
+import { gamesSrc } from './_srcbundle.mjs';
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    🪙 포인트 «하루 상한» 을 모든 적립 경로가 지나는지 감시 (2026-09-01 신설)
 
@@ -58,7 +60,7 @@ function strip(src) {
 }
 
 const points = strip(readFileSync(join(SRC, 'api-points.ts'), 'utf8'));
-const ai = strip(readFileSync(join(SRC, 'api-ai.ts'), 'utf8'));
+const ai = strip(readFileSync(join(SRC, 'api-ai.ts'), 'utf8') + '\n' + readFileSync(join(SRC, 'api-ai-writing.ts'), 'utf8'));
 const policy = strip(readFileSync(join(SRC, 'point-policy.ts'), 'utf8'));
 
 console.log('\n[ A. applyPointTransaction 을 지나는 적립 경로가 모두 정본 게이트를 지난다 ]');
@@ -210,8 +212,8 @@ console.log('\n[ D. 이 상한이 «전체» 가 아니라는 것을 알고 있�
   /* ⚠️ 「UPDATE student_points」로 찾으면 0곳이 나온다 — 실제 형태는
      `INSERT … ON CONFLICT(user_id) DO UPDATE SET balance = balance + ?` 다.
      문장 «모양» 이 아니라 «잔액을 더한다» 는 뜻으로 찾는다. */
-  const games = strip(readFileSync(join(SRC, 'api-games.ts'), 'utf8'));
-  const admin = strip(readFileSync(join(SRC, 'api-admin.ts'), 'utf8'));
+  const games = strip(gamesSrc());
+  const admin = strip(readAdminSourceFromFile(join(SRC, 'api-admin.ts')));
   const RE_DIRECT = /balance\s*=\s*balance\s*\+/g;
   const gOut = (games.match(RE_DIRECT) || []).length;
   const aOut = (admin.match(RE_DIRECT) || []).length;

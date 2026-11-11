@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🎲 무작위 반복 검사 — 연락처 정본·오늘 수업 연락처·KST 시간 칸·강사 월 보기 (2026-10-28)
 //
 // 왜 만들었나
@@ -310,7 +311,7 @@ section('A-E. 받아 둔 번호 표를 못 만들 때(표 만들기 실패) — 
 section('B. 「오늘 수업」 연락처 채우기 블록 — 진짜 loadContactPhones 와 끝에서 끝까지');
 {
   const m = mark();
-  const H = rd(resolve(SRC, 'api-admin.ts'));
+  const H = readAdminModuleGraph(file => rd(resolve(SRC, "" + file)));
   const a = H.indexOf('let _ctContactsOk = true;');
   const ifAt = a > 0 ? H.indexOf('if (', a) : -1;
   const block = ifAt > 0 ? (H.slice(a, ifAt) + braceBody(H, ifAt)).replace(/: any/g, '') : '';
@@ -424,7 +425,7 @@ const fnSrc = (src, name) => { const at = src.indexOf('  function ' + name + '('
 /* ── D. 월 칸 만들기 + 날짜 판정 (api-teacher.ts) ─────────────────────────── */
 section('D. 강사 월 보기 서버 — 월 칸·hitsOn·calendarItemOf (진짜 class-start-date.ts)');
 const TAPI = rd(resolve(SRC, 'api-teacher.ts'));
-const AAPI = rd(resolve(SRC, 'api-admin.ts'));
+const AAPI = readAdminModuleGraph(file => rd(resolve(SRC, "" + file)));
 {
   const m = mark();
   const mdAt = TAPI.indexOf('const monthDays: any[] = [];');

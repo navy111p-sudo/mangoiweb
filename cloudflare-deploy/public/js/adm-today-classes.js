@@ -314,7 +314,7 @@
   function evqLoad(go) {
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=3';
+    sc.src = '/js/eval-quick-view.js?v=4';
     sc.onload = go;
     sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
     document.head.appendChild(sc);
@@ -767,25 +767,91 @@
     try { role = (window.__ADM_ME && window.__ADM_ME.role) ? String(window.__ADM_ME.role) : ''; } catch (e) {}
     return ['teacher', 'franchise', 'branch', 'agency'].indexOf(role) < 0;
   }
+  /* ☑ (2026-11-11 매니저 «Select All» 제안) 여러 학생에게 같은 안내를 한 번에 — 옛 LMS 「MESSAGE SEND」 대응.
+     강사 휴가·사고 때 한 명씩 📩 를 누르던 일을 없앤다. 서버는 그대로(class_notice 를 학생마다 한 번씩).
+     선택은 «학생+수업 시각» 으로 기억 — 다시 그려도 남고, 날짜를 바꾸면 자연히 풀린다. */
+  var _tcSel = {};
+  // 🔒 보내는 중 표시는 «창 밖» 에 둔다 — 창을 닫았다 다시 열어도 앞 묶음이 끝나기 전엔 새로 못 보낸다(같은 문자 두 번 방지).
+  var _tcMsgBusy = false;
+  function tcSelKey(s) { return String(s.student_uid) + '|' + String(s.start_ts || s.start_time || ''); }
+  // ⏸ «다른 날로 옮긴» 줄은 빼다 — 원래 시각으로 안내가 나가 거짓이 된다(📩 칩과 같은 조건 · 정본은 이 한 줄).
+  function tcMsgable(s) { return !!(s && s.student_uid && !s.moved_away); }
+  /* 고른 줄 → 받을 학생. 표에 «보이는» 줄만, 같은 학생 두 수업이면 한 번만(첫 줄 시각). */
+  function tcMsgTargets(rows, sel) {
+    var seen = {}, out = [];
+    rows.forEach(function (s) {
+      if (!tcMsgable(s) || !sel[tcSelKey(s)] || seen[s.student_uid]) return;
+      seen[s.student_uid] = 1;
+      out.push({ uid: String(s.student_uid), name: s.student_name || String(s.student_uid), teacher: s.teacher_name || '', time: s.start_time || '' });
+    });
+    return out;
+  }
+  // {name}·{teacher}·{time} → 그 학생 값. 값이 없으면 뒤 빈칸까지 지운다(«오늘  수업» 이 안 되게).
+  function tcFillMsg(tpl, t) {
+    return String(tpl).replace(/\{(name|teacher|time)\}( ?)/g, function (_, k, sp) { return t[k] ? t[k] + sp : ''; });
+  }
+  /* 한 명씩 «차례로» — 문자 업체에 한꺼번에 몰지 않고, 한 명이 실패해도 나머지는 계속. 판정은 서버 응답 그대로. */
+  function tcSendMsgs(targets, msg, push, sms, onStep) {
+    var res = [], i = 0;
+    function next() {
+      if (i >= targets.length) return Promise.resolve(res);
+      var t = targets[i++];
+      if (onStep) onStep(i, targets.length);
+      return fetch('/api/admin/retention/care', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: t.uid, action_type: 'class_notice', message: tcFillMsg(msg, t), push: push, sms: sms, title: T('망고아이 수업 안내', 'Mangoi class notice') })
+      }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; }); })
+        .then(function (x) {
+          var j = x.j || {};
+          if (x.r.ok && j.ok === true && j.status === 'sent') res.push({ t: t, ok: true, icon: '✅', why: j.detail || T('보냈습니다', 'Sent') });
+          else if (x.r.ok && j.ok === true) res.push({ t: t, ok: false, icon: '⚠️', why: T('아무 데도 닿지 않았습니다: ', 'Not delivered: ') + (j.detail || '') });
+          else res.push({ t: t, ok: false, icon: '❌', why: (j.who_line ? j.who_line + ' ' : '') + (j.detail || j.message || j.error || x.r.status) });
+        }, function (e) { res.push({ t: t, ok: false, icon: '❌', why: T('통신 오류: ', 'Network error: ') + (e && e.message || e) }); })
+        .then(next);
+    }
+    return next();
+  }
+  /* 표 위 한 줄 — [📩 고른 학생에게 메시지 (N명)]. ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+  function tcSelBarHtml() {
+    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 2px 8px">'
+      + '<span id="tc-bulk-msg" role="button" tabindex="0" style="cursor:pointer;display:inline-block;white-space:nowrap;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:800;'
+      + 'background:#ecfdf3;color:#067647;border:1px solid #a6e9c5">📩 ' + T('고른 학생에게 메시지', 'Message selected') + ' (<b id="tc-sel-n">0</b>' + T('명', '') + ')</span>'
+      + '<span style="font-size:11.5px;color:#475467">' + T('☑ 왼쪽 칸에서 학생을 고르세요 · 맨 위 칸 = 전체 선택', '☑ Tick students on the left · top box = select all') + '</span></div>';
+  }
+  /* 체크 바뀔 때 — 표를 다시 그리지 않고 숫자와 «전체» 칸만 맞춘다(일부만 골랐으면 반쯤 표시). */
+  function tcSelSync(rows, box) {
+    var ne = $('tc-sel-n'); if (ne) ne.textContent = String(tcMsgTargets(rows, _tcSel).length);
+    var all = $('tc-sel-all'), cbs = box.querySelectorAll('.tc-sel'), on = 0;
+    for (var i = 0; i < cbs.length; i++) if (cbs[i].checked) on++;
+    if (all) { all.checked = cbs.length > 0 && on === cbs.length; all.indeterminate = on > 0 && on < cbs.length; }
+  }
   function tcMsgModalClose() { var m = document.getElementById('tc-msg-modal'); if (m) m.remove(); }
-  function tcOpenMsgModal(el) {
+  /* targets: [{uid,name,teacher,time}] — 📩 칩은 1명, ☑ 일괄은 여러 명. 1명이면 글을 미리 채워 예전과 똑같이 보인다. */
+  function tcOpenMsgModal(targets) {
     tcMsgModalClose();
-    var uid = el.getAttribute('data-uid') || '', name = el.getAttribute('data-name') || uid;
-    var tch = el.getAttribute('data-teacher') || '', tm = el.getAttribute('data-time') || '';
+    if (!targets || !targets.length) return;
+    var many = targets.length > 1, one = targets[0];
     var tpl = T(
-      '[망고아이] ' + name + ' 학생, 오늘' + (tm ? ' ' + tm : '') + ' 수업 안내입니다.\n'
-        + (tch ? tch + ' 선생님께 ' : '선생님께 ') + '갑작스러운 기술 문제가 생겨 잠시 지연되고 있습니다. 조금만 기다려 주세요. 불편을 드려 죄송합니다.',
-      '[Mangoi] Hi ' + name + ', about your class today' + (tm ? ' at ' + tm : '') + ':\n'
-        + 'Your teacher' + (tch ? ' (' + tch + ')' : '') + ' has a sudden technical problem, so the class is slightly delayed. Please wait a moment. We are sorry for the inconvenience.'
+      '[망고아이] {name} 학생, 오늘 {time} 수업 안내입니다.\n'
+        + '{teacher} 선생님께 갑작스러운 기술 문제가 생겨 잠시 지연되고 있습니다. 조금만 기다려 주세요. 불편을 드려 죄송합니다.',
+      '[Mangoi] Hi {name}, about your {time} class today:\n'
+        + 'Your teacher {teacher} has a sudden technical problem, so the class is slightly delayed. Please wait a moment. We are sorry for the inconvenience.'
     );
+    var who = many
+      ? '<div style="font-size:12.5px;color:#344054;margin-bottom:4px;font-weight:700">' + T('받는 학생 ' + targets.length + '명', targets.length + ' students') + '</div>'
+        + '<div id="tc-msg-who" style="font-size:12px;color:#475467;margin-bottom:8px;max-height:72px;overflow-y:auto;line-height:1.6">'
+        + targets.map(function (t) { return esc(t.name); }).join(', ') + '</div>'
+      : '<div style="font-size:12.5px;color:#475467;margin-bottom:8px">' + esc(one.name) + ' · <code>' + esc(one.uid) + '</code></div>';
     var box = document.createElement('div');
     box.id = 'tc-msg-modal';
     box.setAttribute('role', 'dialog');
     box.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100002;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
     box.innerHTML = '<div style="background:#ffffff;color:#101828;border-radius:12px;max-width:520px;width:100%;padding:18px;margin:auto;box-shadow:0 10px 30px rgba(0,0,0,.25)">'
-      + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">📩 ' + T('학생에게 안내 보내기', 'Send a notice to the student') + '</div>'
-      + '<div style="font-size:12.5px;color:#475467;margin-bottom:8px">' + esc(name) + ' · <code>' + esc(uid) + '</code></div>'
+      + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">📩 ' + (many ? T('학생 ' + targets.length + '명에게 안내 보내기', 'Send a notice to ' + targets.length + ' students') : T('학생에게 안내 보내기', 'Send a notice to the student')) + '</div>'
+      + who
       + '<textarea id="tc-msg-text" rows="6" style="width:100%;box-sizing:border-box;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px"></textarea>'
+      + (many ? '<div style="font-size:11.5px;color:#1d4ed8;margin-top:4px">' + T('{name} · {time} · {teacher} 는 학생마다 자기 이름 · 수업 시각 · 강사로 바뀌어 나갑니다.',
+          '{name} · {time} · {teacher} are replaced with each student\'s own name, class time and teacher.') + '</div>' : '')
       + '<div style="display:flex;gap:14px;margin:8px 0;font-size:13px;color:#344054">'
       +   '<label><input type="checkbox" id="tc-msg-push" checked> ' + T('푸시', 'Push') + '</label>'
       +   '<label><input type="checkbox" id="tc-msg-sms" checked> ' + T('문자(SMS)', 'SMS') + '</label></div>'
@@ -797,29 +863,39 @@
       +   '<span role="button" tabindex="0" id="tc-msg-send" style="cursor:pointer;padding:7px 14px;border-radius:8px;background:#067647;color:#ffffff;font-weight:800">' + T('보내기', 'Send') + '</span>'
       + '</div></div>';
     document.body.appendChild(box);
-    document.getElementById('tc-msg-text').value = tpl;
+    document.getElementById('tc-msg-text').value = many ? tpl : tcFillMsg(tpl, one);
     box.addEventListener('click', function (e) { if (e.target === box) tcMsgModalClose(); });
     document.getElementById('tc-msg-cancel').addEventListener('click', tcMsgModalClose);
-    var busy = false;
-    document.getElementById('tc-msg-send').addEventListener('click', function () {
-      if (busy) return;
+    var sendBtn = document.getElementById('tc-msg-send');
+    sendBtn.addEventListener('click', function () {
       var out = document.getElementById('tc-msg-out');
+      if (_tcMsgBusy) { out.style.color = '#b42318'; out.textContent = T('앞서 보내던 안내가 아직 끝나지 않았습니다. 잠시 뒤 다시 눌러 주세요.', 'The previous send is still running. Please try again shortly.'); return; }
       var msg = String(document.getElementById('tc-msg-text').value || '').trim();
       var push = document.getElementById('tc-msg-push').checked, sms = document.getElementById('tc-msg-sms').checked;
       if (!msg) { out.style.color = '#b42318'; out.textContent = T('보낼 내용을 적어 주세요.', 'Please write a message.'); return; }
       if (!push && !sms) { out.style.color = '#b42318'; out.textContent = T('푸시나 문자 중 하나는 골라 주세요.', 'Pick push or SMS.'); return; }
-      busy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
-      fetch('/api/admin/retention/care', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: uid, action_type: 'class_notice', message: msg, push: push, sms: sms, title: T('망고아이 수업 안내', 'Mangoi class notice') })
-      }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; }); })
-        .then(function (x) {
-          busy = false;
-          var j = x.j || {};
-          if (x.r.ok && j.ok === true && j.status === 'sent') { out.style.color = '#067647'; out.textContent = '✅ ' + (j.detail || T('보냈습니다', 'Sent')); }
-          else if (x.r.ok && j.ok === true) { out.style.color = '#b42318'; out.textContent = '⚠️ ' + T('아무 데도 닿지 않았습니다: ', 'Not delivered: ') + (j.detail || ''); }
-          else { out.style.color = '#b42318'; out.textContent = '❌ ' + (j.who_line ? j.who_line + ' ' : '') + (j.detail || j.message || j.error || x.r.status); }
-        }, function (e) { busy = false; out.style.color = '#b42318'; out.textContent = '❌ ' + T('통신 오류: ', 'Network error: ') + (e && e.message || e); });
+      // 💸 여러 명은 돈이 나가는 문자라 한 번 더 묻는다(실수로 전체에게 나가지 않게).
+      if (targets.length > 1 && !confirm(T(targets.length + '명에게 보냅니다. 계속할까요?', 'Send to ' + targets.length + ' students?'))) return;
+      _tcMsgBusy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
+      tcSendMsgs(targets, msg, push, sms, function (i, n) {
+        if (n > 1) out.textContent = T('보내는 중… ' + i + ' / ' + n, 'Sending… ' + i + ' / ' + n);
+      }).then(function (res) {
+        _tcMsgBusy = false;
+        var bad = res.filter(function (r) { return !r.ok; });
+        if (res.length === 1) {
+          out.style.color = res[0].ok ? '#067647' : '#b42318';
+          out.textContent = res[0].icon + ' ' + res[0].why;
+        } else {
+          out.style.color = bad.length ? '#b42318' : '#067647';
+          out.innerHTML = '<b>' + esc(T('✅ ' + (res.length - bad.length) + '명 보냄' + (bad.length ? ' · ⚠️ ' + bad.length + '명 못 보냄' : ''),
+              '✅ ' + (res.length - bad.length) + ' sent' + (bad.length ? ' · ⚠️ ' + bad.length + ' not sent' : ''))) + '</b>'
+            + bad.map(function (r) { return '<div style="font-size:11.5px">' + r.icon + ' ' + esc(r.t.name) + ' — ' + esc(r.why) + '</div>'; }).join('');
+        }
+        // 🔁 다시 누르면 «못 보낸 학생만» — 받은 학생에게 같은 문자가 두 번 가지 않게. 다 갔으면 버튼을 숨긴다.
+        targets = bad.map(function (r) { return r.t; });
+        if (!targets.length) sendBtn.style.display = 'none';
+        else sendBtn.textContent = T('못 보낸 ' + targets.length + '명 다시 보내기', 'Retry ' + targets.length + ' not sent');
+      });
     });
   }
 
@@ -1161,6 +1237,7 @@
     /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
        ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
     var acLine = acSel ? academySummary(rows, acSel) : '';
+    var selCol = tcCanMessage();   // ☑ 고르는 칸은 📩 를 보낼 수 있는 사람에게만(서버도 본사 전용)
     /* 🎌 휴강일이면 목록 위에 한 줄 — 이름·건수는 서버가 센 값(판정을 화면이 다시 하지 않는다). */
     var holLine = _holiday
       ? '<div style="padding:6px 2px 4px;color:#475569;font-size:12px;font-weight:700;line-height:1.6">'
@@ -1174,8 +1251,11 @@
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')
       + bookLine
+      + (selCol ? tcSelBarHtml() : '')
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
+      /* ☑ 전체 선택 — 맨 앞 칸. ⚠️ th 와 td 는 짝 — 같은 selCol 조건으로 둘 다 그린다. */
+      +   (selCol ? '<th style="width:28px;text-align:center"><input type="checkbox" id="tc-sel-all" aria-label="' + T('전체 선택', 'Select all') + '" title="' + T('보이는 학생 전체 선택', 'Select all students shown') + '"></th>' : '')
       +   tcTh('date', '날짜', 'Date')
       +   tcTh('time', '시간 (한국)', 'Time (KST)')
       +   tcTh('status', '상태', 'Status')
@@ -1224,19 +1304,25 @@
                옮길 대상이 없다 — 버튼이 «없는» 대신 이유를 글자로(폰엔 hover 없음). manager.html 과 같은 말. */
             act += '<span style="display:inline-block;white-space:nowrap;font-size:10.5px;color:#475467;padding:2px 8px;border-radius:99px;background:#f1f5f9;border:1px solid #cbd5e1">'
               + T('카페24 수업 — 카페24에서 변경', 'LMS class — change in cafe24') + '</span>';
+            /* 🙈 (2026-11-05 매니저 «mangoai_lee 를 연기하려는데 Move 버튼이 없다») 명부에서 숨긴(삭제) 계정 —
+               서버 정본 src/cafe24-hidden-student.ts 가 student_hidden·hidden_twins 를 실어 준다(판정을 여기서 다시 하지 않는다).
+               같은 시각·같은 강사의 망고아이 수업이 있으면 «연기는 그 줄에서» 를 글자로 알려 준다. */
+            if (s.student_hidden) act += tcHiddenNoteHtml(s);
           } else if (s.moved_away) {
             /* ⏸ (2026-11-04) 이 날에서 다른 날로 연기·변경한 수업 — «원래 날짜» 에 남긴 줄. 이 날 이 방에는 수업이 없다.
                입장·참관·초대 링크·연기·대체강사 버튼은 주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다).
                새 날짜에서 옮기려면 그 날짜 목록에서 하면 된다. 글자는 서버가 만든 것(change.label_*)을 그대로 쓴다. */
             act = '<span style="color:#b45309;font-size:11.5px;font-weight:700;margin-right:4px">'
               + esc(T((s.change && s.change.label_ko) || '⏸ 다른 날로 옮김', (s.change && s.change.label_en) || '⏸ Moved to another day'))
-              + T(' — 이 날은 수업 없음', ' — no class this day') + '</span>';
+              + T(' — 이 날은 수업 없음', ' — no class this day') + '</span>'
+              + tcUndoMoveHtml(s);
           } else if (s.cancelled) {
             /* ✕ (2026-11-03) 취소된 수업 — 줄은 남기되(지우면 «수업이 없어졌다» 로 읽힌다) 입장·참관·초대 링크·연기 버튼은
                주지 않는다(서버도 join_open·observable·can_move 를 false 로 보낸다). 📩 메시지는 아래에서 그대로 붙는다 —
                «수업이 취소됐다» 를 학생에게 알릴 길이라서. */
             act = '<span style="color:#b42318;font-size:11.5px;font-weight:700;margin-right:4px">'
               + T('✕ 취소된 수업 — 입장 없음', '✕ Cancelled — no class') + '</span>';
+            if (tcCanMessage() && s.schedule_id && Number(s.start_ts) > Date.now()) act += '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(new Date(Number(s.start_ts) + 9 * 3600000).toISOString().slice(0,16).replace('T',' ')) + ' KST" style="cursor:pointer">' + T('↩ 취소 수업 복원', '↩ Restore cancelled class') + '</span>';
           } else if (s.holiday) {
             /* 🎌 공휴일 휴강 — 입장·참관 버튼을 주지 않는다(서버가 join_open=false 로 보낸다). */
             act = '<span style="color:#475569;font-size:11.5px;font-weight:700;margin-right:4px">'
@@ -1317,7 +1403,7 @@
              ⛔ 강사·지사·대리점에는 안 그린다(서버도 403) — «눌러도 안 되는 버튼» 을 만들지 않는다.
              ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
           // ⏸ «다른 날로 옮긴» 줄에는 안 붙인다 — 원래 시각(data-time)으로 안내가 나가 거짓이 된다. 새 날짜 줄에서 보내면 된다.
-          if (s.student_uid && tcCanMessage() && !s.moved_away) {
+          if (tcMsgable(s) && tcCanMessage()) {
             act += '<span class="tc-msg-pin" role="button" tabindex="0" data-uid="' + esc(s.student_uid) + '" '
               + 'data-name="' + esc(s.student_name || s.student_uid) + '" data-teacher="' + esc(s.teacher_name || '') + '" '
               + 'data-time="' + esc(s.start_time || '') + '" '
@@ -1396,6 +1482,9 @@
           }
           /* ✕ 취소 줄은 흐리게 — 지우지 않되 «열리는 수업» 과 한눈에 갈리게. 색은 클래스(css 끝 tc-row-cancelled). */
           return '<tr' + ((s.cancelled || s.moved_away) ? ' class="tc-row-cancelled"' : '') + '>'
+            + (selCol ? '<td style="text-align:center">' + (tcMsgable(s)
+                ? '<input type="checkbox" class="tc-sel" data-k="' + esc(tcSelKey(s)) + '"' + (_tcSel[tcSelKey(s)] ? ' checked' : '') + ' aria-label="' + esc(T('선택: ', 'Select: ') + (s.student_name || s.student_uid)) + '">'
+                : '') + '</td>' : '')
             + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
             + '<td style="white-space:nowrap" title="KST">' + esc(kstRange(s)) + '</td>'
             + '<td class="tc-td-st">' + badge(s.status) + '</td>'
@@ -1495,12 +1584,49 @@
     var mss = box.querySelectorAll('.tc-msg-pin');
     for (var si2 = 0; si2 < mss.length; si2++) {
       (function (el) {
-        var open = function (ev) { if (ev) ev.preventDefault(); tcOpenMsgModal(el); };
+        var open = function (ev) {
+          if (ev) ev.preventDefault();
+          var uid = el.getAttribute('data-uid') || '';
+          tcOpenMsgModal([{ uid: uid, name: el.getAttribute('data-name') || uid, teacher: el.getAttribute('data-teacher') || '', time: el.getAttribute('data-time') || '' }]);
+        };
         el.addEventListener('click', open);
         el.addEventListener('keydown', function (ev) {
           if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
         });
       })(mss[si2]);
+    }
+    /* ☑ 고르기·전체 선택·일괄 보내기 — 대상은 «지금 보이는 줄» 에서만 뽑는다(걸러 낸 줄로 몰래 새지 않게). */
+    var sels = box.querySelectorAll('.tc-sel');
+    var mark = function (el) { var k = el.getAttribute('data-k'); if (el.checked) _tcSel[k] = 1; else delete _tcSel[k]; };
+    for (var sx = 0; sx < sels.length; sx++) sels[sx].addEventListener('change', function () { mark(this); tcSelSync(rows, box); });
+    var sall = $('tc-sel-all');
+    if (sall) sall.addEventListener('change', function () {
+      for (var i = 0; i < sels.length; i++) { sels[i].checked = sall.checked; mark(sels[i]); }
+      tcSelSync(rows, box);
+    });
+    var bm = $('tc-bulk-msg');
+    if (bm) {
+      var bmOpen = function (ev) {
+        if (ev) ev.preventDefault();
+        var ts = tcMsgTargets(rows, _tcSel);
+        if (!ts.length) { alert(T('먼저 왼쪽 칸에서 학생을 골라 주세요.', 'Tick students on the left first.')); return; }
+        tcOpenMsgModal(ts);
+      };
+      bm.addEventListener('click', bmOpen);
+      bm.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') bmOpen(ev);
+      });
+    }
+    tcSelSync(rows, box);
+    var uds = box.querySelectorAll('.tc-undo-pin');
+    for (var ui = 0; ui < uds.length; ui++) {
+      (function (el) {
+        var go = function (ev) { if (ev) ev.preventDefault(); tcUndoMove(el); };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') go(ev);
+        });
+      })(uds[ui]);
     }
     var rss = box.querySelectorAll('.tc-restore-pin');
     for (var ri = 0; ri < rss.length; ri++) {
@@ -1547,14 +1673,98 @@
     announceCounts(rows.length);
   }
 
-  /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */
-  async function tcRestorePostponed(el) {
+  /* ↩ (2026-11-04 매니저 Mai «I postpone the class but there's no restore or undo postponement option»)
+     «다른 날로 옮김» 줄의 「↩ 원래대로」 — 서버가 판정한 s.undo(정본 class-change-state.ts judgeMovedAwayUndo) 그대로 그린다.
+     ok 면 버튼, 아니면 «왜 못 하는지» 를 글자로(폰엔 hover 가 없다 · 누르면 거절되는 버튼을 두지 않는다).
+     🔒 서버가 본사 전용(enrollAdminHqOnly)이라 📩 메시지와 같은 역할 판정(tcCanMessage)으로 지사·대리점·강사에게는 안 그린다. */
+  var TC_UNDO_WHY = {
+    orig_passed: ['원래 시각이 지나 되돌릴 수 없음', 'Original time has passed — cannot undo'],
+    target_started: ['새 날짜 수업이 이미 시작됨 — 되돌릴 수 없음', 'Already started on the new date — cannot undo'],
+    target_not_active: ['그 뒤 취소·다시 연기됨 — 새 날짜에서 처리', 'Cancelled or postponed again — handle it on the new date'],
+    no_target: ['자동으로 되돌릴 수 없음 — 새 날짜에서 옮기세요', 'Cannot undo here — move it from the new date'],
+    no_time: ['원래 시각을 몰라 되돌릴 수 없음 — 새 날짜에서 옮기세요', 'Original time unknown — move it from the new date']
+  };
+  function tcMd(d) { return /^\d{4}-\d{2}-\d{2}/.test(String(d || '')) ? String(d).slice(5, 10).replace('-', '/') : ''; }
+  /* 🙈 (2026-11-05) 명부에서 숨긴(삭제) 계정의 카페24 줄 — 왜 Move 가 없는지와 «어디서 연기하나» 를 글자로.
+     서버가 준 hidden_twins(같은 시각·같은 강사의 망고아이 수업)만 그대로 말한다 — 계정끼리 «같은 사람» 이라고 잇지 않는다.
+     ⛔ <button> 대신 글자 — 카드 안 전역 button 규칙이 파란 알약으로 덮는다(CLAUDE.md 2장). */
+  function tcHiddenNoteHtml(s) {
+    var twins = (s && Array.isArray(s.hidden_twins)) ? s.hidden_twins : [];
+    var who = twins.map(function (t) {
+      return t.student_name ? (t.student_name + ' (' + t.student_uid + ')') : String(t.student_uid || '');
+    }).filter(Boolean).join(', ');
+    var box = '<div style="margin-top:4px;font-size:10.5px;line-height:1.5;color:#7c2d12;background-color:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:3px 8px;max-width:260px">'
+      + esc(T('🙈 숨긴(삭제)된 계정 — 망고아이에 수업이 없어 옮길 수 없습니다.', '🙈 Hidden (deleted) account — no Mangoi class, so it cannot be moved here.'));
+    if (who) {
+      box += '<br><b>' + esc(T('같은 시각·같은 강사 망고아이 수업: ', 'Same time & teacher in Mangoi: ')) + esc(who) + '</b>'
+        + '<br>' + esc(T('→ 연기·변경은 그 줄의 📅 버튼으로. 이 카페24 예약은 카페24에서 정리하세요.',
+                         '→ Postpone/move from that row (📅). Clean up this cafe24 booking in cafe24.'));
+    } else {
+      box += '<br>' + esc(T('→ 이 예약은 카페24에서 바꾸거나 정리하세요.', '→ Change or clean up this booking in cafe24.'));
+    }
+    return box + '</div>';
+  }
+  function tcUndoMoveHtml(s) {
+    var u = s && s.undo;
+    if (!u || !s.schedule_id || !tcCanMessage()) return '';
+    /* ↩ (2026-11-08 사장님·매니저 Mai «원래 시각이 지났어도 연기 되돌리기») 원래 시각에 «같은 수업»(같은 학생·강사·시각)이 이미
+       열려 있으면 — 카페24 미러가 다시 만든 경우 등(판정은 서버 u.held_available · 정본 judgeMovedAwayUndo) — 새 날짜에 다시 여는
+       «수업 복원» 대신 «↩ 연기 되돌리기». 누르면 action:'undo_move' + held:true(tcUndoHeld) — 새 수업을 열지 않고 옮겨 간 수업
+       (시작 전이면)을 취소하고 이 줄을 정리한다. */
+    if (u.held_available === true && u.from_date) {
+      var hBack = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+      var hCh = s.change || {};
+      var hNow = (String(hCh.to_date || '') + ' ' + (hCh.to_time || '')).trim();
+      return '<span class="tc-undo-pin" role="button" tabindex="0" data-held="1" data-sid="' + esc(s.schedule_id) + '" '
+        + 'data-from="' + esc(u.from_date) + '" data-back="' + esc(hBack) + '" data-now="' + esc(hNow) + '" '
+        + 'data-copy="' + (u.held_copy_status === 'active' ? 'active' : 'cancelled') + '" data-name="' + esc(s.student_name || s.student_uid || '') + '" '
+        + 'title="' + esc(T('원래 시각(' + hBack + ')에 같은 수업이 이미 열려 있습니다 — 연기를 없던 일로 합니다', 'The same class is already scheduled at the original time (' + hBack + ') — cancel the postponement')) + '" '
+        + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+        + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+        + esc(T('↩ 연기 되돌리기', '↩ Undo postponement')) + '</span>';
+    }
+    if (u.ok !== true && u.historical_available !== true) {
+      /* ↩ (2026-11-06 사장님 «원래 시각이 지났어도 되돌리기 옵션») 새 자리가 «그 뒤 취소» 됐고 아직 시작 전이면 이 줄에서 바로
+         그 수업을 새 자리에 다시 연다 — 판정은 서버(u.restore_cancelled_available · 정본 judgeMovedAwayUndo), 실행은 대상 행
+         (u.target_id)에 action:'restore'(.tc-restore-pin → tcRestorePostponed, 새 날짜 줄의 «↩ 취소 수업 복원» 과 같은 엔진).
+         data-back 이 있으면 확인창이 «원래 시각 · 그 뒤 취소» 를 함께 말한다. 지난 원래 시각에는 열지 않는다. */
+      if (u.restore_cancelled_available === true && u.target_id) {
+        var at = (String(u.target_date || '') + ' ' + (u.target_time || '')).trim();
+        var orig = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+        return '<span class="tc-restore-pin" role="button" tabindex="0" data-sid="' + esc(u.target_id) + '" '
+          + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" data-when="' + esc(at + ' KST') + '" '
+          + 'data-back="' + esc(orig) + '" data-past="' + (u.reason === 'orig_passed' ? '1' : '0') + '" data-undo="' + (u.reason === 'target_not_active' ? '1' : '0') + '" '
+          + 'title="' + esc(T('그 뒤 취소된 수업을 ' + at + ' 에 다시 엽니다', 'Reopen the later-cancelled class at ' + at)) + '" '
+          + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+          + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+          + esc(T('↩ 수업 복원 · ' + (tcMd(u.target_date) + ' ' + (u.target_time || '')).trim(), '↩ Restore class · ' + (tcMd(u.target_date) + ' ' + (u.target_time || '')).trim())) + '</span>';
+      }
+      var w = TC_UNDO_WHY[u.reason] || TC_UNDO_WHY.no_target;
+      return '<span style="display:inline-block;margin-left:4px;color:#475467;font-size:11px">' + esc(T(w[0], w[1])) + '</span>';
+    }
+    var back = (String(u.from_date || '') + ' ' + (u.from_time || '')).trim();
+    var ch = s.change || {};
+    var now = (String(ch.to_date || '') + ' ' + (ch.to_time || '')).trim();
+    return '<span class="tc-undo-pin" role="button" tabindex="0" data-sid="' + esc(s.schedule_id) + '" '
+      + 'data-historical="' + (u.reason === 'orig_passed' ? '1' : '0') + '" data-from="' + esc(u.from_date || '') + '" data-back="' + esc(back) + '" data-now="' + esc(now) + '" '
+      + 'data-name="' + esc(s.student_name || s.student_uid || '') + '" '
+      + 'title="' + esc(T('연기·변경을 취소하고 원래 날짜·시각(' + back + ')으로 되돌립니다', 'Undo the move — back to the original date and time (' + back + ')')) + '" '
+      + 'style="cursor:pointer;display:inline-block;white-space:nowrap;margin-left:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;'
+      + 'background:#fff7ed;color:#b45309;border:1px solid #fcd9a8">'
+      + (u.reason === 'orig_passed' ? T('↩ 과거 기록 정정', '↩ Correct past record') : T('↩ 원래대로', '↩ Undo move')) + '</span>';
+  }
+  /* 서버가 거절하면 그 사유를 사람 말로(조용히 실패하지 않는다). 모르는 코드면 서버 문장(message)을 그대로. */
+  async function tcUndoMove(el) {
     if (!el || el._busy) return;
-    var sid = el.getAttribute('data-sid');
-    var who = el.getAttribute('data-name') || '';
-    var when = el.getAttribute('data-when') || '';
-    if (!confirm(T('연기를 취소할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각 그대로 다시 열린 수업이 됩니다.',
-                   'Undo this postponement?\n\n' + who + ' · ' + when + '\n\n· The class goes back to its original date and time.'))) return;
+    if (el.getAttribute('data-held') === '1') return tcUndoHeld(el);
+    var sid = el.getAttribute('data-sid'), from = el.getAttribute('data-from') || '';
+    var who = el.getAttribute('data-name') || '', back = el.getAttribute('data-back') || '', now = el.getAttribute('data-now') || '';
+    var historical = el.getAttribute('data-historical') === '1';
+    if (historical && !confirm(T('과거 기록을 정정할까요? ' + back + ' (KST)\n현재 자리 ' + now + '의 수업은 제거되고 원래 자리에서 연기됨으로 남습니다. 출석·결제·급여는 바뀌지 않습니다.', 'Correct the past record? ' + back + ' (KST)\nThe class leaves its current slot ' + now + ' and remains postponed at the original time. Attendance, payments and payroll stay unchanged.'))) return;
+    if (!historical && !confirm(T('연기·변경을 취소할까요?\n\n' + who + (now ? ' · 지금 ' + now : '') + ' → 원래 ' + back
+                   + '\n\n· 같은 수업이 원래 날짜·시각으로 돌아가 다시 열린 수업이 됩니다.\n· 담당 강사는 지금 그대로입니다.',
+                   'Undo this move?\n\n' + who + (now ? ' · now ' + now : '') + ' → back to ' + back
+                   + '\n\n· The same class returns to its original date and time and opens again.\n· The teacher stays as it is now.'))) return;
     el._busy = true;
     var old = el.textContent;
     el.textContent = T('되돌리는 중…', 'Restoring…');
@@ -1562,7 +1772,7 @@
     try {
       var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'restore', reason: '연기 취소 (오늘 수업 화면)' })
+        body: JSON.stringify({ action: 'undo_move', from_date: from, historical_correction: historical })
       });
       httpOk = r.ok;
       j = await r.json().catch(function () { return null; });
@@ -1574,6 +1784,107 @@
     }
     el.textContent = old;
     var err = j && j.error;
+    var known = TC_UNDO_WHY[err];
+    var why = known ? T(known[0], known[1])
+      : (err === 'slot_taken' || err === 'conflict') ? T('원래 시각에 학생이나 강사의 다른 수업이 이미 있습니다. 새 날짜 수업에서 다른 시각으로 옮겨 주세요.', 'The student or teacher already has another class at the original time. Move it to another time from the new date.')
+      : err === 'teacher_unavailable' ? T('원래 시각이 강사의 휴가·근무불가 시간입니다. 새 날짜 수업에서 다른 시각으로 옮겨 주세요.', 'The teacher is on leave or unavailable at the original time. Move it from the new date instead.')
+      : err === 'class_already_attended' ? T('이 수업에 이미 출석 기록이 있어 되돌릴 수 없습니다. 본사에서 이력을 확인해 주세요.', 'This class already has attendance records, so it cannot be moved back. Please check its history.')
+      : (err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed') ? T('그 사이 수업이 바뀌었습니다. 목록을 새로고침합니다.', 'The class changed in the meantime. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not undo. Please try again shortly.');
+    alert('↩ ' + why);
+    if (err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed') { try { window.tcLoadToday(); } catch (e) {} }
+  }
+
+  /* ↩ (2026-11-08) «연기 되돌리기 — 원래 시각에 같은 수업이 이미 열림» — POST {action:'undo_move', from_date, held:true}.
+     서버(class-undo-move.ts undoHeldMove)가 근거(원래 자리의 열린 수업)를 다시 찾는다. 새 수업을 열지 않는다.
+     확인창은 «사실인 것만» — 옮겨 간 수업이 아직 시작 전이면 «취소됩니다», 이미 취소면 «그대로 둡니다». manager.html taUndoHeld 와 같은 뜻. */
+  async function tcUndoHeld(el) {
+    var sid = el.getAttribute('data-sid'), from = el.getAttribute('data-from') || '';
+    var who = el.getAttribute('data-name') || '', back = el.getAttribute('data-back') || '', now = el.getAttribute('data-now') || '';
+    var copyActive = el.getAttribute('data-copy') === 'active';
+    if (!confirm(T('연기를 되돌릴까요?\n\n' + who + ' · 원래 ' + back + '\n같은 수업(같은 강사·같은 시각)이 원래 시각에 이미 열려 있습니다.\n\n· '
+                   + (copyActive ? now + ' 로 옮긴 수업은 취소됩니다(아직 시작 전).' : now + ' 로 옮긴 수업은 이미 취소돼 있어 그대로 둡니다.')
+                   + '\n· 이 날의 «다른 날로 옮김» 표시가 사라집니다.\n· 새 수업을 열지 않습니다. 출석·결제·급여 기록은 바뀌지 않습니다.',
+                   'Undo this postponement?\n\n' + who + ' · original ' + back + '\nThe same class (same teacher, same time) is already scheduled at the original time.\n\n· '
+                   + (copyActive ? 'The moved class at ' + now + ' will be cancelled (not started yet).' : 'The moved class at ' + now + ' is already cancelled and stays cancelled.')
+                   + '\n· The «Moved to another day» mark on this date is removed.\n· No new class is opened. Attendance, payments and payroll records are unchanged.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Undoing…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'undo_move', from_date: from, held: true })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) { try { window.tcLoadToday(); } catch (e) {} return; }
+    el.textContent = old;
+    var err = j && j.error;
+    var stale = err === 'held_not_available' || err === 'not_moved' || err === 'no_move_record' || err === 'schedule_changed';
+    alert('↩ ' + (stale ? T('그 사이 원래 시각의 수업이나 연기 상태가 바뀌었습니다. 목록을 새로고침합니다.', 'The class at the original time or this postponement changed. Refreshing the list.')
+      : err === 'class_already_attended' ? T('옮겨 간 수업에 이미 출석 기록이 있어 되돌릴 수 없습니다. 이력을 확인해 주세요.', 'The moved class already has attendance records, so it cannot be undone. Please check its history.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('되돌리지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not undo. Please try again shortly.')));
+    if (stale) { try { window.tcLoadToday(); } catch (e) {} }
+  }
+
+  /* ↩ (2026-11-06) «다른 날로 옮김» 줄의 «수업 복원» 이 거절됐을 때의 사람 말 — manager.html taRestoreMoved 와 같은 뜻. */
+  function tcMovedRestoreWhy(err, when, j) {
+    return (err === 'slot_taken' || err === 'conflict') ? T(when + ' 에 학생이나 강사의 다른 수업이 이미 있습니다. 새 날짜에서 다른 시각으로 잡아 주세요.', 'The student or teacher already has another class at ' + when + '. Rebook it from the new date instead.')
+      : err === 'teacher_unavailable' ? T(when + ' 은 강사의 휴가·근무불가 시간입니다.', 'The teacher is on leave or unavailable at ' + when + '.')
+      : err === 'past_date' ? T('새 시각이 이미 시작해 복원할 수 없습니다.', 'The new time has already started, so it cannot be restored.')
+      : err === 'class_already_attended' ? T('이 수업에 이미 출석 기록이 있어 복원할 수 없습니다. 이력을 확인해 주세요.', 'This class already has attendance records. Please check its history.')
+      : (err === 'not_cancelled' || err === 'schedule_changed' || err === 'schedule_not_found') ? T('그 사이 수업이 바뀌었습니다. 목록을 새로고침합니다.', 'The class changed in the meantime. Refreshing the list.')
+      : (j && (j.message || j.error)) ? String(j.message || j.error)
+      : T('복원하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'Could not restore. Please try again shortly.');
+  }
+  /* ↩ 연기 취소 — 서버가 «왜 안 되는지» 를 말하면 그 사유를 사람 말로 보여 준다(조용히 실패하지 않는다). */
+  async function tcRestorePostponed(el) {
+    if (!el || el._busy) return;
+    var sid = el.getAttribute('data-sid');
+    var who = el.getAttribute('data-name') || '';
+    var when = el.getAttribute('data-when') || '';
+    /* ↩ (2026-11-06) «다른 날로 옮김» 줄에서 누른 경우(data-back) — 원래 시각이 아니라 «옮겨 간 새 시각» 에 다시 연다는 것을 말한다. */
+    var back = el.getAttribute('data-back') || '', past = el.getAttribute('data-past') === '1', canUndo = el.getAttribute('data-undo') === '1';
+    if (back) {
+      /* 마지막 줄은 «사실인 것만» — 원래 시각이 지났으면 «거기엔 못 연다», 원래 시각을 알고 아직 미래면 «↩ 원래대로» 안내,
+         원래 시각을 모르면(no_time) 아무 약속도 하지 않는다(복원 뒤에도 «원래대로» 가 안 나온다). */
+      var tailKo = past ? '\n· 원래 시각(' + back + ')은 이미 지나 그 자리에는 다시 열 수 없습니다.' : canUndo ? '\n· 그 뒤 원래 시각(' + back + ')으로 옮기려면 이 줄의 «↩ 원래대로» 를 누르세요.' : '';
+      var tailEn = past ? '\n· The original time has passed, so it cannot reopen at ' + back + '.' : canUndo ? '\n· To move it back to ' + back + ' afterwards, use «↩ Undo move» on this row.' : '';
+      if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n(' + back + ' 에서 연기 → 그 뒤 취소됨)\n\n· ' + when + ' 에 다시 열린 수업이 되어 정상 출석·과금 규칙이 적용됩니다.\n· 기존 출석·결제·급여 기록은 바뀌지 않습니다.' + tailKo,
+                     'Restore this class?\n\n' + who + ' · ' + when + '\n(postponed from ' + back + ', later cancelled)\n\n· It becomes an active class again at ' + when + ' and normal attendance and billing rules apply.\n· Existing attendance, payments and payroll records are unchanged.' + tailEn))) return;
+    } else if (!confirm(T('수업을 복원할까요?\n\n' + who + ' · ' + when + '\n\n· 원래 날짜·시각에 활성 수업으로 복원되어 정상 출석·과금 규칙이 적용됩니다. 기존 출석·결제·급여 기록은 바뀌지 않습니다.',
+                   'Restore this class?\n\n' + who + ' · ' + when + '\n\n· The class becomes active at this time and normal attendance and billing rules apply. Existing attendance, payments and payroll records are unchanged.'))) return;
+    el._busy = true;
+    var old = el.textContent;
+    el.textContent = T('되돌리는 중…', 'Restoring…');
+    var j = null, httpOk = false;
+    try {
+      var r = await fetch('/api/admin/class-schedules/' + encodeURIComponent(sid), {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore', reason: back ? 'Restore cancelled class (moved-away row)' : '연기 취소 (오늘 수업 화면)' })
+      });
+      httpOk = r.ok;
+      j = await r.json().catch(function () { return null; });
+    } catch (e) { j = null; }
+    el._busy = false;
+    if (httpOk && j && j.ok === true) {
+      try { window.tcLoadToday(); } catch (e) {}
+      return;
+    }
+    el.textContent = old;
+    var err = j && j.error;
+    if (back) {   // «다른 날로 옮김» 줄에서 누른 복원 — 이 줄에 맞는 말(새 날짜 줄용 «📅 새 날짜로»·«연기 상태» 문구를 쓰지 않는다)
+      var mstale = err === 'not_cancelled' || err === 'schedule_changed' || err === 'schedule_not_found';
+      alert('↩ ' + tcMovedRestoreWhy(err, when, j));
+      if (mstale) { try { window.tcLoadToday(); } catch (e) {} }
+      return;
+    }
     var why = err === 'slot_taken' ? T('그 시각에 이미 다른 수업이 잡혀 있습니다. 「📅 새 날짜로」로 다른 시각을 고르세요.', 'Another class already uses that time slot. Use «📅 Rebook» to pick another time.')
       : err === 'past_date' ? T('원래 시각이 이미 시작했거나 지난 수업은 되돌릴 수 없습니다. 「📅 새 날짜로」로 다시 잡아 주세요.', 'This class\'s original time has already started or passed, so it cannot be restored. Use «📅 Rebook» to pick a new date.')
       : err === 'weekly_row' ? T('매주 반복 수업은 시간표에서 고쳐 주세요.', 'Weekly classes must be fixed in the timetable.')
@@ -1709,6 +2020,42 @@
     tcSetDate(tcYmd(k.getUTCFullYear(), k.getUTCMonth() + 1, k.getUTCDate()));
   }
 
+  /* 🔁 (2026-11-10 매니저 제안 «새로고침하면 오늘 날짜·전체 강사로 돌아간다») 떠날 때 이 탭(sessionStorage)에
+     «오늘 수업을 보고 있었나 · 날짜 · 학원 · 강사» 를 적고, 새로고침하면 그대로 다시 연다(manager.html mgr_view_v1 과 같은 약속).
+     ⚠️ 탭을 닫으면 사라진다 · 날짜는 «오늘이 아닌 날» 만 적는다(내일 새로고침해도 어제에 갇히지 않게).
+     ⛔ 상주 타이머·MutationObserver 없음 — 사이드바가 늦게 뜨면 정해진 몇 번만 다시 본다. */
+  var TC_VIEW_KEY = 'adm_tc_view_v1';
+  function tcViewSnap() {
+    var d = $('sm-today-classes'), dt = $('tc-date');
+    var day = dt && /^\d{4}-\d{2}-\d{2}$/.test(dt.value || '') && dt.value !== kstTodayStr() ? dt.value : '';
+    return { on: !!(d && d.open && d.offsetParent !== null), d: day, a: pickVal('tc-academy'), t: pickVal('tc-teacher') };
+  }
+  function tcViewSave() { try { sessionStorage.setItem(TC_VIEW_KEY, JSON.stringify(tcViewSnap())); } catch (e) {} }
+  /* 고를 목록은 불러온 뒤에야 생긴다 — 값만 먼저 앉혀 두면 첫 render 의 fillPick 이 이어받는다(목록에 없으면 «전체») */
+  function tcPreset(id, v) {
+    var el = $(id);
+    if (!el || !v) return;
+    el.innerHTML = '<option value=""></option><option value="' + esc(v) + '"></option>';
+    el.value = v;
+  }
+  function tcViewReopen(tries) {
+    if (window.ph161Go && document.querySelector('#ph85-sidebar [data-ia6-item][data-card="card-students-mgmt"]')) {
+      window.ph161Go('card-students-mgmt', 'sm-today-classes');
+      return;
+    }
+    if (tries > 0) setTimeout(function () { tcViewReopen(tries - 1); }, 700);
+  }
+  function tcViewRestore() {
+    var v = null;
+    try { v = JSON.parse(sessionStorage.getItem(TC_VIEW_KEY) || 'null'); } catch (e) {}
+    if (!v || !v.on) return;
+    var dt = $('tc-date');
+    if (dt && /^\d{4}-\d{2}-\d{2}$/.test(v.d || '') && v.d !== kstTodayStr()) dt.value = v.d;
+    tcPreset('tc-academy', v.a);
+    tcPreset('tc-teacher', v.t);
+    tcViewReopen(8);
+  }
+
   function bind() {
     var b = $('tc-load');
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
@@ -1738,6 +2085,7 @@
        ⚠️ render() 가 아니라 로더를 부른다. 날짜가 바뀌면 «서버에서 다시» 받아야 한다. */
     var dt = $('tc-date');
     if (dt && !dt._tcBound) { dt._tcBound = true; dt.addEventListener('change', function () { window.tcLoadToday(); }); }
+    if (dt && !dt._tcView) { dt._tcView = true; tcViewRestore(); window.addEventListener('pagehide', tcViewSave); }
     tcDatePick();
     /* 카드를 처음 펼칠 때 1회 자동 로드 — 매니저가 버튼을 또 누르지 않아도 되게 */
     var d = $('sm-today-classes');

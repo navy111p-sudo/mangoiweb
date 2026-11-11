@@ -47,6 +47,9 @@ for (const [tag, w, h] of SIZES) {
   await p.route('**/api/ai/chat-friend', r => r.fulfill(J({
     ok: true, reply: 'Hi there!', gam: null })));
   await p.goto(URL + '?_nc=' + Date.now(), { waitUntil: 'domcontentloaded' });
+  // 2026-11-09: A.i 친구하기는 열자마자 얼굴 대화가 뜬다 — 이 검사는 채팅 화면을 보므로 먼저 닫는다(✕ 와 같은 길)
+  await p.waitForFunction(() => window.MangoiFaceTalk && MangoiFaceTalk.isActive(), null, { timeout: 5000 }).catch(() => {});
+  await p.evaluate(() => { if (window.MangoiFaceTalk && MangoiFaceTalk.isActive()) MangoiFaceTalk.exit(); });
   await p.waitForTimeout(2400);
 
   const m = await p.evaluate(() => {

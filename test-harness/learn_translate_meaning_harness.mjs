@@ -27,7 +27,7 @@ import { readFileSync } from 'node:fs';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const P = await import('file://' + resolve(__dir, '../cloudflare-deploy/src/learn-phrase-ko.ts').replace(/\\/g, '/'));
 const SRC = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/' + f), 'utf8');
-const MANGO = SRC('src/api-mango.ts');
+const MANGO = SRC('src/api-translate.ts');
 const PUB = (f) => SRC('public/' + f);
 
 /* 🧹 주석을 벗긴 «살아 있는 코드» — 부정 검사(「이 글자가 없어야 한다」)는 반드시 이것으로 합니다.

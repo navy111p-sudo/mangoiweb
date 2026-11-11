@@ -94,6 +94,11 @@ if (typeof H.warmupSpeaksFixLead === 'function') {
   ok('④-2 균형 → 붙인다(질문보다 먼저 한 번)', H.warmupSpeaksFixLead('balanced') === true);
   ok('④-2 모드 없음(중국어 등 null/undefined) → 붙인다(예전 동작)', H.warmupSpeaksFixLead(null) === true && H.warmupSpeaksFixLead(undefined) === true);
   ok('④-2 모르는 값 → 붙인다(조용히 끄지 않음)', H.warmupSpeaksFixLead('strict') === true && H.warmupSpeaksFixLead('') === true);
+  /* ⏱️ (2026-11-09 사장님 B안) 교정 시점이 모드보다 이긴다 — 주요 실수(최대 3번)는 어느 모드든 한 번 말로, 연습 후는 안 붙임 */
+  const MODES = ['free_talk', 'balanced', 'focused', null, undefined];
+  ok('④-2 주요 실수 시점 → 어느 모드든 붙인다', MODES.every((m) => H.warmupSpeaksFixLead(m, 'key-mistakes') === true));
+  ok('④-2 연습 후 시점 → 어느 모드든 안 붙인다(짝)', MODES.every((m) => H.warmupSpeaksFixLead(m, 'after-lesson') === false));
+  ok('④-2 바로 교정·시점 없음 → 모드 표 그대로', MODES.every((m) => H.warmupSpeaksFixLead(m, 'immediate') === H.warmupSpeaksFixLead(m) && H.warmupSpeaksFixLead(m, null) === H.warmupSpeaksFixLead(m)));
 }
 
 const mkEnv = (rows, { throwDb = false, kvInit = {} } = {}) => {
@@ -191,7 +196,7 @@ const body = idx.slice(idx.indexOf('async function handleWarmupChat('), idx.inde
 const at = (s) => body.indexOf(s);
 ok('핸들러를 잘라 냈다(전제)', body.length > 1000 && at('handleWarmupChat') >= 0);
 ok('시범 여부를 정본으로 묻는다', at('const honest = await resolveWarmupHonest(') > 0);
-ok('규칙은 시범일 때만 붙인다', /if \(honest\) sys \+= '\\n' \+ warmupHonestRule\(honest\.mode\);/.test(body));
+ok('규칙은 honest 모드에서만 붙이고 명시한 교정 시점을 반영한다', /if \(honest\) sys \+= '\\n' \+ warmupHonestRule\(timing === 'after-lesson' \? 'free_talk' : timing === 'key-mistakes' \? 'balanced' : honest\.mode\);/.test(body));
 ok('모델 등급을 커밋할 때 함께 확정(교정과 같은 답장)', /commitFix = \(\) => \{[^}]*rawGrade = stagedGrade/.test(body));
 ok('등급 확인·칭찬 떼기가 히스토리 저장보다 «앞»', at('applyHonestPraise(aiText') > 0 && at('applyHonestPraise(aiText') < at('SESSION_STATE.put(hkey'));
 ok('모델이 실패한 턴은 등급을 null 로(→ partial)', /finalizeWarmupGrade\(modelOk \? rawGrade : null/.test(body));
@@ -232,15 +237,15 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
   }
   let runLead = null;
   try {
-    runLead = new Function('showFix', 'honest', 'aiText', 'ctxLang', 'warmupSpeaksFixLead', 'correctionLeadIn',
+    runLead = new Function('showFix', 'honest', 'aiText', 'ctxLang', 'warmupSpeaksFixLead', 'correctionLeadIn', 'timing',
       stmt + '\nreturn aiText;');
   } catch (e) { ok('⑦-2 그 줄을 실행할 수 있다(전제)', false, String(e)); }
   if (runLead && typeof H.warmupSpeaksFixLead === 'function') {
     const F = { was: 'I go park yesterday', now: 'I went to the park yesterday' };
     const R = 'What did you do there?';
     const lead = (t, f) => 'LEAD:' + f.now + ' ' + t;
-    const go = (mode, fix = F, lang = 'en') => {
-      try { return runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead); }
+    const go = (mode, fix = F, lang = 'en', timing = null) => {
+      try { return runLead(fix, mode === null ? null : { mode }, R, lang, H.warmupSpeaksFixLead, lead, timing); }
       catch (e) { return 'THROW:' + String(e && e.message || e); }   // 다른 이름을 부르면 여기로 — 하니스가 죽지 않고 FAIL 로 남긴다
     };
     ok('⑦-2 자유대화 + 교정 카드 → 답장 그대로(고친 문장을 말로 안 붙임)', go('free_talk') === R, go('free_talk'));
@@ -248,6 +253,11 @@ ok('스트림: 첫 문장이 칭찬 말머리면 미리 읽지 않음', /if \(o\
     ok('⑦-2 집중교정 → 네 번째를 붙이지 않음', go('focused') === R, go('focused'));
     ok('⑦-2 모드 없음(중국어 등) → 예전처럼 붙임', go(null, F, 'zh') === lead(R, F), go(null, F, 'zh'));
     ok('⑦-2 교정 카드가 없으면 어느 모드도 안 붙임', ['free_talk', 'balanced', 'focused'].every((m) => go(m, null) === R));
+    ok('⑦-2 연습 후 시점 → 어느 모드든 교정 말머리를 붙이지 않는다', ['free_talk','balanced','focused',null].every(m=>go(m,F,'en','after-lesson')===R));
+    /* ⏱️ (2026-11-09 사장님 B안) 주요 실수 시점 — 카드가 뜬 턴(큰 실수·최대 3번)은 어느 모드든 질문보다 먼저 «한 번» 말한다 */
+    ok('⑦-2 주요 실수 시점 + 카드 → 어느 모드든 고친 문장을 앞에 한 번', ['free_talk','balanced','focused',null].every(m=>go(m,F,'en','key-mistakes')===lead(R,F)), go('focused',F,'en','key-mistakes'));
+    ok('⑦-2 주요 실수 시점 + 카드 없음 → 안 붙임(짝)', ['free_talk','balanced','focused',null].every(m=>go(m,null,'en','key-mistakes')===R));
+    ok('⑦-2 바로 교정 시점 → 모드 표 그대로(자유대화·집중은 안 붙이고 균형은 붙임)', go('free_talk',F,'en','immediate')===R && go('focused',F,'en','immediate')===R && go('balanced',F,'en','immediate')===lead(R,F));
   }
 }
 

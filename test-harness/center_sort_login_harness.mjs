@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // ↕🔑 대리점 목록 «머리글 정렬» + «✏️ 수정 창에서 로그인 계정 만들기» (2026-10-28 사장님
 //   「대리점 아이디와 정보를 넣어주고 필터 올림·내림 넣어줘」)
 //   ① 서버 정렬 SQL 을 소스에서 오려 내 진짜 SQLite 에 돌린다(문자열이 아니라 «실제 순서» 를 본다)
@@ -12,7 +13,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 let pass = 0, fail = 0;
 const ok = (n, c, extra) => { if (c) { pass++; console.log('  ✅ ' + n); } else { fail++; console.log('  ❌ FAIL ' + n + (extra ? ' — ' + extra : '')); } };
-const api = readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url), 'utf8');
+const api = readAdminSourceFromFile(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url));
 const core = readFileSync(new URL('../cloudflare-deploy/public/js/adm-core.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../cloudflare-deploy/public/admin.html', import.meta.url), 'utf8');
 

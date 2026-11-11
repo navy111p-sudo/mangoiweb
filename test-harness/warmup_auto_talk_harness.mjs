@@ -84,7 +84,26 @@ function makeWorld({ embedded = false, android = false, mode = null, unlocked = 
   };
   return T;
 }
-const DELAY = 600;
+/* ⚡ 2026-11-05 안드로이드만 600 → 300ms(사장님 「듣기 시간 최소화 — 특히 휴대폰」 · 그쪽은 에코 제거가 켜진 녹음 경로).
+   아이폰·PC 는 600 그대로(브라우저 인식엔 에코 제거가 없고 블루투스 소리는 늦게 나온다 — 함정 대조).
+   값은 글자로 못 박지 않고 모듈에서 읽는다. 대신 «범위» 와 «실제로 그 시각에 여는가» 를 짝으로 본다.
+   DELAY = 안드로이드가 아닌 기본 세계의 값(아래 검사 대부분이 그 세계다). */
+const armM = MOD_SRC.match(/var ARM_DELAY_MS = ANDROID \? (\d+) : (\d+);/) || [];
+const DELAY_ANDROID = Number(armM[1]), DELAY = Number(armM[2]);
+console.log('\n[0] 잔향 대기 값');
+ok('0-1 (전제) 잔향 대기(ARM_DELAY_MS — 안드로이드·그 밖)를 모듈에서 읽었다', Number.isFinite(DELAY_ANDROID) && Number.isFinite(DELAY), armM[0]);
+ok('0-2 안드로이드(에코 제거 녹음 경로)는 AI 말이 끝나고 0.4초 안에 연다(빠르게)', DELAY_ANDROID <= 400, DELAY_ANDROID);
+ok('0-3 (짝) 그래도 0.2초는 기다린다(스피커 잔향을 학생 말로 받지 않게)', DELAY_ANDROID >= 200, DELAY_ANDROID);
+ok('0-4 (짝) 아이폰·PC(브라우저 인식 — 에코 제거 없음)는 0.5초 넘게 기다린다', DELAY >= 500, DELAY);
+{
+  const A = makeWorld({ mode: 'auto', android: true });
+  A.on('aiDone'); A.tick(DELAY_ANDROID - 1);
+  const before = A.calls.micViaWhisper; A.tick(1);
+  ok('0-5 안드로이드 세계에서 실제로 «그 시각» 에 녹음 경로로 연다(1ms 전엔 안 염)', before === 0 && A.calls.micViaWhisper === 1, { before, after: A.calls.micViaWhisper });
+  const W = makeWorld({ mode: 'auto', android: false });
+  W.on('aiDone'); W.tick(DELAY_ANDROID);
+  ok('0-6 (짝) 안드로이드가 아니면 0.3초에는 아직 안 연다', W.calls.toggleMic === 0, W.calls);
+}
 
 console.log('\n[A] 기본은 버튼 모드 — 기존 동작 보존');
 {
@@ -407,8 +426,94 @@ console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
     ok('I-6 닫을 때 들은 조각을 버리고 «보내지 않는다»', c.canceled === 1 && c.stopped === 1 && c._micStopWanted === true && c._micBase === '' && c._micSess === '' && c.sent === 0, c);
   }
   ok('I-7 모듈을 싣는다(defer)', /<script src="\/js\/warmup-auto-talk\.js\?v=\d+" defer><\/script>/.test(HTML));
-  const noHook = HTML.includes('function _autoHook(');
-  ok('I-8 _autoHook 은 모듈이 없어도 안 죽는다(try)', noHook && /function _autoHook\(ev, a\)\{ try\{/.test(HTML));
+  const hook = bodyOf(HTML, 'function _autoHook(ev, a){');
+  const sent = [];
+  const hookEnv = { window: {}, WarmupAutoTalk: { on: ev => sent.push(ev) },
+    _autoDonePending: false, _warmPaused: false, sending: true, rel: 0 };
+  hookEnv._visRelease = () => { hookEnv.rel++; };   // 👄 입모양 엔진 풀기(warmup.html — 2026-11-09 다시 켬) 대역
+  vm.createContext(hookEnv);
+  vm.runInContext(hook + "\n_autoHook('aiDone');", hookEnv);
+  ok('I-8 모듈이 없어도 안전하고, 저장 중에는 자동 듣기를 보류한다', hookEnv._autoDonePending && sent.length === 0);
+  hookEnv.window.WarmupAutoTalk = hookEnv.WarmupAutoTalk;
+  hookEnv.sending = false;
+  vm.runInContext("_autoHook('settled');", hookEnv);
+  ok('I-9 전송이 끝나면 보류했던 자동 듣기를 한 번만 연다',
+    sent.join(',') === 'settled,aiDone' && !hookEnv._autoDonePending);
+  ok('I-10 입모양 엔진은 «보류된» aiDone 에서는 안 풀고, 실제로 처리할 때 한 번 푼다', hookEnv.rel === 1, { rel: hookEnv.rel });
+}
+
+console.log('\n[J] English idle prompt');
+{
+  const idle = bodyOf(HTML, 'function scheduleIdleSuggest(){');
+  const hook = bodyOf(HTML, 'function idleHookOnMsg(who){');
+  function check(overrides = {}, reply = false) {
+    let timer, delay;
+    const spoken = [];
+    const c = {
+      _idleTimer: null, _idleShownForTurn: false, _warmPaused: false,
+      sending: false, _recognizing: false, _speechOn: true, _audioUnlocked: true,
+      _speechEverStarted: false, _ttsAudio: null, isZh: () => false,
+      warmupTurnPrompt: { text: "It's your turn! Try saying a few words." },
+      document: { getElementById: (id) => ({ inp: { value: '' }, warmThought: { hidden: true } }[id]) },
+      setTimeout: (fn, ms) => { timer = fn; delay = ms; return 1; },
+      clearTimeout: () => { timer = null; },
+      speak: (line) => spoken.push(line), loadFollowups() {}, ...overrides,
+    };
+    c.window = c; c.parent = c;
+    vm.createContext(c);
+    vm.runInContext(idle + '\n' + hook + "\nidleHookOnMsg('ai');", c);
+    if (reply) vm.runInContext("idleHookOnMsg('me');", c);
+    timer?.();
+    timer?.();
+    return { spoken, delay };
+  }
+  const idleResult = check();
+  ok('J-1 avatar speaks once after 25 seconds', idleResult.delay === 25000 &&
+    idleResult.spoken.join() === "It's your turn! Try saying a few words.", idleResult);
+  ok('J-2 reply cancels the prompt', check({}, true).spoken.length === 0);
+  for (const [label, state] of Object.entries({
+    recording: { _recognizing: true },
+    playing: { _ttsAudio: { paused: false, ended: false } },
+    muted: { _speechOn: false },
+    Chinese: { isZh: () => true },
+  })) {
+    ok('J-3 prompt is silent when ' + label, check(state).spoken.length === 0);
+  }
+}
+
+console.log('\n[K] Device speech mouth animation');
+{
+  const poses = [];
+  const timers = new Set();
+  let utterance, stops = 0, completions = 0;
+  const c = {
+    _speechOn: true, _enVoice: { lang: 'en-US' }, _rateLevel: 0, RATE_STEPS: [],
+    _speakSeq: 1, isZh: () => false, warmThought() {}, _latMark() {},
+    SpeechSynthesisUtterance: function (text) { this.text = text; },
+    speechSynthesis: { cancel() {}, speak(u) { utterance = u; } },
+    MangoAvatar: { mouth: (pose) => poses.push(pose), plainStop: () => stops++ },
+    setInterval: (fn) => { timers.add(fn); return fn; }, clearInterval: (fn) => timers.delete(fn),
+    done: () => completions++,
+  };
+  c.window = c;
+  vm.createContext(c);
+  vm.runInContext(bodyOf(HTML, 'function _synthSpeak(text, btn, onDone){'), c);
+  const start = () => vm.runInContext("_synthSpeak('Your turn!', null, done);", c);
+  start();
+  ok('K-1 mouth waits for actual device speech', poses.length === 0);
+  utterance.onstart();
+  for (const tick of timers) tick();
+  ok('K-2 device speech drives multiple mouth poses', poses.join() === 'medium,wide', poses);
+  utterance.onend();
+  ok('K-3 device speech end stops motion and completes once', !timers.size && stops === 1 && completions === 1);
+  start();
+  utterance.onstart();
+  c._speakSeq++;
+  const before = poses.length;
+  for (const tick of timers) tick();
+  utterance.onerror();
+  ok('K-4 canceled device speech cannot move or stop the next face', !timers.size && poses.length === before &&
+    stops === 1 && completions === 1);
 }
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

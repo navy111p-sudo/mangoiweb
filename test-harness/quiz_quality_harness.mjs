@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 // ═══════════════════════════════════════════════════════════════════════
 // 🧪 quiz_quality_harness — AI 가 만든 복습퀴즈 문항 검사기 (src/quiz-quality.ts)
 //
@@ -172,7 +173,7 @@ function stripComments(src) {
   }
   return out.join('\n');
 }
-const games = rd('cloudflare-deploy/src/api-games.ts');
+const games = gamesSrc();
 const gamesCode = stripComments(games);
 
 /* 🔴 중국어에 걸면 전부 떨어진다 — 검사기는 영어용(isEnglishQuestion)이고

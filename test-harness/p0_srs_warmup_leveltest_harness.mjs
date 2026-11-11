@@ -1,3 +1,6 @@
+import { gamesSrc } from './_srcbundle.mjs';
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — 두 가지를 «실제로 돌려» 확인합니다.
 //   A. 단어 퀴즈(/api/vocab/quiz-submit) 결과가 복습 일정(SRS: level·next_review_at)에 반영되는가
 //      + 같은 퀴즈를 되풀이 제출해도 기록은 처음 한 번만 반영되는가 (짝: 처음 제출은 반영된다)
@@ -10,8 +13,8 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const GAMES = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-games.ts'), 'utf8');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
+const GAMES = gamesSrc();
 const INDEX = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/index.ts'), 'utf8');
 let pass = 0, fail = 0;
 const check = (name, cond, extra) => { if (cond) { pass++; console.log('  ✅ ' + name); } else { fail++; console.log('  ❌ FAIL ' + name + (extra !== undefined ? ' ' + JSON.stringify(extra) : '')); } };
@@ -166,14 +169,14 @@ if (route && vocabSrsNext) {
 // ── B. 웜업 턴 카운터 블록을 오려 내 가짜 KV 로 실행 ──
 console.log('\n[ B. 웜업 «몇 번째 턴» 은 계속 늘어난다 ]');
 const tStart = INDEX.indexOf('let turnCount = Math.floor(history.length / 2) + 1;');
-let tEnd = -1;
-if (tStart >= 0) { const tryAt = INDEX.indexOf('try {', tStart); const blk = braceBlock(INDEX, tryAt); const after = INDEX.indexOf('}', tryAt + blk.length); tEnd = INDEX.indexOf('\n', INDEX.indexOf("turn counter skipped", tStart)); }
+const tEnd = tStart >= 0 ? INDEX.indexOf('\n', INDEX.indexOf("turn counter skipped", tStart)) : -1;
 const tSrc = tStart >= 0 && tEnd > tStart ? INDEX.slice(tStart, tEnd) : '';
-check('턴 카운터 블록을 오려 냈다(전제)', /warmupturn:/.test(tSrc));
+const tRead = INDEX.match(/const tkey = 'warmupturn:' \+ sessionId;\s*const previousTurn = [^\n]+;/)?.[0] || '';
+check('턴 카운터 읽기와 쓰기 블록을 오려 냈다(전제)', !!tRead && /await previousTurn/.test(tSrc));
 check('예전 «const turnCount = history...» 한 줄만 남아 있지 않다', !/const turnCount = Math\.floor\(history\.length \/ 2\) \+ 1;/.test(INDEX));
 let turnFn = null;
 try {
-  turnFn = new AsyncFunction('env', 'history', 'sessionId', stripTypeScriptTypes(tSrc) + '\nreturn turnCount;');
+  turnFn = new AsyncFunction('env', 'history', 'sessionId', stripTypeScriptTypes(tRead + '\n' + tSrc) + '\nawait turnWrite;\nreturn turnCount;');
 } catch (e) { check('턴 블록 컴파일', false, e.message); }
 const hist = (pairs) => Array.from({ length: Math.min(pairs, 20) * 2 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'x' }));
 if (turnFn) {
@@ -190,14 +193,16 @@ if (turnFn) {
   const tNoKv = await turnFn({}, hist(25), 's3');
   check('KV 가 없으면 예전 계산(21)', tNoKv === 21, tNoKv);
   // KV 가 던지면 예전 계산으로 떨어지고 대화는 계속된다
-  const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => {} } };
+  let wroteAfterReadFailure = false;
+  const bad = { SESSION_STATE: { get: async () => { throw new Error('kv down'); }, put: async () => { wroteAfterReadFailure = true; } } };
   let tBad = null; try { tBad = await turnFn(bad, hist(3), 's4'); } catch (e) { tBad = 'threw'; }
   check('KV 가 실패해도 던지지 않고 예전 계산(4)', tBad === 4, tBad);
+  check('읽기 실패 때 저장된 턴 카운터를 덮어쓰지 않는다', !wroteAfterReadFailure);
 }
 
 // ── C. 레벨테스트 정답·해설 잠금 ──
 console.log('\n[ C. 레벨테스트 정답·해설은 로그인 학생만 ]');
-const ADMIN = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const ADMIN = readAdminSourceFromFile(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'));
 const cStart = ADMIN.indexOf('const reviewLocked = !authedUid;');
 const cEnd = cStart >= 0 ? ADMIN.indexOf('return json({ ok: true, ai_score', cStart) : -1;
 const cSrc = cStart >= 0 && cEnd > cStart ? ADMIN.slice(cStart, cEnd) : '';

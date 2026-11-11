@@ -87,7 +87,13 @@ export async function readWarmupAiStream(st: any, lang: string, onSentence: (s: 
     const pay = one.slice(5).trim();
     if (!pay || pay === '[DONE]') return;
     let t = '';
-    try { const ev: any = JSON.parse(pay); t = typeof ev?.response === 'string' ? ev.response : ''; } catch { return; }
+    try {
+      const ev = JSON.parse(pay);
+      const delta = ev?.choices?.[0]?.delta?.content;
+      // Workers AI can coerce digit tokens in response to numbers. The delta retains their original spelling.
+      if (typeof ev?.response === 'string') t = ev.response;
+      else if (typeof delta === 'string') t = delta;
+    } catch { return; }
     if (!t) return;
     raw += t;
     pend += tap.push(t);
@@ -130,7 +136,7 @@ const squash = (s: string) => String(s == null ? '' : s).replace(/\s+/g, ' ').tr
 
 export function createWarmupLive(
   send: (o: any) => void,
-  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean },
+  o: { lang: string; cap: number; friend: string; studentInput: string; fragQ?: boolean; oneQuestion?: boolean; repeatOf?: (sentence: string) => boolean; honest?: boolean; focused?: boolean; finalOnly?: boolean },
 ): WarmupLive {
   let text = '';
   let n = 0;
@@ -145,6 +151,7 @@ export function createWarmupLive(
     push(sen: string): boolean {
       let s = String(sen == null ? '' : sen).trim();
       if (!s || halt) return false;
+      if (o.finalOnly) { halt = 'final_only'; return false; }
       // Correction is only known after the model finishes: no question may be spoken first.
       if (o.focused) { halt = 'focused'; return false; }
       if (negative) { halt = 'empathy'; return false; }
@@ -161,6 +168,8 @@ export function createWarmupLive(
       }
       const cand = text ? text + ' ' + s : s;
       let why = '';
+      // A retry can replace the preview. Ask the roleplay question only once the final reply is ready.
+      if (o.oneQuestion && /[?？]/.test(s)) { halt = 'question_pending'; return false; }
       try { why = replyRejectReason(cand, o.cap); } catch { why = 'gate_error'; }
       if (!why) {
         try { if (wrongSelfName(cand, o.friend, { askedName })) why = 'name'; } catch { why = 'gate_error'; }

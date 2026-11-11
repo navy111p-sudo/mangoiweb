@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /* vc-aao-freeze-browser.mjs — 음성전용(AAO) «화면 멈춤» 띠를 «진짜 타일 위에» 그려서 잰다 (2026-09-11)
  *
  * 왜 필요한가
@@ -25,7 +26,7 @@ import zlib from 'node:zlib';
 const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.BASE || 'http://127.0.0.1:8899';
 const PORT = 9366;
-const SRC = new URL('../../cloudflare-deploy/public/js/idx-vc-qlog.js', import.meta.url).pathname;
+const SRC = fileURLToPath(new URL('../../cloudflare-deploy/public/js/idx-vc-qlog.js', import.meta.url));
 /* ⛔ 백업을 public/ «안» 에 두지 말 것 — deploy.ps1 이 그 폴더를 통째로 업로드해서
       중간에 죽으면 사본이 실서비스로 나간다. 그리고 «다음 실행이 먼저 복구» 하게 둔다. */
 const BAK = join(tmpdir(), 'mangoi-aao-qlog.bak');

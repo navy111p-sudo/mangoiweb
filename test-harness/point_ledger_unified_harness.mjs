@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 /* ═══════════════════════════════════════════════════════════════════════════
    🧾 포인트 적립이 «원장(point_transactions)» 을 거치는지 감시 (2026-09-01 신설)
 
@@ -71,7 +72,7 @@ function blockAt(src, from) {
   return '';
 }
 
-const games = strip(readFileSync(join(SRC, 'api-games.ts'), 'utf8'));
+const games = strip(gamesSrc());
 const policy = strip(readFileSync(join(SRC, 'point-policy.ts'), 'utf8'));
 
 console.log('\n[ A. 잔액을 «직접» 올리지 않고 원장을 거친다 ]');
@@ -243,7 +244,7 @@ console.log('\n[ C. 상한 계산을 실제로 돌려 본다 — 100점에서 �
     '조회 실패로 학생이 점수를 잃는 쪽이 더 나쁘다');
 
   /* 적립하는 쪽이 실제로 그 함수를 지나는지 — 안 지나면 위 계산은 아무 데도 안 쓰인다. */
-  const games = readFileSync(join(SRC, 'api-games.ts'), 'utf8');
+  const games = gamesSrc();
   check('단어장 적립이 dailyAllowance 를 지난다',
     /dailyAllowance\(env as any, uid, 'vocab_review'\)/.test(games),
     '안 지나면 남의 예산만 깎아먹고 자기는 안 막히는 최악이 된다');

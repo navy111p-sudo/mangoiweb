@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 📞 enroll_parent_phone_harness — 수업 전 안내문자가 «받는 사람» 을 잃지 않는지
  * ═══════════════════════════════════════════════════════════════════════════
@@ -71,7 +72,7 @@ console.log('\n📞 수업 전 안내문자 — 받는 사람 번호 배선\n');
 const overrideTs = read(join(SRC, 'student-override.ts'));
 const notifyTs = read(join(SRC, 'notify-contacts.ts'));
 const reminderTs = read(join(SRC, 'lesson-reminder.ts'));
-const adminTs = read(join(SRC, 'api-admin.ts'));
+const adminTs = readAdminModuleGraph(adminModuleFile => read(join(SRC, adminModuleFile)));
 const coreJs = read(join(PUB, 'js', 'adm-core.js'));
 const adminHtml = read(join(PUB, 'admin.html'));
 const cssTxt = read(join(PUB, 'css', 'admin-inline-c.css'));
@@ -319,19 +320,18 @@ check('E-2 리마인더가 그 함수를 실제로 부른다', /await\s+phonesFo
 // ══════════════════════════════════════════════════════════════
 console.log('\n[F] 표 칸이 서로 어긋나지 않는다');
 
-check('F-1 행에 연락처 입력칸이 있다', /class="en-row-phone"/.test(coreJs));
-check('F-2 그 값을 읽어 서버로 보낸다', /parent_phone:\s*parentPhone/.test(coreStrip) || /parent_phone:\s*r\.parent_phone/.test(coreStrip));
-// 단건·일괄 두 경로가 모두 보내야 한다 — 한쪽만 보내면 일괄 등록만 번호를 잃는다
-const postCount = (coreStrip.match(/parent_phone:\s*r\.parent_phone/g) || []).length;
-check('F-3 단건·일괄 «두» 경로 모두 번호를 보낸다', postCount >= 2, `실제 ${postCount}곳`);
-
+/* 🔀 (2026-11-05 사장님 결정) «수강신청에 전화번호가 또 들어갈 필요가 없다 — 아이디에 등록된 번호가 있다».
+   등록표의 학부모 연락처 칸을 뺐다. 번호는 학생 아이디(학생 상세 › 연락처 · 「번호 없는 학생」 목록)에서
+   관리하고, 발송은 여전히 정본 phonesForStudent(override → 명부)를 읽는다. ⛔ 칸을 되살리지 마세요. */
+check('F-1 등록 행에 연락처 입력칸이 없다(2026-11-05 결정)', !/class="en-row-phone"/.test(coreJs));
+check('F-2 등록표가 화면에서 번호를 지어 보내지 않는다', !/parent_phone:\s*parentPhone\s*\|\|\s*null/.test(coreStrip));
 // 머리글 <th> 수 == 한 행이 그리는 <td> 수
 const thead = (adminHtml.match(/<table id="en-multi-table"[\s\S]*?<\/thead>/) || [''])[0];
 const thCount = (thead.match(/<th\b/g) || []).length;
 const rowTpl = (coreJs.match(/tr\.innerHTML\s*=[\s\S]*?en-c-del[\s\S]*?';/) || [''])[0];
 const tdCount = (rowTpl.match(/<td class="en-c /g) || []).length;
 check('F-4 머리글 칸 수와 행 칸 수가 같다', thCount > 0 && thCount === tdCount, `th ${thCount} / td ${tdCount}`);
-check('F-5 머리글에 연락처 열이 있다', /data-ko="학부모 연락처"/.test(thead));
+check('F-5 머리글에 연락처 열이 없다(2026-11-05 결정)', !/data-ko="학부모 연락처"/.test(thead));
 
 /* 좁은 화면은 12칸 그리드다 — order 순서대로 span 을 쌓아 **줄마다 합이 정확히 12** 여야 한다.
    ⚠️ order 를 안 주면 기본값 0 이라 학생 아이디보다 앞으로 튀어나온다(실제로 밟은 함정). */
@@ -339,8 +339,7 @@ const spanRules = [...cssTxt.matchAll(/#en-multi-table tbody tr td\.en-c-([a-z]+
   .map(m => ({ key: m[1], order: Number(m[2]), span: Number(m[3]) }))
   .sort((a, b) => a.order - b.order);
 check('F-6 좁은 화면 배치 규칙을 읽었다(전제)', spanRules.length >= 9, `${spanRules.length}개`);
-const phoneRule = spanRules.find(r => r.key === 'phone');
-check('F-7 연락처 칸에 order 가 있다(없으면 맨 앞으로 튀어나온다)', !!phoneRule && phoneRule.order > 0);
+check('F-7 연락처 칸 배치 규칙이 남아 있지 않다', !spanRules.some(r => r.key === 'phone'));
 let sum = 0, lines12 = true, bad = '';
 for (const r of spanRules) {
   sum += r.span;
@@ -388,21 +387,8 @@ check('H-13 목록 번호는 학생 번호로 폴백하지 않는다',
    ⚠️ `enrollments.parent_phone`(등록할 때 적은 값)을 그리면 두 값이 갈렸을 때 옛 값을 말한다. */
 check('H-6 목록 API 가 override 의 실제 번호를 실어 보낸다',
   /loadOverridePhones\s*\(/.test(strip(enrollRoute)) && /notify_phone/.test(strip(enrollRoute)));
-check('H-7 화면이 그 값을 그린다(신청서에 적힌 값이 아니라)',
-  /it\.notify_phone/.test(coreStrip));
-check('H-8 번호가 없으면 «문자 안 감» 이라고 말한다(빈칸으로 두지 않는다)',
-  /문자 안 감/.test(coreJs) && /no SMS/.test(coreJs));
-/* 인라인 onclick 이 부르는 이름은 언제나 «전역» 에서 찾는다 — 함수가 다른 함수 «안» 에
-   선언돼 있으면 ReferenceError 인데 화면은 멀쩡해 보인다(규칙서 2장). 중괄호 깊이로 본다. */
-const declIdx = coreJs.indexOf('async function enEditPhone');
-let depth = 0;
-for (let i = 0; i < declIdx; i++) {
-  const ch = coreJs[i];
-  if (ch === '{') depth++;
-  else if (ch === '}') depth--;
-}
-check('H-9 enEditPhone 이 스크립트 최상위에 있다(인라인 onclick 이 찾을 수 있다)',
-  declIdx > 0 && depth === 0, `깊이 ${depth}`);
+/* 🔀 (2026-11-05 사장님 «이름 밑에 굳이 전화번호가 있어서 가독성이 떨어져») 목록 이름 칸의 번호 줄을 뺐다. */
+check('H-7 목록 이름 칸에 번호 줄(📞/📵)을 그리지 않는다', !/_enPhoneCell\s*\(/.test(coreStrip) && !/enEditPhone/.test(coreStrip));
 
 // ══════════════════════════════════════════════════════════════
 //  G절 — 바뀐 파일의 ?v= 를 올렸나 (immutable 캐시에 옛 파일이 남는다)
@@ -558,7 +544,7 @@ const NOT_YET = [
   ['api-pay.ts', '자동결제 사전안내(prebill) — 돈이 걸린 경로'],
   ['api-admin.ts', 'AI 초안 승인 → feedback-drafts/approve'],
   ['enroll-activate.ts', '등록 확정 안내 (화면 기본값 OFF)'],
-  ['api-games.ts', 'microlearn 안내 (parent_phone 만)'],
+  ['api-games-microlearn.ts', 'microlearn 안내 (parent_phone 만)'],
 ];
 console.log('  ℹ️ 아직 번호 정본을 안 보는 학부모 문자 경로 (사람 결정 대기 — FAIL 아님):');
 for (const [f, what] of NOT_YET) {

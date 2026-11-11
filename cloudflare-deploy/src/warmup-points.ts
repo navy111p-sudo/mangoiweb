@@ -16,11 +16,12 @@ export const WARMUP_POINT_MIN_TURNS = 3;
 export const WARMUP_KICKOFF_PREFIX = "Let's start today's pre-class warm-up!";
 
 /** 대화 기록 → 학생이 «직접» 말한 횟수. 모양이 이상하면 null(=모름). */
-export function countStudentTurns(history: any): number | null {
+export function countStudentTurns(history: any, onlyConfirmed = false): number | null {
   if (!Array.isArray(history)) return null;
   let n = 0;
   for (const m of history) {
     if (!m || m.role !== 'user') continue;
+    if (onlyConfirmed && m.confirmed !== true) continue;
     const t = String(m.content == null ? '' : m.content).trim();
     if (!t || t.indexOf(WARMUP_KICKOFF_PREFIX) === 0) continue;
     n++;
@@ -30,7 +31,7 @@ export function countStudentTurns(history: any): number | null {
 
 /** 줄 수 있는가 — { ok:true } 이거나 { ok:false, error, have? }.
  *  sessionOwner: warmup_session_log 의 user_id(없으면 null · 못 읽었으면 undefined). */
-export function warmupPointGate(o: { sessionId: string; historyRaw: string | null | undefined; userId: string; sessionOwner: string | null | undefined; }):
+export function warmupPointGate(o: { sessionId: string; historyRaw: string | null | undefined; userId: string; sessionOwner: string | null | undefined; requireConfirmed?: boolean; }):
   { ok: boolean; error: string | null; have: number | null } {
   /* ⚠️ 한 모양으로 둔다 — tsconfig 가 strict 가 아니라 판별 유니온 좁히기가 안 된다(CLAUDE.md 2장). */
   const sid = String(o.sessionId || '').trim();
@@ -40,7 +41,7 @@ export function warmupPointGate(o: { sessionId: string; historyRaw: string | nul
   if (o.historyRaw == null) return { ok: false, error: 'turns_unknown', have: null };
   let h: any = null;
   try { h = JSON.parse(String(o.historyRaw)); } catch { return { ok: false, error: 'turns_unknown', have: null }; }
-  const have = countStudentTurns(h);
+  const have = countStudentTurns(h, o.requireConfirmed === true);
   if (have == null) return { ok: false, error: 'turns_unknown', have: null };
   if (have < WARMUP_POINT_MIN_TURNS) return { ok: false, error: 'not_enough_turns', have };
   return { ok: true, error: null, have };

@@ -143,18 +143,11 @@
     return list.slice().sort(function(a,b){var rank=function(r){return (r.payload.priority==='urgent'&&r.status==='submitted'?-10:0)+({submitted:0,changes_requested:1,draft:2,acknowledged:3}[r.status]||0);};return rank(a)-rank(b)||b.updated_at-a.updated_at;});
   }
   /* 🇰🇷 받은 보고 한국어 번역(2026-10-08): 필리핀 매니저가 영어로 쓴 보고를 버튼 한 번에 한글로 바꿔 읽는다.
-     서버 /api/translate mode:'chat'(존댓말·직원 대화용)을 그대로 쓴다. 그 모드는 «첫 줄만» 돌려주므로
-     줄마다 따로 보낸다. 번역은 화면에만 보이고 저장된 보고는 바꾸지 않는다. */
-  var koCache={}, showKo={}, KO_FIELDS=['work','issue','open','student','class_info'];
-  function needsKo(d){return KO_FIELDS.some(function(k){var v=String(d[k]||'');return /[A-Za-z]/.test(v);});}
-  function koLines(d){var out=[];KO_FIELDS.forEach(function(k){String(d[k]||'').split(/\r?\n/).forEach(function(line){var t=line.replace(/^[\s•\-*·]+/,'').trim();if(/[A-Za-z]/.test(t)&&out.indexOf(t)<0)out.push(t);});});return out;}
-  async function translateKo(d){
-    var lines=koLines(d),map={};
-    for(var i=0;i<lines.length;i+=40){var r=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texts:lines.slice(i,i+40),target:'ko',mode:'chat'})});var j=await r.json().catch(function(){return null;});if(!r.ok||!j||j.ok!==true||!j.map)throw new Error('translate '+r.status);Object.assign(map,j.map);}
-    var failed=0,copy=Object.assign({},d);
-    KO_FIELDS.forEach(function(k){if(!d[k])return;copy[k]=String(d[k]).split(/\r?\n/).map(function(line){var m=line.match(/^([\s•\-*·]*)(.*)$/),t=m[2].trim(),ko=map[t];if(!t||!/[A-Za-z]/.test(t))return line;if(!ko||!/[가-힣]/.test(ko)||/불러오지 못했어요/.test(ko)){failed++;return line;}return m[1]+ko;}).join('\n');});
-    copy.__failed=failed;return copy;
-  }
+     번역 자체는 공용 js/handover-ko.js(팀 보고판과 같은 번역 · 2026-11-05 옮김)가 한다. 여기는 버튼만.
+     공용 파일이 안 실렸으면 버튼을 안 보인다(누를 수 없는 버튼을 두지 않는다). */
+  var koCache={}, showKo={}, KO=window.MangoiHandoverKo||null;
+  function needsKo(d){return !!KO&&KO.needs(d);}
+  function translateKo(d){return KO.translate(d);}
   function koButton(r,content){
     var b=node('button',showKo[r.id]?'🔤 원문 보기 / Original':'🌐 한국어로 번역 / Translate to Korean');b.type='button';b.style.marginLeft='8px';
     b.onclick=async function(){
@@ -183,6 +176,7 @@
     if(r.acknowledged_by)detail.append(node('p','확인 / Reviewed by: '+staffName(r.acknowledged_by)+(r.acknowledged_at?' · '+kst(r.acknowledged_at)+' KST':''),'small'));
     if(r.username===me.username)detail.append(node('p',ownStatusText(r),r.status==='changes_requested'?'notice':'small'));
     if(r.username===me.username&&r.status==='changes_requested'&&r.report_date===$('date').value){var fix=node('button','✏️ 보완해서 다시 보내기 / Revise & resend','primary');fix.type='button';fix.onclick=openEditor;detail.append(fix);}
+    if(window.MangoiHandoverFeedback)window.MangoiHandoverFeedback(detail,r);
     paintFollowup(detail,r);
     if(r.feedback)detail.append(node('p','보완 요청 / Feedback: '+r.feedback,'notice'));
     if(r.username!==me.username&&r.status==='submitted'&&(r.recipient===me.username||root.dataset.exec==='true'||alsoSees.indexOf(r.recipient)>=0)){
@@ -275,7 +269,7 @@
   function armReadGate(r,ack){var key=r.id+':'+r.version,start=openedAt[key]||Date.now(),label=ack.textContent;if(!openedAt[key])openedAt[key]=start;
     function tick(){if(!ack.isConnected)return;var left=Math.ceil((start+readMinSec*1000-Date.now())/1000);if(left>0){ack.disabled=true;ack.textContent='📖 '+left+'초 뒤 확인 가능 / Available in '+left+'s';setTimeout(tick,500);}else{ack.disabled=false;ack.textContent=label;}}
     tick();}
-  async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=prompt('보완할 내용을 적어 주세요. / What needs clarification?')||'';if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});await loadList();}catch(e){networkError(e);button.disabled=false;}}
+  async function act(r,kind,button){var feedback='';if(kind==='return'){feedback=await window.MangoiHandoverFeedback.requestChanges();if(!feedback.trim())return;}button.disabled=true;try{await call('/'+kind,{id:r.id,version:r.version,feedback:feedback});document.dispatchEvent(new CustomEvent('mh:handover-changed',{detail:{from:'inbox'}}));await loadList();}catch(e){networkError(e);button.disabled=false;}}
   async function loadList(){
     var date=$('list-date').value, wantRead=$('filter').value==='read', wantMine=$('filter').value==='mine', data=await Promise.all([call('/home?date='+encodeURIComponent(date)),call('/inbox'),wantRead?call('/read-history'):null,wantMine?call('/mine'):null]);
     if(date!==$('list-date').value)return;var j=data[0];reports=j.reports;inbox=data[1].reports;inboxTotal=data[1].total;reviewerOverdue=data[1].reviewer_overdue||[];readMinSec=Number(data[1].read_min_sec)||0;mergeFiles(j.files);mergeFiles(data[1].files);if(data[2]){readHistory=data[2].reports||[];mergeFiles(data[2].files);}if(data[3]){mine=data[3].reports||[];mergeFiles(data[3].files);}if(date===$('date').value)paintOwn(j.own);var listState=JSON.stringify([date,$('filter').value,reports,inbox,readHistory,mine]);if(listState!==lastListState){paintList();lastListState=listState;}
@@ -322,6 +316,8 @@
     j.days.forEach(function(d){var li=node('li',d.day+(d.name?' · '+d.name:'')+' '),del=node('button','삭제 / Remove');del.type='button';del.onclick=async function(){del.disabled=true;try{await call('/closed-days',{day:d.day,remove:true});$('closed-status').textContent='삭제했습니다 / Removed';await loadClosed();}catch(e){networkError(e);del.disabled=false;}};li.append(del);list.append(li);});
   }catch(e){$('closed').hidden=true;}}
   $('closed-add').onclick=async function(){var button=this,day=$('closed-day').value;if(!/^\d{4}-\d{2}-\d{2}$/.test(day)){$('closed-status').textContent='날짜를 골라 주세요 / Pick a date';return;}button.disabled=true;try{await call('/closed-days',{day:day,name:$('closed-name').value});$('closed-status').textContent='추가했습니다 — 마감에서 빠집니다 / Added — skipped by the deadline';$('closed-name').value='';await loadClosed();}catch(e){networkError(e);}finally{button.disabled=false;}};
+  // 👀 팀 보고판(daily-handover-board.js)에서 확인·보완 요청을 하면 받은 보고 목록도 바로 따라온다(2026-11-04).
+  document.addEventListener('mh:handover-changed',function(e){if(me&&!(e.detail&&e.detail.from==='inbox'))loadList().catch(function(){});});
   setInterval(function(){if(me&&!document.hidden&&!busy&&!uploading)loadList().catch(function(){$('inbox-message').textContent='새 보고 확인 실패 · 새로고침해 주세요. / Refresh to check new reports.';});},60000);
   init();
 })();

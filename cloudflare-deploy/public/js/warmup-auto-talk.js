@@ -31,12 +31,17 @@
   if (window.WarmupAutoTalk) return;
 
   var KEY = 'mangoi_warmup_talk_mode';   // 'auto' | 'button' — 사람이 고를 때만 쓴다
-  var ARM_DELAY_MS = 600;                // AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향)
   var MISS_SETTLE_MS = 900;              // 듣기가 끝난 뒤 «Whisper 한 번 더» 가 이어지는지 기다림
   var MISS_LIMIT = 2;                    // 아무 말 없이 연속 N번이면 쉰다
 
   var EMBEDDED = (function () { try { return window.parent !== window; } catch (e) { return true; } })();
   var ANDROID = /Android/i.test(navigator.userAgent || '');
+  /* AI 말이 끝난 뒤 이만큼 기다렸다 연다(잔향).
+     ⚡ (2026-11-05 사장님 「듣기 시간 최소화 — 특히 휴대폰」) 안드로이드만 600 → 300ms — 그쪽은 녹음 경로(micViaWhisper)라
+        getUserMedia 에코 제거가 켜져 있고 말/조용 판정이 소음 바닥에 맞춘다(mangoi-voice-input.js endGate). 마이크 준비(0.1~0.5초)가 이 뒤에 또 붙는다.
+     ⛔ 그 밖(아이폰·PC)은 600 그대로 — 브라우저 음성인식에는 에코 제거를 걸 수 없고 블루투스 스피커는 소리가 0.3초 넘게 늦게 나올 수 있다(함정 대조).
+     ⛔ 200ms 아래로 내리지 말 것(스피커 잔향을 학생 말로 받음). */
+  var ARM_DELAY_MS = ANDROID ? 300 : 600;
 
   var S = {
     armTimer: null, missTimer: null, panelDeferred: false,
@@ -262,11 +267,15 @@
   function btnsHtml(cls) {
     var auto = readMode() === 'auto', en = uiEn();
     var now = '<span class="wus-now">' + (en ? 'Now' : '지금') + '</span>';
+    /* 📱 이름은 «긴 판·짧은 판» 두 벌(2026-11-04) — 설정 화면이 한 화면 배치(폰)일 때는 왼쪽 이름표가
+       이미 «말하기» 라고 말하므로 짧은 판(버튼으로·자동으로)만 보인다(warmup.html CSS .wus-nm-l / .wus-nm-s). */
     return '<button type="button" class="' + cls + (auto ? '' : ' on') + '" data-talk="button">'
-      + '<span class="wus-name">' + (en ? '🎤 Talk with the mic button' : '🎤 버튼으로 말하기') + (auto ? '' : now) + '</span>'
+      + '<span class="wus-name"><span class="wus-nm-l">' + (en ? '🎤 Talk with the mic button' : '🎤 버튼으로 말하기') + '</span>'
+      + '<span class="wus-nm-s">' + (en ? '🎤 Tap mic' : '🎤 버튼으로') + '</span>' + (auto ? '' : now) + '</span>'
       + '<span class="wus-desc">' + (en ? 'Tap the mic to talk (default)' : '마이크를 눌러서 말해요 (기본)') + '</span></button>'
       + '<button type="button" class="' + cls + (auto ? ' on' : '') + '" data-talk="auto">'
-      + '<span class="wus-name">' + (en ? '✨ Talk automatically' : '✨ 자동으로 말하기') + ' <span class="at-beta">' + (en ? 'beta' : '베타') + '</span>' + (auto ? now : '') + '</span>'
+      + '<span class="wus-name"><span class="wus-nm-l">' + (en ? '✨ Talk automatically' : '✨ 자동으로 말하기') + '</span>'
+      + '<span class="wus-nm-s">' + (en ? '✨ Auto' : '✨ 자동으로') + '</span> <span class="at-beta">' + (en ? 'beta' : '베타') + '</span>' + (auto ? now : '') + '</span>'
       + '<span class="wus-desc">' + (en ? 'The mic turns on by itself after the AI speaks · works better with earphones' : 'AI 말이 끝나면 마이크가 저절로 켜져요 · 이어폰을 쓰면 더 정확해요') + '</span></button>';
   }
   function paint() {
@@ -335,7 +344,9 @@
       var sec = document.createElement('div');
       sec.id = 'wusTalkSec';
       /* 🌐 2026-10-03 — 제목·안내는 data-ko/data-en 으로(warmup.html 의 wuApplyStatic 이 따라 바꾼다) */
-      sec.innerHTML = '<div class="wus-sub" data-ko="🎤 어떻게 말할까요?" data-en="🎤 How will you talk?">' + (uiEn() ? '🎤 How will you talk?' : '🎤 어떻게 말할까요?') + '</div>'
+      /* 📱 .wus-short — 한 화면 배치(폰)에서 왼쪽에 보이는 짧은 이름표(warmup.html CSS). 넓은 화면에서는 숨는다 */
+      sec.innerHTML = '<span class="wus-short" data-ko="말하기" data-en="Talk">' + (uiEn() ? 'Talk' : '말하기') + '</span>'
+        + '<div class="wus-sub" data-ko="🎤 어떻게 말할까요?" data-en="🎤 How will you talk?">' + (uiEn() ? '🎤 How will you talk?' : '🎤 어떻게 말할까요?') + '</div>'
         + '<div class="wus-hint" data-ko="자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요." data-en="With Auto, the mic turns on after the AI finishes and sends when you stop talking.">'
         + (uiEn() ? 'With Auto, the mic turns on after the AI finishes and sends when you stop talking.' : '자동으로 고르면 AI 말이 끝난 뒤 마이크가 저절로 켜지고, 말을 멈추면 저절로 보내져요.') + '</div>'
         + '<div class="wus-grid" id="wusTalkBtns"></div>';

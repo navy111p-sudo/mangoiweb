@@ -248,7 +248,7 @@ async function hqAccounts(env: ApprovalEnv): Promise<AccountRow[]> {
  * 이 역할 단계를 결재할 수 있는 사람들의 계정명.
  *   exceptUser = 기안자. 자기 건은 자기가 결재할 수 없으므로 알림도 보내지 않는다.
  */
-async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string | null): Promise<string[]> {
+async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string | null, widen = true): Promise<string[]> {
   const rows = await hqAccounts(env);
   const out: string[] = [];
   for (const r of rows) {
@@ -262,7 +262,8 @@ async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string 
        알려야 할 사람은 다른 질문이다. */
     if (isPrimaryApprover(actor, role as any, isPhManager(actor))) out.push(u);
   }
-  if (out.length) return out;
+  // widen=false — «결과» 알림처럼 기안자가 이미 받는 자리는 넓히지 않는다(엉뚱한 경영진에게 안 가게).
+  if (out.length || !widen) return out;
 
   /* 🔴 주 결재자가 한 명도 없다 — **결재권자 본인이 올린 건**이 정확히 그렇다
        (자기가 올린 결재는 자기가 결재할 수 없으므로 exceptUser 로 빠진다).
@@ -1243,7 +1244,7 @@ export async function handleApprovalApi(
       `SELECT COUNT(*) AS c FROM admin_scope WHERE scope_type = 'hq'`
     ).first(), null);
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a10-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+    const etag = `W/"a11-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
                  `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}` +
                  `-${hsig?.c || 0}-${sig?.mk || 0}-${hourBucket}"`;
     const headers = {
@@ -1362,7 +1363,7 @@ export async function handleApprovalApi(
       `SELECT * FROM approval_requests
         WHERE status = 'pending' AND requester_username != ?
         ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC LIMIT 40`
-    ).bind(me).all<any>(), { results: [] as any[] } as any);
+    ).bind(me).all<any>(), null);
 
     const mineRs = await safe(async () => await env.DB.prepare(
       /* ↩️ origin_created_at 을 «함께 뽑는다» — rowOf 가 읽는 칸이라 안 뽑으면
@@ -1400,7 +1401,7 @@ export async function handleApprovalApi(
     ).bind(me).all<any>(), { results: [] as any[] } as any) : ({ results: [] as any[] } as any);
 
     // 단계는 **한 번에** 받는다 — 예전엔 행마다 따로 조회해서 쿼리가 40건 넘게 나갔다.
-    const pend = (pendRs.results || []), mineRows = (mineRs.results || []), urgRows = (urgRs.results || []);
+    const pend = (pendRs?.results || []), mineRows = (mineRs.results || []), urgRows = (urgRs.results || []);
     const ackRows = (ackRs.results || []);
     const allIds: number[] = [];
     for (const r of pend) allIds.push(Number(r.id));
@@ -1593,6 +1594,7 @@ export async function handleApprovalApi(
         /* 결재함은 20건에서 자른다(inbox 루프) — 「내가 결재할 것」 타일이
            정확한 수처럼 보이지 않게 «그 이상» 임을 알려 준다. */
         inbox_capped: inbox.length >= 20,
+        inbox_unavailable: !pendRs,
         /* ✅ 「확인할 것 N건」 — 결재가 아니라 «봤다»는 도장이 남은 수.
            ⚠️ 지금 화면은 이 숫자를 «타일» 로 그리지 않는다(구역 자체가 0건이면 숨는다).
               결재함 배지(paintBadge)와 섞지 않으려고 일부러 따로 둔 값이다. */
@@ -1622,7 +1624,7 @@ export async function handleApprovalApi(
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
          (같은 «요청 → 승인» 구조를 두 벌 만들면 반드시 어긋난다 — 데이터는 원래 자리에 둔다) */
       schedule_pending: scheduleWaiting,
-    }), { status: 200, headers });
+    }), { status: 200, headers: pendRs ? headers : { 'Content-Type': headers['Content-Type'], 'Cache-Control': 'no-store' } });
   }
 
   // ── 올리기 (기안) ─────────────────────────────────────────────────────────
@@ -2436,10 +2438,21 @@ export async function handleApprovalApi(
       if (finalStatus === 'approved' && cur.reverses_id) {
         reversal = await applyReversal(env, Number(cur.reverses_id), id, String(actor.username));
       }
-      // 끝났으면 올린 사람에게 결과를 알린다.
-      await notify(env, [String(cur.requester_username)],
+      // 끝났으면 올린 사람에게 결과를 알린다. 반려면 피드백(memo)도 알림에 싣는다 — 열기 전에 «왜» 가 보이게.
+      const resultTo = [String(cur.requester_username)];
+      /* 💬 이 단계의 «주» 결재자가 아닌 사람이 반려했으면(경영진이 결재권자 몫을 대신) 결재권자에게도
+         그 피드백을 알린다 (2026-11-09 사장님 「승인자에게 반려해서 피드백」). 승인은 그대로 기안자만. */
+      if (decision === 'rejected' && !isPrimaryApprover(actor, role, ph)) {
+        for (const u of await approversFor(env, String(role), cur.requester_username, false)) {
+          if (u !== String(actor.username) && resultTo.indexOf(u) < 0) resultTo.push(u);
+        }
+      }
+      await notify(env, resultTo,
                    decision === 'approved' ? 'Approved' : 'Rejected',
-                   String(cur.title || '').slice(0, 80), id, 'approval-result');
+                   (String(cur.title || '').slice(0, 80) +
+                    // 영어 번역([EN])이 붙어 있으면 앞으로 — 필리핀 기안자가 잘린 한국어만 보지 않게.
+                    (decision === 'rejected' && memo ? ' — ' + memo.split('\n[EN] ').reverse().join(' / ').slice(0, 200) : '')),
+                   id, 'approval-result');
     }
 
     return json({

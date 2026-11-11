@@ -418,7 +418,7 @@ async function translateWith(ai, texts, target) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ①-화면 idx-vc-chat.js — 8초 기다리고, 실패하면 강사에게 말한다
+   ①-화면 idx-vc-chat.js — 실패 시 초안을 보존하고 명시적 재시도를 안내한다
    ═══════════════════════════════════════════════════════════════════════ */
 console.log('\n[ ①-화면 채팅 번역 — 조용히 실패하지 않는다 ]');
 const CHAT = readFileSync(join(CF, 'public', 'js', 'idx-vc-chat.js'), 'utf8');
@@ -438,7 +438,7 @@ function chatWorld(fetchImpl) {
   const body = new El('body'); const area = new El('div'); const input = new El('input');
   input.id = 'vc-chat-input'; area.appendChild(input); body.appendChild(area);
   const timers = [];
-  const sent = [];
+  const sent = [], notices = [];
   const ls = new Map([['mangoi_lang', 'en'], ['mangoi_vc_chat_tr', 'ko']]);
   const document = {
     readyState: 'complete', body,
@@ -453,14 +453,15 @@ function chatWorld(fetchImpl) {
   };
   const ctx = vm.createContext({
     window, document, localStorage: { getItem: k => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => ls.set(k, v), removeItem: k => ls.delete(k) },
-    fetch: fetchImpl, console,
+    fetch: fetchImpl, console, AbortController,
+    vcAddChatSystem: text => notices.push(text), clearTimeout() {},
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
   });
   vm.runInContext(CHAT, ctx);
-  return { window, input, sent, timers, byId, flush };
+  return { window, input, sent, timers, byId, notices, flush };
 }
 {
-  const cw = chatWorld(async () => ({ json: async () => ({ ok: true, map: { 'Good job!': '잘했어요!' } }) }));
+  const cw = chatWorld(async () => ({ ok: true, json: async () => ({ ok: true, map: { 'Good job!': '잘했어요!' } }) }));
   cw.input.value = 'Good job!';
   cw.window.vcSendChat();
   const btn = cw.byId.get('vc-tr-btn');
@@ -471,29 +472,29 @@ function chatWorld(fetchImpl) {
   ok('보낸 뒤 버튼이 원래 이름으로 돌아온다', !/⏳/.test(btn.textContent));
 }
 {
-  const cw = chatWorld(async () => ({ json: async () => ({ ok: true, map: { 'Do you have a judge?': 'Do you have a judge?' } }) }));
+  const cw = chatWorld(async () => ({ ok: true, json: async () => ({ ok: true, map: { 'Do you have a judge?': 'Do you have a judge?' } }) }));
   cw.input.value = 'Do you have a judge?';
   cw.window.vcSendChat(); await cw.flush();
-  ok('번역이 실패하면(원문 그대로 돌아옴) 원문은 보내되', cw.sent[0] === 'Do you have a judge?');
-  const warn = cw.byId.get('vc-tr-warn');
-  ok('강사에게 «번역 없이 보냈다» 고 영어/한국어로 알린다', !!warn && /Translation failed|번역이 안 돼/.test(warn.textContent));
+  ok('번역 실패 시 원문을 자동 전송하지 않고 초안을 남긴다', cw.sent.length === 0 && cw.input.value === 'Do you have a judge?');
+  ok('강사에게 전송 안 됨과 재시도 방법을 안내한다', cw.notices.some(x => /Nothing was sent/.test(x) && /Retry/.test(x)));
 }
 {
   const cw = chatWorld(() => new Promise(() => {}));        // 서버가 영영 답이 없다
   cw.input.value = 'Hello class';
   cw.window.vcSendChat(); await cw.flush();
   const waits = cw.timers.map(t => t.ms);
-  ok('3초에 포기하지 않는다 — 서버가 재시도·대체 번역할 시간을 준다(8초)', waits.includes(8000) && !waits.includes(3000));
+  ok('서버 재시도·대체 번역 시간을 10초까지 허용한다', waits.includes(10000) && !waits.includes(3000));
   ok('기다리는 동안은 아직 보내지 않는다', cw.sent.length === 0);
   /* ⚠️ 그 타이머가 없으면(=값이 바뀌었으면) 하니스가 죽지 않고 FAIL 로 말하게 한다 — 가장 긴 대기를 쓴다 */
   const longest = cw.timers.slice().sort((a, b) => b.ms - a.ms)[0];
   if (longest) longest.fn();
-  ok('상한이 지나면 원문을 보내고 경고를 띄운다', !!longest && cw.sent[0] === 'Hello class' && !!cw.byId.get('vc-tr-warn'));
+  await cw.flush();
+  ok('시간 초과도 자동 전송 없이 초안과 상태 안내를 남긴다', !!longest && cw.sent.length === 0 && cw.input.value === 'Hello class' && cw.notices.some(x => /Nothing was sent/.test(x)));
 }
 {
   /* 화면 상한(8초)이 서버 상한(5초 + 대체 번역)보다 길어야 한다 — 숫자를 하니스에 적지 않고 소스에서 읽는다 */
   const wait = Number((CHAT.match(/var WAIT_MS\s*=\s*(\d+)/) || [])[1] || 0);
-  const MANGO = readFileSync(join(CF, 'src', 'api-mango.ts'), 'utf8');
+  const MANGO = readFileSync(join(CF, 'src', 'api-translate.ts'), 'utf8');
   const srv = Number((MANGO.match(/CHAT_LLM_TIMEOUT_MS\s*=\s*(\d+)/) || [])[1] || 0);
   ok(`화면이 기다리는 시간(${wait}ms)이 서버 언어모델 상한(${srv}ms)보다 2초 이상 길다`, wait > 0 && srv > 0 && wait - srv >= 2000);
   const IDX = readFileSync(join(CF, 'public', 'index.html'), 'utf8');

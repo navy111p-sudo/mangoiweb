@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 // ════════════════════════════════════════════════════════════════════════════
 // attendance_no_fabrication_harness.mjs — 출석현황 카드가 «기록을 지어내지» 않는지
 //
@@ -89,7 +90,7 @@ eq('23:55 + 10분 → 00:05',      map(L({ start_time: '23:55', late_minutes: 10
 
 console.log('\n⑦ 서버가 all=1 을 실제로 지원해야 한다(안 그러면 표가 늘 비어 있다)');
 const API = join(__dir, '..', 'cloudflare-deploy', 'src', 'api-admin.ts');
-const api = readFileSync(API, 'utf8');
+const api = readAdminSourceFromFile(API);
 check("payroll/lessons 에 all=1 분기가 있다", /searchParams\.get\('all'\)\s*===\s*'1'/.test(api));
 check('all=1 은 강사에게 차단된다',
       /searchParams\.get\('all'\)[\s\S]{0,300}isTeacher[\s\S]{0,120}403/.test(api));

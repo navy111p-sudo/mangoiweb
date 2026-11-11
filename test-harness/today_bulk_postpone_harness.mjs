@@ -249,7 +249,9 @@ console.log('\n④ 배선');
   ok('[manager] 학원을 골랐을 때만 버튼(data-bulk)을 그린다', /acSel\s*&&\s*rows\.length\s*\?\s*'<br><span data-bulk=/.test(p));
   ok('[manager] 눈앞의 줄을 남긴다', /j\._shown\s*=\s*rows/.test(p));
   ok('[manager] 버튼을 누르면 taBulk', /closest\('\[data-bulk\]'\)[\s\S]{0,80}taBulk\(\)/.test(MGR));
-  ok('[manager] 키보드로도 연다', /closest\('\[data-ta\],\[data-calpin\],\[data-bulk\]'\)/.test(MGR));
+  /* 뜻으로 묻는다 — 키보드 위임의 선택자 목록에 [data-bulk] 가 «들어 있는가»(목록 전체를 글자로 못 박으면 다른 버튼을
+     키보드 위임에 더할 때마다 거짓 FAIL — 2026-11-04 «↩ 원래대로»(data-undomv)를 더하며 실제로 밟음). */
+  ok('[manager] 키보드로도 연다', /addEventListener\('keydown'[\s\S]{0,300}closest\('[^']*\[data-bulk\][^']*'\)/.test(MGR));
   ok('[manager] taBulk 가 bulkOpen 을 부른다', /mangoiMoveModal\.bulkOpen\(rows/.test(fnSrc(MGR, 'taBulk')));
   const vA = (readFileSync(join(PUB, 'admin.html'), 'utf8').match(/class-move-modal\.js\?v=(\d+)/) || [])[1];
   const vM = (MGR.match(/class-move-modal\.js\?v=(\d+)/) || [])[1];

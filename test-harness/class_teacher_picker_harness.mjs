@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* 🥭 담당 강사 «드롭다운» 회귀 하니스
  *
  *   [왜] 2026-09-22 사장님 「이거 선생님도 스크롤해서 선택하게 할 수 있어?」
@@ -26,7 +27,7 @@ const HTML = path.join(ROOT, 'cloudflare-deploy/public/admin/student.html');
 const API = path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts');
 
 const html = fs.readFileSync(process.env.PICKER_HTML_SRC || HTML, 'utf8');
-const api = fs.readFileSync(process.env.PICKER_API_SRC || API, 'utf8');
+const api = readAdminSourceFromFile(process.env.PICKER_API_SRC || API);
 
 let pass = 0, fail = 0;
 const check = (name, ok, extra) => {
@@ -441,7 +442,7 @@ check('근무지를 바꾸면 다시 그린다', /wpEl\.addEventListener\(\s*'ch
 check('[짝] 목록을 못 받으면 근무지 칸도 숨긴다', /wpWrapEl/.test(strip(SRC.fallback)));
 // 서버 — workplace 를 명부 group_name 정본으로 싣는가
 {
-  const api = fs.readFileSync(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+  const api = readAdminSourceFromFile(path.join(ROOT, 'cloudflare-deploy/src/api-admin.ts'));
   const i = api.indexOf("path === '/api/admin/teachers') {\n      await ensurePayrollSchema");
   const seg = i >= 0 ? api.slice(i, api.indexOf('return json({ ok: true, items: teacherRows', i)) : '';
   check('전제 — 서버 강사 목록 블록을 잘라 냈다', seg.length > 200, 'len=' + seg.length);

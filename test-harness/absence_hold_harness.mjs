@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // ⏸ 연속 결석 «보류» (2026-09-25 사장님 결정 — 결석 2회 연속 · 보류 중 강사비 0% · 매니저 확인)
 //
 // 정본 src/absence-hold.ts 를 타입 제거로 «실제로» 돌리고(진짜 SQLite), 배선 네 곳
@@ -277,7 +278,7 @@ console.log('\n③ 매니저 결정 API 게이트');
 
 console.log('\n④ 배선 — 정본을 실제로 쓰는가');
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-const pay = strip(rd(resolve(SRC, 'api-admin.ts')));
+const pay = strip(readAdminModuleGraph(adminModuleFile => rd(resolve(SRC, adminModuleFile))));
 const iUp = pay.indexOf("else if (upcoming) st = 'upcoming';");
 const iHold = pay.indexOf("else if (heldAttended && !heldAttended.has(roomId) && heldOnFor(holdRanges, l.user_id, dateStr)) st = 'absence_hold';");
 const iAbs = pay.indexOf("st = 'student_absent';");

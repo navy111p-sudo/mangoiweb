@@ -179,6 +179,23 @@
          입모양 분석(Rhubarb)이 «끝날 때까지» 소리를 막고 있었습니다(문장마다 약 0.8배 길이 · 첫 회는 부팅 최대 30초).
          이제 CUE_WAIT_MS(250ms)까지만 기다리고 소리를 냅니다. 분석이 늦게 끝나면 그 순간부터 정확한 입모양으로 바뀝니다.
        ⛔ 상한을 지우지 마세요 — 지우면 매 문장 앞의 조용한 시간이 그대로 되돌아옵니다. */
+/* v21: (2026-11-09) 사장님 「영상 앱처럼 입모양·고개·표정 모두」 — 경쟁 앱 실측(턱·볼이 입과 함께 내려감,
+         고개를 «기울이기» 가 아니라 좌우로 «돌림» ±3% · 약 4.5초 주기)에 맞춰 둘을 더합니다:
+         ① 턱 내리기(JAW) — 입이 열린 만큼 입술 선~턱끝 띠를 아래로 늘이고 턱 밑 목은 줄인다(눈썹 띠와 같은 방식).
+            입 칸만 바뀌던 얼굴에서 «턱이 따라 내려가는» 얼굴로. 그림 입모양 캐릭터(lily·noah·emma·jake)만.
+         ② 고개 좌우 돌리기(yaw, 2.5D) — 눈~입 띠를 가로로 밀되 얼굴 윤곽(양끝)은 0 → 이목구비만 옆으로 가서 돌아보는 것처럼.
+            머리 층(present)에서만 하므로 몸은 그대로 · «움직임 줄이기» 면 안 한다.
+       ⚠️ 두 띠 모두 «바깥은 원본과 섞는다(destination-out → lighter)» — source-over 로 얹으면 가장자리 투명한 곳에 옛 윤곽이 겹쳐 보입니다. */
+/* v22: (2026-11-10) 사장님 「코 양옆 볼에 선이 있어 · 말할 때 더 이상해」 — 입 칸(PRECISION) 둘레의 1px 선이었습니다.
+         아틀라스(3칸·18칸 시트)에서 칸 하나를 «바로 늘여» 그리면 크롬이 칸 밖 옆 칸 픽셀까지 섞어(보간) 둘레에 옆 칸의
+         턱 그림자·반대쪽 볼이 한 줄로 번집니다. 말할 때는 칸이 계속 바뀌어 선이 깜빡였습니다.
+         [잰 것 — 2026-11-10, 헤드리스 크로미움 · Lily 480px · 선 세기 = |픽셀 − 주변 5x5 중앙값| 의 p95]
+           고치기 전 21~26(최대 37) → 고친 뒤 3~9(최대 15, 남은 것은 원래 얼굴 결)
+         ✅ 칸을 작은 캔버스에 1:1(보간 없이) 먼저 오려 낸 뒤 늘입니다(mouthTile) — 그 캔버스 밖에는 픽셀이 없어 번질 게 없습니다.
+         ℹ️ 같은 경로라 Noah·Emma·Jake 에도 함께 적용됩니다(Emma·Jake 는 320px 에서 옛 판도 번지지 않아 효과를 못 쟀습니다). 고개 돌림·턱 띠(v21)는 렌더로 봤을 때 선을 만들지 않았습니다.
+         ⛔ 아틀라스에서 바로 늘여 그리는 것으로 되돌리지 마세요(avatar_jaw_yaw_harness ⑨ · avatar-jaw-yaw-browser ⑨).
+   그림 ?v=5: (2026-11-11) 그래도 남던 선은 그림 «안» 이었습니다 — 입 조각의 볼(힘 뺀 볼)이 바탕(크게 웃는 볼)과 만나는 대각선 이음매.
+         tools/heal-cheek-seams.py 가 코 옆 두 다각형 안을 주변 피부로 메웠습니다(lily 그림 4장 + 사이 그림 재생성). */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -228,8 +245,10 @@
        입모양 6가지: rest·spread(이)·teeth·open·wide(아)·round(오/우) → PRECISION.jake 아틀라스.
        만드는 도구: tools/build-jake-poses.py (입 밖 픽셀은 rest 와 바이트 단위로 같음 — assert).
        ⛔ 영상 줄로 되돌리지 마세요(jake_classic 은 폴백 전용). */
-    jake: { frames:{ closed:'/img/jake-closed.webp', medium:'/img/jake-mid.webp', wide:'/img/jake-wide.webp' },
-            still:'/img/jake-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
+    /* 🧹 (2026-11-11) ?v=2 — 맨 윗줄 검은 줄을 지운 그림. 같은 이름은 7일 캐시라 옛 그림이 남아 번호를 붙였다.
+       EN: cache-bust for the re-cut Jake stills (top black row removed). Bump on every image swap. */
+    jake: { frames:{ closed:'/img/jake-closed.webp?v=2', medium:'/img/jake-mid.webp?v=2', wide:'/img/jake-wide.webp?v=2' },
+            still:'/img/jake-closed.webp?v=2', rect:{ l:0, t:0, r:1, b:1 },
             aspect:512/496, keyed:false, fallback:'jake_classic' },
     jake_classic: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
@@ -237,10 +256,12 @@
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
     // ?v=3 (2026-10-18): mouth shrunk to 0.9x relative to the face (tools/shrink-mouth.py) · Noah's patch rect widened.
     // ?v=4 (2026-10-18): «O» poses E·F cleaned (folds softened, Noah's pale red square → portrait skin tone) · Noah G·H
-    //      were black ovals (failed generation) → B·C (tools/clean-o-mouths.py). All lily/noah URLs share one version.
+    //      were black ovals (failed generation) → B·C (tools/clean-o-mouths.py).
+    // ?v=5 (2026-11-11, lily only): cheek seam beside the nose healed (tools/heal-cheek-seams.py) — noah stays ?v=4.
+    //   Each character's URLs share one version (avatar_smile_folds_harness ④).
     //   Media without ?v= is cached 7 days, so a retouched file needs a new address. Bump on every change.
-    lily: { frames:{ closed:'/img/lily-closed.webp?v=4', medium:'/img/lily-mid.webp?v=4', wide:'/img/lily-wide.webp?v=4' },
-            still:'/img/lily-closed.webp?v=4', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
+    lily: { frames:{ closed:'/img/lily-closed.webp?v=5', medium:'/img/lily-mid.webp?v=5', wide:'/img/lily-wide.webp?v=5' },
+            still:'/img/lily-closed.webp?v=5', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
             aspect:0.8, keyed:false, fallback:'emma_classic' },
     noah: { frames:{ closed:'/img/noah-closed.webp?v=4', medium:'/img/noah-mid.webp?v=4', wide:'/img/noah-wide.webp?v=4' },
             still:'/img/noah-closed.webp?v=4', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },
@@ -445,12 +466,12 @@
     // Reviewed nine-pose anchors plus 288 optical-flow inbetweens per actor.
     // The latter are transition shapes, not additional recognized phonemes.
     // base/atlas/trans must carry the same ?v= as the CHARACTERS frames above (one retouch, one version).
-    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=4',atlas:'/img/visemes/lily-mouths.webp?v=4',trans:'/img/visemes/lily-transitions.webp?v=4',x:250,y:294,w:144,h:122},
+    var PRECISION={lily:{extra:true,base:'/img/lily-closed.webp?v=5',atlas:'/img/visemes/lily-mouths.webp?v=5',trans:'/img/visemes/lily-transitions.webp?v=5',x:250,y:294,w:144,h:122},
       noah:{extra:true,base:'/img/noah-closed.webp?v=4',atlas:'/img/visemes/noah-mouths.webp?v=4',trans:'/img/visemes/noah-transitions.webp?v=4',x:214,y:364,w:214,h:130},
       emma:{extra:true,base:'/img/visemes/emma-v2-rest.webp',atlas:'/img/visemes/emma-v2-mouths.webp',x:183,y:282,w:146,h:126},
       // 🦸 Jake 6가지 입모양(9칸 XABCDEFGH 에 배치) — x,y,w,h 는 build-jake-poses.py 출력과 짝.
       //    중간 모양 시트가 없어 transitions 는 못 받으면 그냥 9칸 앵커만 씁니다(keyFrame 이 확인).
-      jake:{extra:true,base:'/img/jake-closed.webp',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
+      jake:{extra:true,base:'/img/jake-closed.webp?v=2',atlas:'/img/visemes/jake-mouths.webp',transitions:false,x:188,y:304,w:136,h:92}};
     // 🔥 (v13) 큰 입모양 그림(전환 시트는 2592x1952)을 «말하기 전에» 그 comp 로 한 번 올려 둔다.
     //    그림 캐릭터 comp 는 그리기 전용(GPU)이라 그림을 «처음 그리는 순간» GPU 로 올리는데, 그 순간이
     //    말 첫마디면 그 프레임들이 통째로 밀려 짧은 입모양을 놓칩니다.
@@ -553,6 +574,57 @@
         g.addColorStop(Math.max(0.51,1-b.fr*kx/w),'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
         t.globalCompositeOperation='destination-in'; t.fillStyle=g; t.fillRect(0,0,w,h); t.globalCompositeOperation='source-over';
         ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(browCv,X0,Y0); ctx.restore();
+        return true;
+      }catch(err){ try{ ctx.restore(); }catch(_){} return false; }
+    }
+    // 띠 섞기 그라데이션(0→1→1→0) — a·b 는 양끝 섞는 몫(0~0.49). (v21 턱·고개 띠가 같이 씁니다)
+    function feather(c,x0,y0,x1,y1,a,b){
+      var g=c.createLinearGradient(x0,y0,x1,y1);
+      g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(Math.min(0.49,a),'rgba(0,0,0,1)');
+      g.addColorStop(Math.max(0.51,1-b),'rgba(0,0,0,1)'); g.addColorStop(1,'rgba(0,0,0,0)');
+      return g;
+    }
+    // 띠(cv, 이미 feather 로 오린 것)를 c 의 (x,y,w,h) 에 «원본×(1-m) + 띠×m» 으로 섞는다.
+    //   ⛔ source-over 로 얹지 마세요 — 띠가 투명한 곳(턱 옆 배경)에 옛 윤곽이 남아 이중 턱이 됩니다.
+    function blendBand(c,cv,x,y,w,h,g){
+      c.globalCompositeOperation='destination-out'; c.fillStyle=g; c.fillRect(x,y,w,h);
+      c.globalCompositeOperation='lighter'; c.drawImage(cv,x,y,w,h);
+      c.globalCompositeOperation='source-over';
+    }
+    // 🦴 (v21) 턱 내리기 — 원본 px. 열쇠는 BROW_SMOOTH 와 같다(top 입술 선 · b0..b1 턱끝 · bot 목 · fl/fr 좌우 섞는 폭).
+    //   ⚠️ D 는 (bot-b1) 보다 충분히 작게 — 턱 밑 목이 (bot-b1)/(bot-b1-D) 배로 줄어듭니다(1.5 이하, 하니스가 봅니다).
+    //   ⚠️ 띠는 프레임마다 preciseRestore 가 다시 깝니다 — 안 깔면 늘인 턱이 다음 프레임에 또 늘어납니다.
+    var JAW={lily:{x0:232,x1:424,top:362,b0:419,b1:428,bot:458,D:9,fl:26,fr:26},
+      noah:{x0:198,x1:452,top:427,b0:523,b1:534,bot:562,D:9,fl:24,fr:24},
+      emma:{x0:158,x1:352,top:346,b0:411,b1:420,bot:448,D:8,fl:24,fr:24},
+      jake:{x0:120,x1:384,top:340,b0:437,b1:446,bot:478,D:8,fl:14,fr:14}};
+    // 입모양별 턱 열림(0~1) — 다문 입(X·A) 0 · «아»(D) 1. 중간 그림(tile)은 두 입모양 사이 step/5.
+    var JAW_OPEN={X:0,A:0,B:.25,C:.6,D:1,E:.55,F:.3,G:.15,H:.45};
+    function jawOpen(s,pose){
+      if(s && s.tile>=0 && s.from) return JAW_OPEN[s.from]+(JAW_OPEN[s.to]-JAW_OPEN[s.from])*(s.tile%4+1)/5;
+      return JAW_OPEN[pose]||0;
+    }
+    var jawSrc=null, jawCv=null;
+    function jawWarp(open,bx,by,sw,sh){
+      var j=JAW[curChar]; if(!j || !(open>0.02)) return false;
+      try{
+        var tc=ctx.canvas||canvas, kx=tc.width/sw, ky=tc.height/sh;
+        var X0=Math.floor((j.x0-bx)*kx), X1=Math.ceil((j.x1-bx)*kx), Y0=Math.floor((j.top-by)*ky), Y1=Math.ceil((j.bot-by)*ky);
+        var w=X1-X0, h=Y1-Y0; if(w<=0||h<=0) return false;
+        if(!jawSrc){ jawSrc=document.createElement('canvas'); jawCv=document.createElement('canvas'); }
+        if(jawSrc.width!==w||jawSrc.height!==h){ jawSrc.width=jawCv.width=w; jawSrc.height=jawCv.height=h; }
+        var s=jawSrc.getContext('2d'); s.clearRect(0,0,w,h); s.drawImage(tc,X0,Y0,w,h,0,0,w,h);   // 방금 그린 입까지 든 띠를 떠 둔다
+        var t=jawCv.getContext('2d'); t.setTransform(1,0,0,1,0,0); t.globalCompositeOperation='source-over'; t.clearRect(0,0,w,h);
+        var drop=-j.D*open, ys=[j.top,j.b0,j.b1,j.bot];
+        for(var k=0;k<3;k++){   // 눈썹과 같은 «세 토막 직선» — 줄마다 그리지 않는다
+          var a0=ys[k], a1=ys[k+1]; if(!(a1>a0)) continue;
+          var s0=(a0+drop*browProf(j,a0)-by)*ky-Y0, s1=(a1+drop*browProf(j,a1)-by)*ky-Y0, d0=(a0-by)*ky-Y0, d1=(a1-by)*ky-Y0;
+          if(k===0) s0=d0=0; if(k===2){ s1=d1=h; }   // 띠 위·아래 끝은 원본 그대로(움직임 0)라 정수 경계까지 덮는다 — 안 덮으면 끝 줄이 반투명
+          t.drawImage(jawSrc,0,s0,w,s1-s0,0,d0,w,d1-d0);
+        }
+        var fa=j.fl*kx/w, fb=j.fr*kx/w;
+        t.globalCompositeOperation='destination-in'; t.fillStyle=feather(t,0,0,w,0,fa,fb); t.fillRect(0,0,w,h);
+        ctx.save(); ctx.setTransform(1,0,0,1,0,0); blendBand(ctx,jawCv,X0,Y0,w,h,feather(ctx,X0,0,X1,0,fa,fb)); ctx.restore();
         return true;
       }catch(err){ try{ ctx.restore(); }catch(_){} return false; }
     }
@@ -685,7 +757,9 @@
     try{ document.addEventListener('visibilitychange', function(){ if(!document.hidden){ scheduleBlink(); swayKick(); } }); }catch(e){}
 
     var SWAY_ROT_DEG = 1.0, SWAY_NOD = 0.007, SWAY_TALK = 1.35, SWAY_IDLE_MS = 48;
-    var swayPh = [Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283];
+    // 🔄 (v21) 고개 좌우 돌림 — 눈 상자 반폭 대비. 0.07 ≈ 얼굴 폭의 ±3%(경쟁 앱 실측 ±13px/420px).
+    var SWAY_YAW = 0.07;
+    var swayPh = [Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283, Math.random()*6.283];
     var swayAmp = 1, swayAmpAt = 0, swayRaf = 0, swayTo = 0, swayLastAt = 0, swayVis = true, swayMq = null;
     var headCv = null, maskCv = null, maskFor = '';
     try{ swayMq = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)')) || null; }catch(e){ swayMq = null; }
@@ -706,7 +780,34 @@
       swayAmpAt = now;
       var rot = SWAY_ROT_DEG * (0.62*Math.sin(P*t/7.3 + swayPh[0]) + 0.38*Math.sin(P*t/4.1 + swayPh[1]));
       var nod = SWAY_NOD * (0.6*Math.sin(P*t/5.6 + swayPh[2]) + 0.4*Math.sin(P*t/3.1 + swayPh[3]));
-      return { px:g.px, py:g.py, rot:rot * swayAmp * Math.PI / 180, sy:1 + nod * swayAmp };
+      var yaw = 0.6*Math.sin(P*t/6.1 + swayPh[4]) + 0.4*Math.sin(P*t/3.7 + swayPh[5]);
+      return { px:g.px, py:g.py, rot:rot * swayAmp * Math.PI / 180, sy:1 + nod * swayAmp, yaw:yaw * swayAmp };
+    }
+    // 🔄 (v21) 고개 좌우 돌리기(2.5D) — 이마~입 띠(EYES 상자로 정함)를 가로 «세 토막 직선» 으로 민다:
+    //   얼굴 윤곽(양끝)은 0 · 눈 안쪽은 통째로 A · 그 사이 볼은 늘이고/줄인다 → 윤곽은 그대로, 이목구비만 옆으로.
+    //   위(이마)·아래(턱)는 섞어서 잇는다. x 는 머리 층(이미 기울임 변환이 걸려 있음), 좌표는 화면 캔버스 px.
+    var yawCv = null;
+    function yawFace(x, W, H, yaw){
+      var e = EYES[curChar], h = HEAD[curChar], cr = cropRect;
+      if (!e || !h || !cr || !yaw || !comp) return;
+      try {
+        var kx = comp.width / (h.w * (cr.r - cr.l)), ky = comp.height / (h.h * (cr.b - cr.t)), cs = comp.width / W;
+        var hw = e.w / 2, c = e.x + hw, A = SWAY_YAW * hw * yaw * kx;
+        var xs = [c - 1.15*hw, c - 0.6*hw, c + 0.6*hw, c + 1.15*hw].map(function(v){ return (v - h.w*cr.l) * kx; });
+        var X0 = Math.floor(xs[0]), X1 = Math.ceil(xs[3]);
+        xs[0] = X0; xs[3] = X1;   // 양끝은 움직임 0 — 정수 경계까지 덮어야 끝 열이 반투명하게 안 남는다
+        var Y0 = Math.floor((e.y - 0.35*e.h - h.h*cr.t) * ky), Y1 = Math.ceil((e.y + 2.6*e.h - h.h*cr.t) * ky);
+        var w = X1 - X0, hh = Y1 - Y0; if (w <= 0 || hh <= 0) return;
+        if (!yawCv) yawCv = document.createElement('canvas');
+        if (yawCv.width !== w || yawCv.height !== hh){ yawCv.width = w; yawCv.height = hh; }
+        var t = yawCv.getContext('2d'); t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, w, hh);
+        var dx = [xs[0], xs[1] + A, xs[2] + A, xs[3]];
+        for (var k = 0; k < 3; k++) t.drawImage(comp, xs[k], Y0, xs[k+1] - xs[k], hh, dx[k] - X0, 0, dx[k+1] - dx[k], hh);
+        var fa = 0.35/2.95, fb = 0.6/2.95;   // 위: 이마(눈 상자 위 0.35칸) · 아래: 입~턱(0.6칸)에서 원본으로
+        t.globalCompositeOperation = 'destination-in'; t.fillStyle = feather(t, 0, 0, 0, hh, fa, fb); t.fillRect(0, 0, w, hh);
+        var gy = Y0 / cs, gh = hh / cs;
+        blendBand(x, yawCv, X0 / cs, gy, w / cs, gh, feather(x, 0, gy, 0, gy + gh, fa, fb));
+      } catch(err){ try { x.globalCompositeOperation = 'source-over'; } catch(_){} }
     }
     // 머리 경계 그림(알파=머리 몫) — 캐릭터·크기가 바뀔 때만 한 번 만든다.
     function swayMask(W, H){
@@ -732,13 +833,14 @@
     //   ⚠️ 머리 층을 2배로 들고 있으면 말하는 동안 프레임마다 2배 크기 그리기가 두 번 늘어
     //      짧은 입모양을 놓칩니다(실측: CPU 4배 제한에서 한 프레임 중앙 0.7ms → 7~8ms, 입모양 검사 시간초과).
     //      줄이기는 여기서 «한 번» 뿐이라 선명도는 그대로입니다.
-    function swayLayers(W, H, tilt){
+    function swayLayers(W, H, tilt, yaw){
       if (!swayMask(W, H)) return false;
       if (!headCv) headCv = document.createElement('canvas');
       if (headCv.width !== W || headCv.height !== H){ headCv.width = W; headCv.height = H; }
       var x = headCv.getContext('2d');
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H);
       tilt(x); x.drawImage(comp, 0, 0, W, H);
+      yawFace(x, W, H, yaw);
       x.globalCompositeOperation = 'destination-in'; x.drawImage(maskCv, 0, 0, W, H);
       x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over';
       return true;
@@ -757,7 +859,7 @@
         pose = swayPose(W, H);
         vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-over';
         vctx.clearRect(0, 0, W, H);
-        if (!pose || !swayLayers(W, H, tilt)) { vctx.drawImage(comp, 0, 0, W, H); return; }
+        if (!pose || !swayLayers(W, H, tilt, pose.yaw)) { vctx.drawImage(comp, 0, 0, W, H); return; }
         tilt(vctx); vctx.drawImage(maskCv, 0, 0, W, H);
         vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.globalCompositeOperation = 'source-out';
         vctx.drawImage(comp, 0, 0, W, H);
@@ -871,6 +973,18 @@
     //    ⚠️ 메모리: 이 경로는 전환 섞기(fadeCv)를 안 쓰므로 그 사본을 비우고 baseCv 를 씁니다 —
     //       다른 경로로 가면 반대로 baseCv 를 비웁니다(두 사본이 함께 커지지 않습니다).
     var preciseKey = '', baseCv = null, baseKey = '';
+    // 🧵 (v22) 입 칸을 작은 캔버스에 1:1(보간 없이) 오려 낸다 — 아틀라스에서 바로 늘여 그리면 옆 칸 픽셀이 번져
+    //   패치 둘레에 1px 선이 생겼습니다(머리말 v22). 못 만들면 null(예전처럼 아틀라스에서 바로 그린다).
+    var mouthCv = null;
+    function mouthTile(sp, sx, sy, w, h){
+      try {
+        if (!mouthCv) mouthCv = document.createElement('canvas');
+        if (mouthCv.width !== w || mouthCv.height !== h){ mouthCv.width = w; mouthCv.height = h; }
+        var t = mouthCv.getContext('2d'); t.imageSmoothingEnabled = false;
+        t.clearRect(0, 0, w, h); t.drawImage(sp, sx, sy, w, h, 0, 0, w, h);
+        return mouthCv;
+      } catch(e){ return null; }
+    }
     // 입모양 그림 경로를 «지금» 쓰는가 — composeFrame 과 showTier 가 같은 판정을 쓴다.
     function preciseReady(){
       var pf = precisionFace();
@@ -902,8 +1016,9 @@
     function preciseRestore(base, r, bx, by, sw, sh){
       try {
         var cw = comp.width, ch = comp.height;
-        var boxes = [[r.x, r.y, r.w, r.h]], e = EYES[curChar];
+        var boxes = [[r.x, r.y, r.w, r.h]], e = EYES[curChar], j = JAW[curChar];
         if (e) boxes.push([e.x, e.y, e.w, e.h]);
+        if (j) boxes.push([j.x0, j.top, j.x1 - j.x0, j.bot - j.top]);   // (v21) 늘인 턱 띠도 매번 원본으로
         ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
         for (var i = 0; i < boxes.length; i++){
           var b = boxes[i];
@@ -943,8 +1058,10 @@
           (sampled.to==='D' && (sampled.from==='X'||sampled.from==='A'))))transition=false;
         var sprite=transition?pf.transitions:pf.mouths,columns=transition?18:3;
         if(transition)ix=tile;
-        ctx.drawImage(sprite,(ix%columns)*r.w,Math.floor(ix/columns)*r.h,r.w,r.h,
-          (r.x-bx)/sw*canvas.width,(r.y-by)/sh*canvas.height,r.w/sw*canvas.width,r.h/sh*canvas.height);
+        var tx=(ix%columns)*r.w,ty=Math.floor(ix/columns)*r.h,mc=mouthTile(sprite,tx,ty,r.w,r.h),
+          dx=(r.x-bx)/sw*canvas.width,dy=(r.y-by)/sh*canvas.height,dw=r.w/sw*canvas.width,dh=r.h/sh*canvas.height;
+        if(mc) ctx.drawImage(mc,0,0,r.w,r.h,dx,dy,dw,dh); else ctx.drawImage(sprite,tx,ty,r.w,r.h,dx,dy,dw,dh);
+        jawWarp(jawOpen(sampled,pose),bx,by,sw,sh);   // 🦴 (v21) 입이 열린 만큼 턱도
         return;
       }
       preciseKey=''; if(baseKey){ baseKey=''; releaseCv(baseCv); }

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /**
  * 🧪 vocab_weak_reuse_harness 변이시험 러너 (2026-10-18) — 사람이 부릅니다(게이트가 물어 가지 않음).
  *
@@ -12,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '../..');
 const HARNESS = path.join(ROOT, 'test-harness/vocab_weak_reuse_harness.mjs');
 const F = { MOD: 'cloudflare-deploy/src/vocab-weak.ts', IDX: 'cloudflare-deploy/src/index.ts', HUB: 'cloudflare-deploy/public/student-games.html', AI: 'cloudflare-deploy/src/api-ai.ts' };
 const ENV = { MOD: 'VW_MOD', IDX: 'VW_IDX', HUB: 'VW_HUB', AI: 'VW_AI' };

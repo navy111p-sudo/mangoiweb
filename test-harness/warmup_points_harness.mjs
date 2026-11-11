@@ -1,9 +1,10 @@
+import { fileURLToPath } from 'node:url';
 // 🪙 A.i 말하기(웜업) 포인트 — 서버 판정·라우트 배선·화면 문구 (2026-11-03)
 //   정본 src/warmup-points.ts 를 타입만 벗겨 «실제로» 돌리고, 화면 view() 를 오려 내 돌린다.
 //   변이시험: WP_SRC=<고친 warmup-points.ts> · WPJS_SRC=<고친 js> · WPAPI_SRC=<고친 api-points.ts>
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const R = p => readFileSync(ROOT + p, 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ FAIL ' + m); } };
@@ -70,6 +71,12 @@ if (view) {
   ok(/이미 받았/.test(V({ ok: false, error: 'daily_cap_reached' }).ko), '하루 한도면 «이미 받았어요»');
   ok(/다 채웠/.test(V({ ok: false, error: 'daily_total_cap_reached' }).ko), '전체 한도면 «다 채웠어요»');
   ok(V(null).cls === 'warn' && !/\+\d+P 받았/.test(V(null).ko), '응답 없으면 «확인하지 못했어요»(지어내지 않음)');
+  for (const code of ['claim_not_awarded', 'session_mismatch']) {
+    const f = V({ ok: false, error: code });
+    ok(f.cls === 'info' && !/다시 «|잠시 뒤/.test(f.ko) && !/again in a moment/.test(f.en) && !!f.en, code + ' 는 다시 눌러도 안 바뀌므로 «다시 눌러 주세요» 라고 안 한다');
+  }
+  ok(/잠시 뒤 다시/.test(V({ ok: false, error: 'turns_unknown' }).ko), '짝: 기록을 못 읽은 것(turns_unknown)은 여전히 다시 해 보라고 한다');
+  ok(/FINAL\s*=\s*\{[^}]*claim_not_awarded[^}]*session_mismatch/.test(js) && /FINAL\[d\.error\]/.test(js), '최종 거절은 기억해 같은 대화에서 다시 묻지 않는다');
   ok(V({ ok: false, error: 'x', signed: 5 }).cls === 'warn', 'ok 가 아니면 금액이 있어도 받았다고 안 함');
   ok(V({ ok: true, signed: 0 }).cls !== 'earn', '0P 면 «받았다» 고 안 함');
   ok(/로그인/.test(V(null, { guest: true }).ko), '비로그인은 로그인 안내');

@@ -48,9 +48,9 @@
       emptySearch: '찾는 이름의 강사가 없어요. 다른 이름으로 검색해 보세요.',
       emptyRegion: '이 지역 강사진은 아직 없어요.', emptySoon: '영국·호주 원어민 강사진을 준비하고 있어요.',
       pick: '강사를 고르면 프로필이 여기에 보여요.',
-      video: '소개 영상 보기', join: '수업 입장', subjectDefault: '영어 회화',
+      video: '소개 영상 보기', subjectDefault: '영어 회화',
       years: function (n) { return n + '년차'; },
-      notes: '선생님 한마디', about: '소개', education: '학력', experience: '경력',
+      about: '선생님 한마디', education: '학력', experience: '경력',
       days: '가능 요일', hours: '가능 시간', subject: '담당',
       noIntro: '아직 등록된 소개 글이 없어요.',
       prev: '이전 강사', next: '다음 강사', of: function (i, n) { return i + ' / ' + n; },
@@ -70,9 +70,9 @@
       emptySearch: 'No teacher has that name. Try another search.',
       emptyRegion: 'No teachers in this region yet.', emptySoon: 'UK and Australian teachers are coming soon.',
       pick: 'Select a teacher to see their profile here.',
-      video: 'Watch intro video', join: 'Join class', subjectDefault: 'English Conversation',
+      video: 'Watch intro video', subjectDefault: 'English Conversation',
       years: function (n) { return n + (Number(n) === 1 ? ' yr' : ' yrs'); },
-      notes: "Teacher's note", about: 'About', education: 'Education', experience: 'Experience',
+      about: 'In their words', education: 'Education', experience: 'Experience',
       days: 'Available days', hours: 'Available hours', subject: 'Subject',
       noIntro: 'No introduction yet.',
       prev: 'Previous teacher', next: 'Next teacher', of: function (i, n) { return i + ' / ' + n; },
@@ -117,7 +117,14 @@
   function subjectOf(t, lang) { return clean(t.certifications) || tr('subjectDefault', lang); }
   /* career 칸은 «숫자(년차)» 이거나 «자유 글(좌우명·경력 설명)» 이다 — 둘을 갈라 쓴다. */
   function yearsOf(t) { var c = clean(t.career); return /^\d{1,2}$/.test(c) ? Number(c) : null; }
-  function aboutOf(t) { var c = clean(t.career); return c && yearsOf(t) === null ? c : ''; }
+  /* 강사가 입력칸에 라벨째 적은 경우가 있다 — 「Motto: …」·「Full Name: Janice … Motto: "…"」(실측 3명).
+     라벨은 화면에 안 보이게 «Motto:» 뒤만 쓴다. */
+  function aboutOf(t) {
+    var c = clean(t.career);
+    if (!c || yearsOf(t) !== null) return '';
+    var m = c.match(/\bmotto\s*:\s*([\s\S]+)$/i);
+    return m ? m[1].trim() : c;
+  }
 
   /* 남이 넣은 주소는 http(s) 만 쓴다(javascript: 등 차단). 상대경로(/로 시작)는 우리 사이트라 허용. */
   function safeUrl(u) {
@@ -214,9 +221,10 @@
     } else {
       media = '<div class="tg-d-cover"' + cover + '>' + photoHTML(t, 'tg-d-photo') + '</div>';
     }
-    var notes = clean(t.notes), about = aboutOf(t), y = yearsOf(t);
+    /* ⛔ t.notes 를 그리지 마세요 — «선생님 한마디» 가 아니라 내부 관리 메모(로그인 아이디·프랜차이즈·평점·
+       작업 메모)입니다(2026-11-05 사장님 캡처). 강사가 직접 쓴 말은 career 칸뿐입니다. */
+    var about = aboutOf(t), y = yearsOf(t);
     var intro = '';
-    if (notes) intro += '<figure class="tg-quote"><figcaption>' + esc(tr('notes', lang)) + '</figcaption><blockquote>' + esc(notes) + '</blockquote></figure>';
     if (about) intro += '<figure class="tg-quote tg-quote-about"><figcaption>' + esc(tr('about', lang)) + '</figcaption><blockquote>' + esc(about) + '</blockquote></figure>';
     if (!intro) intro = '<p class="tg-empty-line">' + esc(tr('noIntro', lang)) + '</p>';
     var facts = factHTML(tr('subject', lang), subjectOf(t, lang)) +
@@ -233,10 +241,8 @@
       '<div class="tg-d-body">' +
         '<p class="tg-d-kicker">' + flagImg(r.id) + '<span>' + esc(regionLabel(r, lang)) + ' · ' + esc(regionDesc(r, lang)) + '</span></p>' +
         '<h3 class="tg-d-name" id="tg-d-name">' + esc(nameOf(t, lang)) + '</h3>' +
-        '<div class="tg-d-actions">' +
-          (video && !ctx.playing ? '<button type="button" class="tg-btn tg-btn-primary" data-tg="video">' + ICON_PLAY + '<span>' + esc(tr('video', lang)) + '</span></button>' : '') +
-          '<button type="button" class="tg-btn tg-btn-ghost" data-tg="join">🎥 <span>' + esc(tr('join', lang)) + '</span></button>' +
-        '</div>' +
+        /* «수업 입장» 버튼은 2026-11-05 사장님 지시로 뺐다(강사 소개 창에서 수업방으로 들어가는 입구 없음). 영상이 없으면 버튼 줄도 안 그린다. */
+        (video && !ctx.playing ? '<div class="tg-d-actions"><button type="button" class="tg-btn tg-btn-primary" data-tg="video">' + ICON_PLAY + '<span>' + esc(tr('video', lang)) + '</span></button></div>' : '') +
         intro +
         '<dl class="tg-facts">' + facts + '</dl>' +
         nav +
@@ -429,11 +435,6 @@
     prev: function () { step(-1); },
     next: function () { step(1); },
     video: function () { S.playing = true; if (S.sheet) renderSheet({ focus: '.tg-d-player iframe, .tg-d-player video' }); else renderPanel(); },
-    join: function () {
-      // 옛 프로필 창의 «수업 입장» 과 같은 동작(공용 수업방) — 동작은 바꾸지 않고 자리만 옮겼다.
-      try { window.closeInfoModal && window.closeInfoModal(); } catch (e) {}
-      if (window.mangoiJoinClass) window.mangoiJoinClass('');
-    },
     close: function () { if (window.closeInfoModal) window.closeInfoModal(); else close(); },
     'sheet-close': closeSheet,
     retry: load,
@@ -627,8 +628,6 @@
     '.tg-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:2.75em;padding:0 1.1em;border-radius:12px;font-size:.95em;font-weight:700;border:1px solid transparent}',
     '.tg-btn-primary{background:var(--tg-mango);color:var(--tg-ink)!important}',
     '.tg-btn-primary:hover{background:#FFD064}',
-    '.tg-btn-ghost{background:transparent;border-color:var(--tg-line);color:var(--tg-text)!important}',
-    '.tg-btn-ghost:hover{background:var(--tg-hover)}',
     '.tg-quote{position:relative;margin:.3em 0 0;padding:1em 1.1em 1em 1.1em;border-radius:14px;background:var(--tg-s2)}',
     '.tg-panel .tg-quote{background:var(--tg-bg)}',
     '.tg-quote figcaption{font-size:.8em;font-weight:700;letter-spacing:.04em;color:var(--tg-mango);margin-bottom:.35em}',

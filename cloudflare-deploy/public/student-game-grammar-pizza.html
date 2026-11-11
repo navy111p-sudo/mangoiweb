@@ -330,7 +330,7 @@
   }
   .lv-btn.on{background:linear-gradient(180deg,var(--mango-orange),var(--mango-deep)); color:#fff; border-color:#c05f00;}
 </style>
-<script src="/js/mangoi-voice-input.js?v=6"></script>
+<script src="/js/mangoi-voice-input.js?v=9"></script>
 <script src="/js/mangoi-stt.js?v=2"></script><!-- 🎤 음성인식 조기 종료 보호막 -->
 <!-- 🗣 (2026-08-03) 따라 말하기 채점을 허브와 같은 것으로 통일 + 한국인 발음 처방
      이 게임은 "이 문장을 따라 말하라" 과제라 문장 정렬 채점이 맞다.
@@ -635,7 +635,7 @@ var GENERIC_GRAMMAR = {
 
 /* ══════════ ⚡ 난이도 1~7 (제한시간·발음속도) ══════════ */
 var TIME_BY_DIFF = [70, 60, 52, 45, 38, 32, 26];        // 초
-var RATE_BY_DIFF = [0.72, 0.8, 0.85, 0.9, 0.98, 1.06, 1.15]; // TTS 속도
+var RATE_BY_DIFF = [0.9, 0.92, 0.95, 0.98, 1, 1.03, 1.06]; // TTS 속도
 var DIFF = (function(){
   var v = parseInt(localStorage.getItem('mangoi_pizza_diff') || QS.get('speed') || '4', 10);
   return (v >= 1 && v <= 7) ? v : 4;
@@ -710,9 +710,17 @@ function voiceFor(lang){
   if(voiceCache[lang] !== undefined) return voiceCache[lang];
   var vs = speechSynthesis.getVoices();
   var pref = (lang === 'zh-CN') ? /zh[-_](CN|Hans)/i : /en[-_]US/i;
-  var v = vs.find(function(x){ return pref.test(x.lang) && /female|zira|aria|jenny|samantha|xiaoxiao|yaoyao|huihui/i.test(x.name); })
-       || vs.find(function(x){ return pref.test(x.lang); })
-       || vs.find(function(x){ return x.lang.slice(0,2).toLowerCase() === lang.slice(0,2); }) || null;
+  // 자연스러운 음성을 먼저 고른다. Win10 Zira가 목록 앞에 있어도 우선하지 않는다.
+  var candidates = vs.filter(function(x){ return x.lang.slice(0,2).toLowerCase() === lang.slice(0,2); });
+  function score(x){
+    var n = x.name || '';
+    return (pref.test(x.lang) ? 40 : 0)
+      + (/natural|neural/i.test(n) ? 100 : 0)
+      + (/google|premium|enhanced/i.test(n) ? 60 : 0)
+      - (/zira|david|desktop|compact|espeak/i.test(n) ? 50 : 0);
+  }
+  candidates.sort(function(a,b){ return score(b) - score(a); });
+  var v = candidates[0] || null;
   voiceCache[lang] = v;
   return v;
 }
@@ -723,6 +731,30 @@ if('speechSynthesis' in window){
    ① 앱 네이티브(AndroidTTS) ② 서버 오디오(en=/api/voice/tts 원어민, zh=/api/tts-free 만다린)
    ③ 기기 speechSynthesis 폴백. done 콜백은 안전 타임아웃으로 반드시 1회 호출. */
 var _pzAudio = null, _pzCache = {}, _pzSeq = 0, _pzTtsTimer = null;
+var _pzContext = null, _pzSource = null;
+function _pzPrepareAudio(){
+  if(!_pzAudio) _pzAudio = new Audio();
+  _pzAudio.volume = 1;
+  // 클릭 안에서 컨텍스트를 연다. 지원하지 않는 기기는 일반 Audio로 재생한다.
+  try{
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(AC && !_pzContext){
+      _pzContext = new AC();
+      var gain = _pzContext.createGain();
+      var limiter = _pzContext.createDynamicsCompressor();
+      gain.gain.value = 1.6;
+      limiter.threshold.value = -6;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.15;
+      gain.connect(limiter); limiter.connect(_pzContext.destination);
+      _pzSource = _pzContext.createMediaElementSource(_pzAudio);
+      _pzSource.connect(gain);
+    }
+    if(_pzContext && _pzContext.state === 'suspended') _pzContext.resume().catch(function(){});
+  }catch(_){}
+}
 function _pzStop(){
   _pzSeq++;
   clearTimeout(_pzTtsTimer);
@@ -730,15 +762,27 @@ function _pzStop(){
   try{ if(_pzAudio){ _pzAudio.onended = _pzAudio.onerror = null; _pzAudio.pause(); } }catch(_){}
   try{ speechSynthesis.cancel(); }catch(_){}
 }
+function _pzSpeechText(text, lang){
+  // A lone pronoun has no context for TTS. Use its exact homophone /aɪ/;
+  // display text and complete sentences still use the original I.
+  return /^en(?:-|$)/i.test(lang) && /^i[.!?]?$/i.test(String(text).trim()) ? 'eye' : text;
+}
 function _pzFetch(text, lang){                             // 서버 오디오 → objectURL (캐시)
+  text = _pzSpeechText(text, lang); // Prefetch and playback must use the same new cache key.
   var key = lang + '|' + text;
   if(_pzCache[key]) return Promise.resolve(_pzCache[key]);
-  var req = (lang === 'zh-CN')
-    ? fetch('/api/tts-free?lang=zh&q=' + encodeURIComponent(text))
-    : fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text, lang: 'en' }) });
-  return req.then(function(r){
+  function checked(r){
     var ct = r.headers.get('content-type') || '';
     if(!r.ok || ct.indexOf('audio') < 0) throw new Error('tts');
+    return r;
+  }
+  // Use the existing reading voice before conversational AI (and its old cached pronunciations).
+  var req = fetch('/api/tts-free?lang=' + (lang === 'zh-CN' ? 'zh' : 'en') + '&q=' + encodeURIComponent(text))
+    .then(checked).catch(function(err){
+      if(lang === 'zh-CN') throw err;
+      return fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: text, lang: 'en' }) }).then(checked);
+    });
+  return req.then(function(r){
     return r.blob();
   }).then(function(b){ var u = URL.createObjectURL(b); _pzCache[key] = u; return u; });
 }
@@ -746,7 +790,7 @@ function _pzSynth(text, lang, fin){                        // ③ 기기 음성 
   if(!('speechSynthesis' in window)){ fin(); return; }
   try{
     var u = new SpeechSynthesisUtterance(text);
-    u.lang = lang; u.rate = RATE_BY_DIFF[DIFF - 1];
+    u.lang = lang; u.rate = RATE_BY_DIFF[DIFF - 1]; u.volume = 1;
     var v = voiceFor(lang);
     if(v) u.voice = v;
     u.onend = u.onerror = function(){ fin(); };
@@ -755,6 +799,7 @@ function _pzSynth(text, lang, fin){                        // ③ 기기 음성 
 }
 function speak(text, done, lang){
   lang = lang || langOf(text);
+  text = _pzSpeechText(text, lang); // Native, server, and browser fallback all pronounce /aɪ/.
   _pzStop();
   var seq = _pzSeq;
   var called = false;
@@ -773,6 +818,7 @@ function speak(text, done, lang){
       return;
     }
   }catch(_){}
+  _pzPrepareAudio();
   // ② 서버 오디오 (모바일 브라우저·WebView에서도 확실히 재생)
   var fetchTimer;
   var audioReady = Promise.race([

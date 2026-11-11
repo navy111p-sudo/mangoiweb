@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 2026-10-18 — «지난번 실수를 다음 AI 친구 대화에 다시 가져오기» (개선안 1순위 ②)
 //   정본 src/recent-mistakes.ts 를 타입만 벗겨 «진짜 SQLite» 로 돌리고, api-ai.ts 배선을 위치로 확인합니다.
 //   짝: «넣는다» 옆에 «안 넣는다»(남의 계정·오래된 것·한글 섞임·게스트·표 없음) 를 둡니다.
@@ -6,7 +7,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { stripTypeScriptTypes } from 'node:module';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const SRC = fs.readFileSync(process.env.RM_SRC || path.join(ROOT, 'cloudflare-deploy/src/recent-mistakes.ts'), 'utf8');
 const AI = fs.readFileSync(process.env.AI_SRC || path.join(ROOT, 'cloudflare-deploy/src/api-ai.ts'), 'utf8');
 const IDX = fs.readFileSync(process.env.IDX_SRC || path.join(ROOT, 'cloudflare-deploy/src/index.ts'), 'utf8');

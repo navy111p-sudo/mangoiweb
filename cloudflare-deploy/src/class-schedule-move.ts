@@ -21,6 +21,14 @@ const groupMinute = (value: any): number | null => /^(?:[01]?\d|2[0-3]):[0-5]\d$
 const occurrenceOn = (row: any, date: string) => row.scheduled_date ? row.scheduled_date === date
   : (!row.starts_on || row.starts_on <= date) && scheduleDays(row).includes(new Date(date + 'T00:00:00Z').getUTCDay());
 
+/** 스냅샷 가드 표 — batch 첫 문장의 CHECK 가 «읽은 뒤 바뀌었으면» batch 전체를 되돌린다. 이 엔진과 class-undo-move.ts 가 함께 쓴다.
+ *  ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고: 이 표가 운영 DB 에 한 번도 안 생겨
+ *     모든 저장이 503). 한 문장은 prepare().run() 으로. */
+export async function ensureScheduleMoveGuard(env: any): Promise<void> {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
+      token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
+}
+
 type Snapshot = { sql: string; args: any[]; value: string };
 async function snapshot(env: any, select: string, fields: string[], args: any[] = []): Promise<Snapshot> {
   const sql = `SELECT json_group_array(json_array(${fields.join(',')})) AS value FROM (${select})`;
@@ -29,17 +37,29 @@ async function snapshot(env: any, select: string, fields: string[], args: any[] 
   return { sql, args, value: row.value };
 }
 
-export async function moveSchedulesAtomically(env: any, actor: any, input: any, originalRows?: any[], options?: { restorePostponed?: boolean }) {
+export async function moveSchedulesAtomically(env: any, actor: any, input: any, originalRows?: any[], options?: { restorePostponed?: boolean; restoreCancelled?: boolean; undoMove?: boolean; historicalUndo?: boolean; groupJoin?: { allow: Set<string>; ignore: Set<string> } }) {
   if (!actor?.ok) return fail(401, 'auth_required', '로그인이 필요합니다.');
   const raw = input.ids;
   if (!Array.isArray(raw) || !raw.length || raw.length > 50 || raw.some((id: any) => !/^\d+$/.test(String(id)) || Number(id) <= 0))
     return fail(400, 'invalid_ids', '옮길 수업을 다시 선택해 주세요.');
   const ids = [...new Set(raw.map(String))] as string[];
   // Internal option: only the HQ restore route may request a status restoration.
-  const restore = options?.restorePostponed === true;
-  if (restore && ids.length !== 1) return fail(400, 'invalid_ids', 'Restore one class at a time.');
+  const cancelled = options?.restoreCancelled === true;
+  // Historical correction removes the unstarted future destination and returns
+  // the same row as POSTPONED. It never opens a past class or edits a ledger.
+  // No availability check is needed for a slot that remains closed.
+  const historical = options?.historicalUndo === true;
+  const restore = options?.restorePostponed === true || cancelled;
+  // Internal option: only the HQ undo route (api-admin.ts action:'undo_move') may move a class back to the date it
+  // was moved away from. It is an ordinary dated move (same conflict engine, same row — PR #1889) plus the restore
+  // attendance/room-override guards, audited as 'restore' so no new «moved away» shadow appears on the left date.
+  // Whether it may run at all is decided by class-change-state.ts judgeMovedAwayUndo (time, target row) before this.
+  const undo = options?.undoMove === true;
+  const guarded = restore || undo;
+  if (guarded && ids.length !== 1) return fail(400, 'invalid_ids', 'Restore one class at a time.');
   const p = input.patch || input;
-  if (!restore && !['destination_date','scheduled_date','day_of_week','start_time','duration_min','teacher_id'].some(k => p[k] != null)) return fail(400,'no_valid_fields','변경할 날짜·시간·강사를 선택해 주세요.');
+  if (undo && (p.destination_date == null || p.start_time == null)) return fail(400, 'no_valid_fields', 'Original date and time are required.');
+  if (!restore &&!['destination_date','scheduled_date','day_of_week','start_time','duration_min','teacher_id'].some(k => p[k] != null)) return fail(400,'no_valid_fields','변경할 날짜·시간·강사를 선택해 주세요.');
   if (p.destination_date != null && !dateValid(p.destination_date) || p.scheduled_date != null && !dateValid(p.scheduled_date)
     || p.start_time != null && !/^(?:[01]?\d|2[0-3]):[0-5]\d$/.test(String(p.start_time))
     || p.duration_min != null && (!Number.isInteger(Number(p.duration_min)) || Number(p.duration_min) <= 0 || Number(p.duration_min) > 240)
@@ -51,13 +71,10 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     return fail(400, 'invalid_expected', '수업 정보를 새로고침한 뒤 다시 시도해 주세요.');
   try {
     // This table is empty outside a batch. Failed guards/updates roll back together.
-    // ⛔ D1 의 exec() 는 «줄마다» 따로 실행해 여러 줄 CREATE 가 실패한다(2026-10-04 실사고:
-    //    이 표가 운영 DB 에 한 번도 안 생겨 모든 저장이 503). 한 문장은 prepare().run() 으로.
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS schedule_move_guard (
-      token TEXT PRIMARY KEY, valid INTEGER NOT NULL CONSTRAINT schedule_move_snapshot CHECK(valid=1))`).run();
+    await ensureScheduleMoveGuard(env);
     await ensureClassAuditTable(env);
     const schema = await snapshot(env, `SELECT name, sql FROM sqlite_master WHERE type='table'
-      AND name IN ('class_schedules','teacher_unavailability','calendar_events','teachers','admin_scope'${restore ? ",'attendance','class_room_override'" : ''}) ORDER BY name`, ['name','sql']);
+      AND name IN ('class_schedules','teacher_unavailability','calendar_events','teachers','admin_scope'${guarded ? ",'attendance','class_room_override'" : ''}) ORDER BY name`, ['name','sql']);
     const columns = await env.DB.prepare(`PRAGMA table_info(class_schedules)`).all();
     if (!Array.isArray(columns?.results) || columns.success === false || !['id','user_id','teacher_id','start_time','updated_at'].every(name => columns.results.some((c: any) => c.name === name))) throw new Error('move_schema_failed');
     const hasStarts = columns.results.some((c: any) => c.name === 'starts_on');
@@ -74,7 +91,8 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       OR user_id IN (SELECT value FROM json_each(?)) OR id IN (SELECT value FROM json_each(?)) ORDER BY id`;
     const csArgs = [JSON.stringify(teacherIds), JSON.stringify(userIds), JSON.stringify(ids)];
     const restoreRooms = rows.flatMap(r => [`class-${r.id}`, `class-${r.id}-${String(r.scheduled_date || '').replace(/-/g, '')}`]);
-    const restoreOverrides = restore && await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='class_room_override'`).first();
+    if (historical && p.destination_date) restoreRooms.push(...rows.map(r => `class-${r.id}-${String(p.destination_date).replace(/-/g, '')}`));
+    const restoreOverrides = guarded && await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='class_room_override'`).first();
     let overrideShot: Snapshot | null = null;
     if (restoreOverrides) {
       overrideShot = await snapshot(env, `SELECT * FROM class_room_override WHERE schedule_id IN (SELECT value FROM json_each(?)) ORDER BY schedule_id,ymd`,
@@ -84,18 +102,19 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     const shots: Snapshot[] = [schema, await snapshot(env, csSelect,
       ['id','user_id','teacher_id','schedule_kind','scheduled_date','day_of_week','start_time','duration_min','status','source','updated_at',hasStarts?'starts_on':'NULL'], csArgs)];
     if (overrideShot) shots.push(overrideShot);
-    for (const [table, fields, where, args] of [
+    for (const [table, fields, where] of [
       ['teacher_unavailability', ['id','teacher_id','kind','start_date','end_date','day_of_week','start_time','end_time'], ''],
       ['calendar_events', ['id','event_type','teacher_name','date','end_date'], "WHERE event_type='vacation'"],
       ['teachers', ['id','name'], ''],
       ['admin_scope', ['username','scope_type'], ''],
-      ...(restore ? [
-        ['attendance', ['id','room_id','role','status'], 'WHERE room_id IN (SELECT value FROM json_each(?))', [JSON.stringify(restoreRooms)]],
-      ] : []),
-    ] as Array<[string, string[], string, any[]?]>) {
+    ] as Array<[string, string[], string]>) {
       const exists = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).bind(table).first();
-      if (exists) shots.push(await snapshot(env, `SELECT * FROM ${table} ${where} ORDER BY ${fields[0]}`, fields, args || []));
+      if (exists) shots.push(await snapshot(env, `SELECT * FROM ${table} ${where} ORDER BY ${fields[0]}`, fields));
     }
+    const attendanceTable = guarded && await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='attendance'`).first();
+    if (attendanceTable) shots.push(await snapshot(env,
+      `SELECT * FROM attendance WHERE room_id IN (SELECT value FROM json_each(?)) ORDER BY id`,
+      ['id','room_id','role','status'], [JSON.stringify(restoreRooms)]));
     // Re-read after the snapshot: old caller rows and stale UI must both match it.
     const fresh = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`).bind(JSON.stringify(ids)).all();
     if (!Array.isArray(fresh?.results) || fresh.success === false) throw new Error('schedule_lookup_failed');
@@ -120,27 +139,31 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
     const names = new Map(teachers.results.map((t: any) => [String(t.id), String(t.name || '')]));
     const scope: any = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(actor.username).first();
     const now = Math.max(Date.now(), ...rows.map(r => (Number(r.updated_at) || 0) + 1)), destinations: any[] = [];
+    // Restore/undo never add a member to an existing exact-slot teacher group (an ordinary move may join one).
+    // Same student or same teacher at an overlapping time on that date → the slot is taken.
+    const slotTaken = (r: any) => facts.rows.some(other => String(other.id) !== String(r.id)
+      && (String(other.user_id) === String(r.user_id) || String(r.teacher_id || '') && String(other.teacher_id) === String(r.teacher_id))
+      && scheduleRowsOverlap(r, other, new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10)));
     for (const row of rows) {
       if (restore) {
-        if (!isPostponedOccurrence(row)) return fail(409, 'not_cancelled', 'This class is no longer postponed. Refresh the list.');
+        if (!(cancelled ? row.status === 'cancelled' && row.scheduled_date : isPostponedOccurrence(row))) return fail(409, 'not_cancelled', 'This class is no longer cancelled or postponed. Refresh the list.');
         const start = Date.parse(String(row.scheduled_date) + 'T' + String(row.start_time).padStart(5, '0') + ':00+09:00');
         if (!Number.isFinite(start)) return fail(409, 'availability_unknown', 'Check the original class date and time.');
         if (start <= Date.now()) return fail(409, 'past_date', 'A class that has already started cannot be restored.');
-        const attendanceTable = await env.DB.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='attendance'`).first();
-        if (attendanceTable) {
-          const attended = await env.DB.prepare(`SELECT id FROM attendance WHERE room_id IN (SELECT value FROM json_each(?)) AND status <> 'scheduled' LIMIT 1`)
-            .bind(JSON.stringify(restoreRooms)).first();
-          if (attended) return fail(409, 'class_already_attended', 'This class has attendance records. Ask head office to check its history before changing it.');
-        }
-        // Restore never adds a member to an existing exact-slot teacher group.
+      }
+      if (undo && (!row.scheduled_date || String(row.status || 'active').trim().toLowerCase() !== 'active'))
+        return fail(409, 'not_moved', 'This class is no longer an open dated class. Refresh the list.');
+      if (attendanceTable) {
+        const attended = await env.DB.prepare(`SELECT id FROM attendance WHERE room_id IN (SELECT value FROM json_each(?)) AND status <> 'scheduled' LIMIT 1`)
+          .bind(JSON.stringify(restoreRooms)).first();
+        if (attended) return fail(409, 'class_already_attended', 'This class has attendance records. Ask head office to check its history before changing it.');
+      }
+      if (restore) {
         // Preserve the old restore policy while also detecting staggered overlap,
         // H:MM spelling and recurring occurrences with the common overlap engine.
-        if (facts.rows.some(other => String(other.id) !== String(row.id)
-          && (String(other.user_id) === String(row.user_id) || String(row.teacher_id || '') && String(other.teacher_id) === String(row.teacher_id))
-          && scheduleRowsOverlap(row, other, new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10))))
-          return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');
+        if (slotTaken(row)) return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');
       }
-      if (['cancelled','ended','completed'].includes(String(row.status || '')) || ['lms','type_seed'].includes(String(row.user_id).toLowerCase()))
+      if ((!cancelled && ['cancelled','ended','completed'].includes(String(row.status || ''))) || ['lms','type_seed'].includes(String(row.user_id).toLowerCase()))
         return fail(409, 'schedule_not_movable', '취소·종료 또는 자리표시 수업은 옮길 수 없습니다.');
       const patch = { ...p };
       if (patch.destination_date != null) {
@@ -160,17 +183,35 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
         if (deny) return { ok: false as const, ...deny };
       }
       if (dest.teacher_id && !names.has(String(dest.teacher_id))) return fail(400, 'teacher_not_found', '그 번호의 강사를 찾을 수 없습니다.');
-      const conflict = await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), ids, facts);
+      const conflict = historical ? null : await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), ids, facts);
       if (conflict) return { ok: false as const, ...conflict };
+      /* 👥 (2026-11-05, opt-in) «같은 강사·같은 시각·같은 길이» 묶음 합류를 사람이 허용한 줄만 — 강사 일괄 인계(teacher-class-transfer.ts)만 켠다.
+         ⚠️ 엔진 «안» 에서, 위 스냅샷 «뒤» 에 읽은 facts 로 판정해야 한다 — 바깥에서 한 번 보면 그 사이에 생긴 같은 자리 수업을
+            놓친다(PR #2114 Codex 지적 · 하니스 C16d). 스냅샷 가드(batch 의 CHECK)가 그 facts 가 쓰기 순간까지 그대로임을 보장한다.
+         ignore = 같은 인계로 옮기는 줄들(앞 묶음에서 이미 옮겨 간 원래 묶음 동료) — 그것과 합쳐지는 것은 «새 묶음» 이 아니다. */
+      if (options?.groupJoin && !same(dest.teacher_id, row.teacher_id)) {
+        const gj = options.groupJoin, today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+        const joins = facts.rows.some(o => !ids.includes(String(o.id)) && !gj.ignore.has(String(o.id))
+          && String(o.teacher_id) === String(dest.teacher_id) && String(o.user_id) !== String(dest.user_id)
+          && scheduleRowsOverlap(dest, o, today));
+        if (joins && !gj.allow.has(String(row.id))) return fail(409, 'group_not_allowed', '넘겨받을 강사의 다른 수업과 같은 시각이라 묶음(그룹) 수업이 됩니다. 목록을 새로고침해 확인한 뒤 골라 주세요.');
+      }
       if (row.source === 'c24-mirror') dest.source = 'c24-mirror:manual';
       if (isPostponedOccurrence(row) && (!same(dest.scheduled_date,row.scheduled_date) || !same(dest.start_time,row.start_time) || !same(dest.day_of_week,row.day_of_week))) dest.status = 'active';
       if (restore) dest.status = 'active';
+      if (historical) {
+        const start = Date.parse(String(dest.scheduled_date) + 'T' + String(dest.start_time).padStart(5, '0') + ':00+09:00');
+        const current = Date.parse(String(row.scheduled_date) + 'T' + String(row.start_time).padStart(5, '0') + ':00+09:00');
+        if (!undo || !Number.isFinite(start) || start > Date.now() || !Number.isFinite(current) || current <= Date.now()) return fail(409, 'schedule_changed', 'Refresh the class dates before correcting history.');
+        dest.status = 'postponed';
+      }
+      if (undo && !historical && slotTaken(dest)) return fail(409, 'slot_taken', 'Another class already uses the original time. Rebook to a different date or time.');
       dest.updated_at = now;
       destinations.push(dest);
     }
     // Excluding the source group must not hide collisions among its proposed rows.
     for (const dest of destinations) {
-      const conflict = await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), [dest.id],
+      const conflict = historical ? null : await findScheduleMoveConflicts(env, dest, String(names.get(String(dest.teacher_id)) || ''), [dest.id],
         { ...facts, rows: destinations.filter(r => String(r.id) !== String(dest.id)) });
       if (conflict) return { ok: false as const, ...conflict };
     }
@@ -182,9 +223,9 @@ export async function moveSchedulesAtomically(env: any, actor: any, input: any, 
       const row=rows[i], dest=destinations[i];
       statements.push(env.DB.prepare(`UPDATE class_schedules SET teacher_id=?, scheduled_date=?, day_of_week=?, start_time=?, duration_min=?, source=?, status=?, updated_at=? WHERE id=?`)
         .bind(dest.teacher_id ?? null,dest.scheduled_date ?? null,dest.day_of_week ?? null,dest.start_time,dest.duration_min ?? null,dest.source ?? null,dest.status ?? null,now,row.id));
-      statements.push(env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,detail,created_at) VALUES ('${restore ? 'restore' : 'reschedule'}',?,?,?,?,?,?,?,'ui',?,?)`)
+      statements.push(env.DB.prepare(`INSERT INTO class_audit_log (action,schedule_id,teacher_name,student_name,lesson_date,lesson_time,actor,actor_role,source,detail,reason,created_at) VALUES ('${guarded ? 'restore' : 'reschedule'}',?,?,?,?,?,?,?,'ui',?,?,?)`)
         .bind(row.id,names.get(String(row.teacher_id)) || null,row.student_name || null,row.scheduled_date || null,row.start_time || null,actor.name || actor.username || '관리자',actor.isTeacher?'teacher':'admin',
-          JSON.stringify({ids,scheduled_date:dest.scheduled_date,day_of_week:dest.day_of_week,start_time:dest.start_time,teacher_id:dest.teacher_id,teacher_changed:!same(dest.teacher_id,row.teacher_id)}),now));
+          JSON.stringify({ids,scheduled_date:dest.scheduled_date,day_of_week:dest.day_of_week,start_time:dest.start_time,teacher_id:dest.teacher_id,teacher_changed:!same(dest.teacher_id,row.teacher_id),...(undo ? { undo_move: true, historical_correction: historical, resulting_status: dest.status } : {})}),input.reason ? String(input.reason).slice(0,300) : (cancelled ? '수업 종료 되돌리기' : null),now));
     }
     statements.push(env.DB.prepare(`DELETE FROM schedule_move_guard WHERE token=?`).bind(token));
     const results = await env.DB.batch(statements);

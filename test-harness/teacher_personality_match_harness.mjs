@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // 🙂 강사 «성향» 매칭 하니스 — 의존성 없음 · node 로 바로 실행
 //   실행:  node test-harness/teacher_personality_match_harness.mjs
@@ -31,7 +32,7 @@ const check = (name, ok) => {
   else { FAIL++; FAILS.push(name); console.log('  ❌ ' + name); }
 };
 
-const aapi = R('cloudflare-deploy/src/api-admin.ts');
+const aapi = readAdminModuleGraph(adminModuleFile => R("cloudflare-deploy/src/" + adminModuleFile));
 const r5 = R('cloudflare-deploy/public/js/adm-r5.js');
 const html = R('cloudflare-deploy/public/admin.html');
 const wiz = R('cloudflare-deploy/public/admin/weekly-schedule.html');

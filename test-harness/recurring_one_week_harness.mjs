@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /**
  * 🔁 반복 수업 «그 주 하루만» 연기·변경 — 샌드박스 끝-끝 검사 (2026-10-09 사장님 「반복 수업 그 주 하루만 연기 기능 만들어줘」)
  * ─────────────────────────────────────────────────────────────────────────────
@@ -94,7 +95,7 @@ if (process.env.SMRS_CHILD === '1') {
   const { getScope } = await imp('scope.ts');
 
   const readSrc = (f) => readFileSync(join(SRC, f), 'utf8');
-  const adminSrc = readSrc('api-admin.ts');
+  const adminSrc = readAdminModuleGraph(adminModuleFile => readSrc(adminModuleFile));
 
   const BASE = 'https://mangoi.ai';
   const req = (method, path, { cookie, body } = {}) => {
@@ -354,18 +355,19 @@ const cleanup = () => { try { rmSync(tmp, { recursive: true, force: true }); } c
 writeFileSync(join(tmp, 'hooks.mjs'), `
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-export async function resolve(spec, ctx, next) {
+export function resolve(spec, ctx, next) {
   if ((spec.startsWith('./') || spec.startsWith('../')) && !/\\.(ts|js|mjs|json)$/.test(spec) && ctx.parentURL) {
     const u = new URL(spec + '.ts', ctx.parentURL);
-    if (existsSync(fileURLToPath(u))) return next(u.href, ctx);
+    if (existsSync(fileURLToPath(u))) return { url: u.href, shortCircuit: true };
   }
   return next(spec, ctx);
 }`);
-writeFileSync(join(tmp, 'reg.mjs'), `import { register } from 'node:module'; register('./hooks.mjs', import.meta.url);`);
+// Resolution only checks local files; avoid a loader-thread round trip per import.
+writeFileSync(join(tmp, 'reg.mjs'), `import { registerHooks } from 'node:module'; import { resolve } from './hooks.mjs'; registerHooks({ resolve });`);
 
 function runChild(srcDir) {
   const r = spawnSync(process.execPath,
-    ['--experimental-strip-types', '--no-warnings', '--import', join(tmp, 'reg.mjs'), SELF],
+    ['--experimental-strip-types', '--no-warnings', '--import', pathToFileURL(join(tmp, 'reg.mjs')).href, SELF],
     { encoding: 'utf8', env: { ...process.env, SMRS_CHILD: '1', SMRS_SRC: srcDir, WEEKLY_RESULT: join(tmp, 'result.json') }, maxBuffer: 64 * 1024 * 1024, timeout: 180000 });
   if (r.status !== 0 || !existsSync(join(tmp,'result.json'))) return {crashed:true,err:(r.stderr||'') + String(r.error||'')};
   return JSON.parse(readFileSync(join(tmp,'result.json'),'utf8'));
@@ -389,26 +391,31 @@ if (base.crashed) {
 console.log('\n═ 변이시험 (복사본 src — 저장소 파일은 그대로) ═');
 const MUT = [
   { name: '읽는 쪽이 빠진 날을 모름', file: 'class-start-date.ts', from: "if (recurSkippedOn(row, ymd)) return false;", to: '' },
-  { name: '급여가 빠진 날도 셈(이중 계산)', file: 'api-admin.ts', from: "if (recurSkippedOn(row, _ymd)) continue;", to: '' },
-  { name: '승인이 예전처럼 기록만', file: 'api-admin.ts', from: "const _ow = await prepareRecurringOneWeek(", to: "const _ow = { ok: true, applied: 'recorded' as any, mutations: [] as any[], error: null as any, status: 200, conflict: null as any }; void (" },
+  { name: '급여가 빠진 날도 셈(이중 계산)', file: 'admin-lesson-fees.ts', from: "if (recurSkippedOn(row, _ymd)) continue;", to: '' },
+  { name: '승인이 예전처럼 기록만', file: 'api-admin-class-days.ts', from: "const _ow = await prepareRecurringOneWeek(", to: "const _ow = { ok: true, applied: 'recorded' as any, mutations: [] as any[], error: null as any, status: 200, conflict: null as any }; void (" },
   { name: '빠진 날 기록을 안 씀', file: 'recurring-one-week.ts', from: "env.DB.prepare(`UPDATE class_schedules SET skip_dates = ? WHERE id = ? AND scheduled_date IS NULL`).bind(nextSkips, cs.id),", to: '' },
   { name: '옮긴 날 겹침에서 반복 줄을 늘 뺌', file: 'recurring-one-week.ts', from: "const exclude = newDate === orig ? [cs.id] : [];", to: "const exclude = [cs.id];", also: ["excludeId: newDate === orig ? cs.id : undefined,", "excludeId: cs.id,"] },
   { name: '조건 뒤집기 — 지난 회차만 허용', file: 'recurring-one-week.ts', from: "if (orig < today) return 'orig_date_past';", to: "if (orig >= today) return 'orig_date_past';" },
   { name: '겹침 검사가 빠진 날을 모름', file: 'schedule-conflict.ts', from: "if (recurSkippedOn(recurring, d)) return false;", to: '' },
   { name: '«내 수업» 다음 회차가 빠진 날로', file: 'api-mango.ts', from: "guard < 60 && recurSkippedOn(r, nextDate)", to: "guard < 60 && false && recurSkippedOn(r, nextDate)" },
-  { name: '연기 기록 줄 급여가 요청과 안 이어짐', file: 'api-admin.ts', from: "|| (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null)", to: '' },
-  { name: '옛 요청도 409(기록만 폴백 제거)', file: 'api-admin.ts', from: "} else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {", to: "} else if (false) {" },
+  { name: '연기 기록 줄 급여가 요청과 안 이어짐', file: 'admin-lesson-fees.ts', from: "|| (_rwParent ? postponeReq[`${_rwParent}|${dateStr}`] : null)", to: '' },
+  { name: '옛 요청도 409(기록만 폴백 제거)', file: 'api-admin-class-days.ts', from: "} else if (_oneWeekWhy && ONE_WEEK_FALLBACK.includes(_oneWeekWhy)) {", to: "} else if (false) {" },
 ];
 if (!base.crashed) {
+  const dir = join(tmp, 'mut');
+  cpSync(REAL_SRC, dir, { recursive: true });
   for (const m of MUT) {
-    const dir = join(tmp, 'mut-' + Math.random().toString(36).slice(2));
-    cpSync(REAL_SRC, dir, { recursive: true });
     const f = join(dir, m.file);
     const s = readFileSync(f, 'utf8');
     if (!s.includes(m.from)) { fail++; console.log('  FAIL ' + m.name + ' — 치환 앵커를 못 찾음(변이가 한 번도 안 돎)'); continue; }
     let s2 = s.replace(m.from, m.to); if (m.also) s2 = s2.replace(m.also[0], m.also[1]);
-    writeFileSync(f, s2);
-    const r = runChild(dir);
+    let r;
+    try {
+      writeFileSync(f, s2);
+      r = runChild(dir);
+    } finally {
+      writeFileSync(f, s); // Each fresh child sees only its own mutation.
+    }
     const nFail = r.crashed ? -1 : r.results.filter((t) => !t.pass && !t.info).length;
     if (r.crashed) { fail++; console.log('  FAIL ' + m.name + ' — 자식이 크래시(깔끔한 FAIL 이 아님)\n' + r.err); }
     else if (nFail > 0) {
@@ -416,7 +423,6 @@ if (!base.crashed) {
       const first = r.results.find((t) => !t.pass && !t.info);
       console.log(`  PASS ${m.name} → 하니스가 ${nFail}건 FAIL 로 잡음 (예: ${first.name})`);
     } else { fail++; console.log('  FAIL ' + m.name + ' — 변이를 못 잡음(검사가 헛돈다)'); }
-    rmSync(dir, { recursive: true, force: true });
   }
 }
 

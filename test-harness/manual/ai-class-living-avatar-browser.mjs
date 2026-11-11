@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 🎓 A.i 선생님(/ai-class.html) 얼굴 = 공용 아바타 — 브라우저 하니스 (CDP 직접, 라이브러리 없음) · 2026-10-18
 // ⚠️ 자동으로 안 돕니다(manual/) — 사람이 부릅니다:  node test-harness/manual/ai-class-living-avatar-browser.mjs
 // 진짜 크로미움에서 «그려지는가»(픽셀) · «쉬는 동안에도 살아 움직이는가» · «입이 바뀌는가» · «서버 음성에 물려
@@ -8,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const DIR = path.dirname(new URL(import.meta.url).pathname);
+const DIR = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const PUB = process.env.PUB || path.join(DIR, '..', '..', 'cloudflare-deploy', 'public');
 const PORT = 9300 + Math.floor(Math.random() * 400);
 const PROF = path.join(os.tmpdir(), 'ai-class-av-' + process.pid);

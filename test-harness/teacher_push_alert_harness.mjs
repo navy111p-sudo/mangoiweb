@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* ══════════════════════════════════════════════════════════════════════
    🔔 강사 웹푸시 — 카카오 대신 «폰에 뜨는» 자동 알림  (2026-09-14)
 
@@ -44,7 +45,7 @@ const SRC = join(HERE, '../cloudflare-deploy/src');
 const PUSH = rd('../cloudflare-deploy/src/teacher-push.ts');
 const SWEEP = rd('../cloudflare-deploy/src/absent-sweep.ts');
 const NOTIFY = rd('../cloudflare-deploy/src/api-notify.ts');
-const ADMIN = rd('../cloudflare-deploy/src/api-admin.ts');
+const ADMIN = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 const TCT = rd('../cloudflare-deploy/public/js/adm-tcontact.js');
 const TEACHER = rd('../cloudflare-deploy/public/teacher.html');
 const ADMIN_HTML = rd('../cloudflare-deploy/public/admin.html');

@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { build } from '../cloudflare-deploy/node_modules/esbuild/lib/main.js';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const output = await build({stdin:{contents:`export {handleTeacherApi} from './cloudflare-deploy/src/api-teacher'; export {previousScheduled,validHistoryDate} from './cloudflare-deploy/src/teacher-student-history';`,resolveDir:root},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'session-fixture',setup(b){b.onLoad({filter:/[\\/]auth-admin\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function getAdminActor(', 'async function originalGetAdminActor(')+'\nexport async function getAdminActor(){return globalThis.__historyActor;}'}));b.onLoad({filter:/[\\/]session-ledger-load\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function buildStudentLedger(', 'async function originalBuildStudentLedger(')+'\nexport async function buildStudentLedger(env:any, uid:string, ...rest:any[]){if(globalThis.__ledgerThrow===uid)throw new Error("injected ledger failure");return (originalBuildStudentLedger as any)(env, uid, ...rest);}'}));}}]});
-const { handleTeacherApi, previousScheduled, validHistoryDate } = await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
+const output = await build({stdin:{contents:`export {handleTeacherApi} from './cloudflare-deploy/src/api-teacher'; export {previousScheduled,validHistoryDate,markWritableLessons,isMyLesson} from './cloudflare-deploy/src/teacher-student-history';`,resolveDir:root},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'session-fixture',setup(b){b.onLoad({filter:/[\\/]auth-admin\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function getAdminActor(', 'async function originalGetAdminActor(')+'\nexport async function getAdminActor(){return globalThis.__historyActor;}'}));b.onLoad({filter:/[\\/]session-ledger-load\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function buildStudentLedger(', 'async function originalBuildStudentLedger(')+'\nexport async function buildStudentLedger(env:any, uid:string, ...rest:any[]){if(globalThis.__ledgerThrow===uid)throw new Error("injected ledger failure");return (originalBuildStudentLedger as any)(env, uid, ...rest);}'}));}}]});
+const { handleTeacherApi, previousScheduled, validHistoryDate, markWritableLessons, isMyLesson } = await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
 const db = new DatabaseSync(':memory:');
 db.exec(`
 CREATE TABLE teachers(id INTEGER,name TEXT);
@@ -126,7 +126,8 @@ INSERT INTO attendance(room_id,role,joined_at,account_uid,user_id,date,status,te
 ('c24-800','student',1790654400000,NULL,'mangoai_lms','2026-09-29','present','184',1790655600000),
 ('c24-901','student',1793077200000,NULL,'lms_other','2026-10-27','present','1',1793078400000),
 ('c24-950','student',1793160000000,NULL,'mangoai_lms','2026-10-28','scheduled','184',NULL),
-('c24-960','student',1793077200000,NULL,'lms_z','2026-10-27','present','185',NULL);
+('c24-960','student',1793077200000,NULL,'lms_z','2026-10-27','present','185',NULL),
+('c24-970','student',1792987200000-13*86400000,NULL,'mangoai_lms','2026-10-13','present','185',1792988400000-13*86400000);
 INSERT INTO student_evaluations VALUES(30,'mangoai_lms',NULL,'c24-899','2026-10-28','Teacher Y','teacher_y',1792558800000,'LMS lesson feedback',NULL,NULL,NULL);`);
 const lms=p=>request({schedule_id:'',room_id:'c24-900',student_uid:'mangoai_lms',date:'2026-10-28',...p});
 let lmsResult=await lms();assert.equal(lmsResult.status,200,'old-LMS row opens without a schedule id');
@@ -137,6 +138,11 @@ const lmsLesson=lmsResult.data.items.find(i=>i.room_id==='c24-900');
 assert.equal(lmsLesson.teacher_name,'Teacher A');assert.equal(lmsLesson.teacher_source,'lms');
 assert.equal(lmsLesson.start,'13:00');assert.equal(lmsLesson.duration_min,20);assert.equal(lmsLesson.state,'done');
 assert.equal(lmsLesson.start_ts,undefined,'internal timestamps stay on the server');
+// ✎ (2026-11-11) old-LMS lessons: mine = my cafe24 teacher number (Teacher A = #184), never another number (#185).
+assert.equal(lmsLesson.can_write,true,'my own old-LMS lesson without a report → writable');
+assert.equal(lmsResult.data.items.find(i=>i.room_id==='c24-970').can_write,false,'another cafe24 teacher number → not mine');
+assert.equal(lmsResult.data.items.find(i=>i.room_id==='c24-899').can_write,false,'old-LMS lesson with a report → no button');
+assert.ok(!JSON.stringify(lmsResult).includes('lms_teacher_uid'),'cafe24 numbers stay on the server');
 const lmsReported=lmsResult.data.items.find(i=>i.room_id==='c24-899');
 assert.equal(lmsReported.feedback.note_en,'LMS lesson feedback','a c24 room report matches its lesson even when dated another day');
 assert.equal(lmsResult.data.items.filter(i=>i.feedback?.id===30).length,1,'the matched report is not repeated as its own row');
@@ -187,6 +193,14 @@ assert.equal(slot.find(i=>i.room_id==='class-80-20261027').lms_room_id,undefined
 assert.equal(slot.find(i=>i.room_id==='class-80-20261027').attendance_source,undefined);
 assert.equal(slot.find(i=>i.room_id==='c24-900').teacher_name,'Teacher A','the LMS teacher stays visible');
 assert.equal(slot.find(i=>i.room_id==='c24-900').state,'done');
+// ✎ (2026-11-11) the reservation is Teacher B's, but the old LMS says Teacher A taught that slot → no ✎ for Teacher B there.
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_b',name:'Teacher B',role:'teacher'};
+{ const bView=await request({schedule_id:'80',date:'2026-10-27',month:'2026-10'});assert.equal(bView.status,200,'(precondition) teacher B opens their reservation');
+  const b80=bView.data.items.find(i=>i.room_id==='class-80-20261027');
+  assert.equal(b80.teacher_name,'Teacher B','(precondition) the card shows teacher B');
+  assert.equal(b80.can_write,false,'the old LMS says another teacher taught → no ✎');
+  assert.ok(!JSON.stringify(bView.data).includes('lms_disagrees'),'internal flag stays on the server'); }
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
 // A substitute that makes the shown teacher agree → one card again (judged on the name finally shown).
 db.exec(`INSERT INTO class_substitutions VALUES(80,'2026-10-27','1','2','active')`);
 slot=await slotOf();
@@ -548,7 +562,7 @@ assert.equal((await request()).status,503,'database failure is an error, never a
     querySelector(sel) { return this.querySelectorAll(sel)[0] || null; } }
   const urls = []; let reply;
   const dctx = vm.createContext({ AbortController, URLSearchParams, console, Promise, Array,
-    document: { documentElement: { lang: 'en' }, head: new El('head'), body: new El('body'), createElement: t => new El(t), activeElement: null, querySelectorAll: () => [], addEventListener() {} },
+    document: { documentElement: { lang: 'en' }, head: new El('head'), body: new El('body'), createElement: t => new El(t), createTextNode: x => { const n = new El('#text'); n.textContent = x; return n; }, activeElement: null, querySelectorAll: () => [], addEventListener() {} },
     window: { addEventListener() {} }, fetch: async (u) => { urls.push(u); return { ok: true, json: async () => reply }; } });
   dctx.window = Object.assign(dctx.window, dctx);
   vm.runInContext(readFileSync(new URL('../cloudflare-deploy/public/js/teacher-student-history.js', import.meta.url), 'utf8').replace("if (window.MangoiTeacherHistory) return;", ''), dctx);
@@ -636,7 +650,115 @@ assert.equal((await request()).status,503,'database failure is an error, never a
     assert.match(text('2026-10-01'), /정규수업.*KAYE.*학생 결석.*보고서: 미작성/);
     assert.ok(navButtons.some(b => b.textContent === '이번 달') && /공휴일/.test(cell(15).textContent), 'Korean labels');
     dctx.document.documentElement.lang = 'en';
+    // ✎ (2026-11-11) the real renderer draws Write feedback in BOTH views, only where the server said can_write === true.
+    const wbase = { start: '17:50', duration_min: 20, teacher_name: 'KAYE', state: 'done', label_en: 'Done', label_ko: '완료', report_loaded: true, student_uid: 's1' };
+    reply = { ok: true, before: '2026-10-29', warnings: [], previous: null, holidays: [], items: [
+      { ...wbase, date: '2026-10-02', room_id: 'class-5-20261002', can_write: true },
+      { ...wbase, date: '2026-10-09', room_id: 'class-5-20261009', can_write: false },
+      { ...wbase, date: '2026-10-16', room_id: 'class-5-20261016', can_write: 'true' },
+      { ...wbase, date: '2026-10-23', room_id: 'class-5-20261023' }] };
+    const openWith = async writer => { api.open({ scheduleId: '5', roomId: '', studentUid: '', date: '2026-10-29', name: 'S', onWrite: writer });
+      for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)); };
+    const writes = () => tree(dlg).filter(e => cls(e, 'cal-write'));
+    await openWith(() => {});
+    assert.deepEqual(writes().map(b => b.attrs['aria-label']), ['Write feedback · 2026-10-02 17:50'], 'month view: ✎ only on the can_write lesson');
+    assert.ok(cell(2).children.includes(writes()[0]), '…drawn inside that day cell');
+    viewButtons[1].onclick();
+    assert.deepEqual(writes().map(b => b.attrs['aria-label']), ['Write feedback · 2026-10-02 17:50'], 'list view: the same lesson only');
+    assert.ok(tree(dlg).some(e => cls(e, 'history-lesson') && e.children.includes(writes()[0])), '…drawn inside that lesson');
+    viewButtons[0].onclick();
+    await openWith(undefined);
+    assert.equal(writes().length, 0, 'a page without a writer → no button');
   }
+}
+
+/* ✎ (2026-11-11 teacher request «add and write feedback at summary / calendar»)
+   The server marks can_write (markWritableLessons); the calendar draws ✎ only then; teacher.html opens its own class-log window. */
+{
+  const base={date:'2026-10-23',start:'19:00',state:'done',room_id:'class-1-20261023',student_uid:'student_one',report_loaded:true};
+  const NOW=Date.parse('2026-10-23T19:00:00+09:00');
+  const one=(over,mine=()=>true,now=NOW)=>markWritableLessons({items:[{...base,...over}]},mine,now).items[0].can_write;
+  assert.equal(one({}),true,'mine + due + started + no report → writable');
+  assert.equal(one({},()=>false),false,'not my lesson → no button');
+  assert.equal(one({},()=>'yes'),false,'only a real true counts as mine');
+  assert.equal(one({},()=>true,NOW-60000),false,'not started yet → no button');
+  assert.equal(one({feedback:{id:1}}),false,'report already written → no button');
+  assert.equal(one({report_loaded:false}),false,'«could not check» never becomes «not written»');
+  for (const st of ['postponed','cancelled','holiday','leave','upcoming','paused']) assert.equal(one({state:st}),false,'no report due: '+st);
+  for (const st of ['done','student_absent','late_postpone','unknown']) assert.equal(one({state:st}),true,'report due: '+st);
+  assert.equal(one({room_id:''}),false,'no room → no button');
+  assert.equal(one({student_uid:''}),false,'no student account → no button');
+  // «My lesson» — exact names only; old LMS needs both numbers known.
+  const mine=new Set(['ANNA','TEACHER A']);
+  assert.equal(isMyLesson({teacher_name:'anna '},mine,''),true,'same name, case/space-insensitive');
+  for (const other of ['HANNAH','TEACHER AB','TEACHER','A','ANNA B',null,'']) assert.equal(isMyLesson({teacher_name:other},mine,''),false,'never a substring/shared word: '+other);
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:'184'},mine,'184'),true,'old LMS: my cafe24 number');
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:'185'},mine,'184'),false,'old LMS: another number');
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:null},mine,''),false,'old LMS: both unknown is not «equal»');
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:''},mine,''),false);
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:'184',teacher_name:'ANNA'},mine,''),false,'old LMS never falls back to the name');
+  // Fail closed: an unread twin account, a report seen by the calendar, or the old LMS naming another teacher → no ✎.
+  assert.equal(markWritableLessons({items:[{...base}],warnings:['twin_account']},()=>true,NOW).items[0].can_write,false,'twin reports unread → no buttons at all');
+  assert.equal(markWritableLessons({items:[{...base}],warnings:['lms_attendance']},()=>true,NOW).items[0].can_write,true,'other warnings do not block');
+  assert.equal(one({today_eval:{id:7}}),false,'the calendar already found a report → no button');
+  assert.equal(one({lms_disagrees:true}),false,'the old LMS says another teacher taught → no button');
+  const strip=markWritableLessons({items:[{...base,lms_teacher_uid:'24'}],previous:{lms_teacher_uid:'24'}},()=>true,NOW);
+  assert.ok(!JSON.stringify(strip).includes('lms_teacher_uid'),'cafe24 teacher numbers never leave the server');
+  assert.ok(!JSON.stringify(markWritableLessons({items:[{...base,lms_disagrees:true}]},()=>true,NOW)).includes('lms_disagrees'),'internal flag dropped');
+
+  // Real handler + SQLite: teacher A (id 1) — own lessons only, never the substitute's day or another teacher's.
+  globalThis.__historyFail=null;globalThis.__ledgerThrow=null;   // earlier sections inject read failures
+  db.exec('DROP TABLE IF EXISTS student_evaluations; ALTER TABLE full_evaluations RENAME TO student_evaluations');   // the fixture reports again
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+  let r=await request();assert.equal(r.status,200);
+  const at=d=>r.data.items.filter(i=>i.date===d);
+  const room=x=>r.data.items.find(i=>i.room_id===x);
+  assert.ok(r.data.items.every(i=>typeof i.can_write==='boolean'),'every lesson says yes or no');
+  assert.equal(at('2026-10-23')[0].can_write,true,'own past lesson without a report → writable');
+  assert.equal(at('2026-10-26')[0].can_write,true,'own weekly lesson (past) → writable');
+  assert.equal(at('2026-10-20')[0].can_write,false,'another teacher\'s lesson (report written) → not');
+  assert.equal(room('class-2-20261021').can_write,false,'substitute day belongs to the substitute');
+  assert.ok(!JSON.stringify(r.data).includes('lms_teacher_uid'));
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_c',name:'Teacher C',role:'teacher'};
+  r=await request({schedule_id:'2',date:'2026-10-21'});assert.equal(r.status,200);
+  assert.equal(room('class-2-20261021').can_write,false,'report already written → no button even for the substitute');
+  db.exec("DELETE FROM student_evaluations WHERE room_id='class-2-20261021'");
+  r=await request({schedule_id:'2',date:'2026-10-21'});assert.equal(r.status,200);
+  assert.equal(room('class-2-20261021').can_write,true,'the substitute owns that day');
+  assert.equal(at('2026-10-23')[0].can_write,false,'substitute does not own teacher A\'s other days');
+  globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
+  // Client: the calendar's button and teacher.html's bridge, cut out of the real files and executed.
+  const cut=(src,name)=>{const i=src.indexOf('function '+name+'(');assert.ok(i>=0,'found '+name);let d=0,j=src.indexOf('{',i);for(;j<src.length;j++){if(src[j]==='{')d++;else if(src[j]==='}'&&--d===0)break;}return src.slice(i,j+1);};
+  const hist=readFileSync(root+'cloudflare-deploy/public/js/teacher-student-history.js','utf8');
+  const page=readFileSync(root+'cloudflare-deploy/public/teacher.html','utf8');
+  const fakeEl=tag=>({tag,children:[],attrs:{},className:'',textContent:'',appendChild(c){this.children.push(c);return c;},setAttribute(k,v){this.attrs[k]=v;}});
+  const calls=[];
+  const mk=new Function('context','dialog','document','t','element','button',cut(hist,'writeButton')+';return writeButton;');
+  const doc={createTextNode:x=>({text:x})};
+  const el=(tag,text)=>{const e=fakeEl(tag);if(text!=null)e.textContent=text;return e;};
+  const btn=(text,fn)=>{const b=el('button',text);b.onclick=fn;return b;};
+  const ctx={onWrite:row=>calls.push(['write',row.room_id])};
+  const dlg={addEventListener(type,fn){if(type==='close')this.after=fn;},close(){calls.push(['close']);const f=this.after;this.after=null;if(f)f();}};
+  const wb=mk(ctx,dlg,doc,(en)=>en,el,btn);
+  assert.equal(wb({...base,can_write:true}).className,'cal-write','writable → ✎ button');
+  for (const v of [undefined,false,'true',1]) assert.equal(wb({...base,can_write:v}),null,'only can_write === true draws it: '+v);
+  assert.equal(mk({},dlg,doc,(en)=>en,el,btn)({...base,can_write:true}),null,'no writer on the page → no button');
+  wb({...base,can_write:true}).onclick();
+  assert.deepEqual(calls,[['close'],['write','class-1-20261023']],'closes the calendar, then opens the class log for that lesson');
+  assert.ok(/forEach\(function \(row\) \{ cell\.appendChild\(lessonChip\(row, date\)\); var wb = writeButton\(row\)/.test(hist),'month view draws it');
+  assert.ok(/note\(lesson, row\.feedback\); var wb = writeButton\(row\)/.test(hist),'list view draws it');
+  assert.ok(/onWrite:function\(row\)\{openEval\(historyEvalItem\(row\)\);\}/.test(page),'teacher page wires the calendar to openEval');
+  const bridge=new Function('DATA','WK_DATA','stuUid',cut(page,'historyEvalItem')+';return historyEvalItem;');
+  const stuUid=c=>String(c&&c.student_uid||'').trim();
+  const D={classes:[{student_uid:'student_other',student_name:'OTHER',level:'Lv 9'},{student_uid:'student_one',student_name:'ONE',level:'Lv 3',eval_band:'grow'}]};
+  let it=bridge(D,null,stuUid)({...base,state:'done',duration_min:20,schedule_id:1});
+  assert.equal(it.student_uid,'student_one');assert.equal(it.student_name,'ONE');assert.equal(it.level,'Lv 3','borrows name/level from the SAME account only');
+  assert.equal(it.room_id,'class-1-20261023');assert.equal(it.class_date,'2026-10-23');assert.equal(it.start_time,'19:00');
+  assert.equal(it.attendance,null,'attendance is not guessed');
+  assert.deepEqual(bridge(D,null,stuUid)({...base,state:'student_absent'}).attendance,{state:'absent'},'recorded absence is pre-selected');
+  it=bridge({classes:[{student_uid:'student_other',student_name:'OTHER',level:'Lv 9'}]},null,stuUid)({...base,student_uid:'twin_x'});
+  assert.equal(it.student_uid,'twin_x');assert.equal(it.student_name,'');assert.equal(it.level,'','never borrows another student');
+  assert.ok(/teacher-student-history\.js\?v=\d+'/.test(page),'the page loads the script with a cache version');
 }
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
 db.close();

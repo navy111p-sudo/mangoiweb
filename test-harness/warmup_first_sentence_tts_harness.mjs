@@ -85,7 +85,7 @@ function harness(opt) {
   const pending = [];
   const fakePrefetch = (text, spk) => {
     log.push('prefetch:' + text);
-    return new Promise((res) => pending.push(() => res(opt.prefetchFail ? null : { u: 'blob:' + text, got: opt.got || spk, eng: 'aura' })));
+    return new Promise((res) => pending.push(() => res(opt.prefetchFail ? null : { u: 'blob:' + text, got: opt.got || spk, eng: 'aura-2' })));
   };
   const fakeTts = (text, spk, key, btn, seq, next, playFn) => {
     log.push('tts:' + text);
@@ -93,7 +93,7 @@ function harness(opt) {
     playFn('url:' + text, 'aura');
   };
   const f = new Function('ENV', '_ttsPrefetch', '_ttsSpeak', 'LOG',
-    'var _latCur=null;' +
+    "var _latCur=null, _warmLang='en';" + fnSrc(HTML, '_ttsCacheable') +
     // 📌 2026-10-02 남자 목소리 «문장 사이 쉼» — 이 하니스는 순서·끊김을 보므로 쉼 0(여자 목소리)으로 둔다.
     //    쉼이 생기는 경우는 warmup_feedback_1002_harness [2] 가 본다.
     'function _enMaleGapMs(){ return 0; }' +
@@ -230,9 +230,11 @@ const mLat = sm.match(/\n[ \t]*_latCur=\{ ?t0:_lt0/);
 const iLat = mLat ? mLat.index : -1;
 const iAi = sm.search(/addMsg\(d\.ai_response/);
 check('sendMsg 가 AI 답장을 «그리기 직전» 에 잴 준비를 한다(그리면 곧바로 읽기 시작)', iLat > 0 && iAi > iLat && iAi - iLat < 400);
-check('침묵 타이머가 끊은 시각을 적는다', /_latSilence=\{\s*wait:ms,\s*at:Date\.now\(\)\s*\}/.test(HTML));
+/* ⚠️ «wait 에 무엇을 적는가» 는 여기서 글자로 못 박지 않는다 — 2026-11-05 부터 명목값(ms)이 아니라 «마지막 새 말부터 실제로
+   기다린 시간» 을 적고, 그 값은 warmup_reply_speed_harness D-9 가 시계를 실제로 돌려 본다. 여기서 묻는 것은 «끊은 시각» 이다. */
+check('침묵 타이머가 끊은 시각을 적는다', /_latSilence=\{\s*wait:[^,{}]+,\s*at:Date\.now\(\)\s*\}/.test(HTML));
 check('첫 소리가 나면 재기를 닫는다(원어민 음성·기기 음성 둘 다)',
-  /_ttsAudio\.play\(\)\.then\(function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \}\)/.test(HTML) && /u\.onstart=function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \};/.test(HTML));
+  /_ttsAudio\.play\(\)\.then\(function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\); \}\)/.test(HTML) && /u\.onstart=function\(\)\{[^}]*warmThought\(false\); _speechEverStarted=true; _latMark\(\);[^}]*\};/.test(HTML));
 check('다시 듣기(btn)는 재지 않는다', /\n  if\(btn\) _latCur=null;/.test(strip(bodyOf(HTML, 'speak'))));
 check('소리를 안 내는 차례는 재기를 버린다', /if\(_warmPaused \|\| !_speechOn \|\| !text\)\{\n\s*warmThought\(false\);\s*_latCur=null;/.test(strip(bodyOf(HTML, 'speak'))));
 const L4 = latRun({ t0: now - 30000, t1: now - 20000, wait: 1500, tStop: now - 31000 }, '?lat=1');

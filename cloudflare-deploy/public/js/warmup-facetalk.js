@@ -35,12 +35,19 @@
   function zh() { try { return typeof window.isZh === 'function' && window.isZh(); } catch (e) { return false; } }
   function t(ko, e) { return en() ? e : ko; }
   function embedded() { var a = AT(); return !!(a && a._cfg && a._cfg.EMBEDDED); }
+  function handsFree() { try { return !window.FtkCall || window.FtkCall.handsFree(); } catch (e) { return true; } }
 
   /* ── 화면 — js/aifriend-facetalk.js 와 같은 모양(같은 id·같은 색) ── */
   var CSS = ''
     + '#ftk{position:fixed;inset:0;z-index:2147483050;background:radial-gradient(circle at 50% 38%,#1d2550,#070a18 72%);'
     + ' display:none;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;--st:#fb923c}'
     + '#ftk.on{display:block}'
+    /* ⋮ 설정 — 채팅 화면의 그 패널(#menuPanel)을 이 화면 안으로 잠깐 옮겨 온다(CALL.menu). 화면 밑에서 열리는 것들은 감춘다 */
+    + '#ftk .menu-mask{z-index:9}'
+    + '#ftk .menu-panel{position:absolute;top:calc(env(safe-area-inset-top,0px) + 60px);right:max(12px,calc(50% - 300px));z-index:10;'
+    + ' max-height:calc(100% - 76px);touch-action:auto;text-align:left}'
+    + '#ftk .menu-caret,#ftk .menu-reopen,#ftk .menu-scenes,#ftk .menu-howto,#ftk #newChatGroup{display:none}'
+    + '#ftk .menu-group:has(> .menu-scenes),#ftk .menu-group:has(> .menu-howto){display:none}'   /* 빈 칸 줄까지 — :has 를 모르는 브라우저는 빈 줄만 남는다 */
     + '#ftk[data-s="listen"]{--st:#22c55e}#ftk[data-s="think"]{--st:#facc15}#ftk[data-s="speak"]{--st:#fb923c}#ftk[data-s="pause"]{--st:#64748b}'
     + '#ftk .ftk-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}'
     /* 옮겨 온 얼굴 — mango-avatar.js·refitAvatar 가 넣는 인라인 높이를 !important 로 이긴다 */
@@ -108,7 +115,7 @@
 
   var root, glass, teacherEl, meEl, noteEl, chipsEl;
   var state = 'pause', open = false, active = false, homeParent = null, homeNext = null;
-  var poll = null, idleSince = 0, rearmedForIdle = false, stuckShownAt = -1;
+  var poll = null, idleSince = 0, rearmedForIdle = false, stuckShownAt = -1, lastMe0 = 0;
   var prevMode = null, speechForced = false, lastTeacher = '', lastMe = '';
   var backAfterAsk = false;                    // ✋ 질문 창을 얼굴 화면에서 열었나 — 닫히면 얼굴 화면으로 돌아온다
 
@@ -149,8 +156,9 @@
       if (dy < -30) setOpen(true, true); else if (dy > 30) setOpen(false, true);
     });
     root.querySelector('#ftkStage').addEventListener('click', onFaceTap);
-    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape') exit(); });
+    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape' && !menuOpen()) exit(); }, true);   // 캡처 단계 — 설정이 열려 있으면 Esc 는 설정만 닫는다
     labels();
+    try { window.FtkCall && window.FtkCall.mount(root, CALL); } catch (e) {}
   }
   function labels() {
     if (!root) return;
@@ -172,6 +180,7 @@
   function setOpen(on, byUser) {
     open = !!on;
     if (!glass) return;
+    root.classList.toggle('gl-open', open);
     var grab = root.querySelector('#ftkGrab');
     var closedH = grab ? grab.offsetHeight : 34, full = glass.offsetHeight;
     var shift = open ? 0 : Math.max(0, full - closedH);
@@ -191,6 +200,7 @@
     var c = el.cloneNode(true); var w = c.querySelector('.who'); if (w) w.remove();
     return (c.textContent || '').trim();
   }
+  function myTurns() { return document.querySelectorAll('#log .msg.me').length; }
   function sysText() {                          // 🎤 권한 꺼짐 같은 안내는 화면이 #log 에 «sys» 로 남긴다
     var log = document.getElementById('log'); var last = log && log.lastElementChild;
     return last && last.classList && last.classList.contains('sys') ? (last.textContent || '').trim() : '';
@@ -267,13 +277,19 @@
     else if (S.resting) s = 'pause';
     else s = 'idle';
 
+    /* ⏱️ 집중교정은 답이 다 나와야 말한다(미리듣기 없음) — 그 기다림을 «틀린 곳 확인 중» 으로 말한다(글자는 CALL.thinking) */
+    root.classList.toggle('fixing', s === 'think' && g('_wuCorrMode') === 'focused');
     if (s !== 'idle') { idleSince = 0; rearmedForIdle = false; }
     if (s === 'listen' && S.phase === 'speak' && noteEl.textContent) clearHelp();   // 학생이 말하기 시작하면 도움말을 걷는다
     if (s === 'think' && (noteEl.textContent || chipsEl.firstChild)) clearHelp();
+    /* 내가 말했거나 대답을 골라 «내 말풍선이 하나 늘면» 도움판을 내린다 — 자막이 다시 보인다(2026-11-09 사장님)
+       ⚠️ «생각 중» 상태로 재지 않는다: 보내기·받아적기가 빠르면 250ms 틈에 안 잡힌다(브라우저 검사에서 실제로 놓침) */
+    var nMe = myTurns(); if (nMe > lastMe0 && open) setOpen(false, false); lastMe0 = nMe;
     if (s === 'pause') {
       if (state !== 'pause') showPauseNote();
       setState('pause'); return;
     }
+    if (s === 'idle' && !handsFree()) { setState('pause'); return; }   // ✋ 손 모드 — 마이크(얼굴)를 누를 때까지 기다린다(버튼 모드 엔진)
     if (s === 'idle') {
       /* 쉬기 전 «못 들음» — 엔진은 다음 AI 말까지 기다리지만, 얼굴 화면에는 버튼이 없으니
          대답 보기를 펼치고 한 번 더 듣는다. 못 들은 횟수는 엔진이 세어 두 번이면 쉰다. */
@@ -283,7 +299,8 @@
         rearmedForIdle = true;
         try { a && typeof a.arm === 'function' && a.arm(); } catch (e) {}
       }
-      setState(S.armTimer ? 'listen' : 'think');
+      /* 다시 걸어 봤는데도 마이크가 안 열렸으면(설정 창·글 입력·숨은 탭 등) «생각 중» 이 아니라 «쉬는 중 · 마이크를 누르면» 으로 말한다 */
+      setState(S.armTimer ? 'listen' : rearmedForIdle ? 'pause' : 'think');
       return;
     }
     if (S.misses === 0) stuckShownAt = -1;
@@ -347,9 +364,9 @@
     if (g('_speechOn') === false && typeof window.toggleSpeech === 'function') { window.toggleSpeech(); speechForced = true; }
     // 자동 말하기 켜기 — 원래 고른 값을 기억했다가 나갈 때 되돌린다
     try { prevMode = localStorage.getItem(MODE_KEY); } catch (e) { prevMode = null; }
-    try { AT().setMode('auto'); } catch (e) {}
+    try { AT().setMode(handsFree() ? 'auto' : 'button'); } catch (e) {}
     try { window.UXT && UXT.hit('ux:warmup-facetalk-open'); } catch (e) {}
-    lastTeacher = lastMe = ''; stuckShownAt = -1; idleSince = 0; rearmedForIdle = false;
+    lastTeacher = lastMe = ''; stuckShownAt = -1; idleSince = 0; rearmedForIdle = false; lastMe0 = myTurns();
     clearHelp(); fillText(); labels();
     setState('think');
     setOpen(false, false);
@@ -364,15 +381,24 @@
     setTimeout(function () { if (active && !open) { setOpen(true, false);
       setTimeout(function () { if (active && !noteEl.textContent) setOpen(false, false); }, 3500); } }, 1200);
   }
+  // 말하는 방법을 들어오기 전으로 — 저장값이 없던 사람은 «없음» 으로(기본 버튼 모드)
+  function restoreMode() {
+    try {
+      if (prevMode !== 'auto') { AT().setMode('button'); if (prevMode == null) localStorage.removeItem(MODE_KEY); }
+      else if (AT().mode() !== 'auto') AT().setMode('auto');   // ✋ 얼굴 화면에서 손 모드로 바꿨어도 원래(자동)로
+    } catch (e) {}
+  }
+  /* 얼굴 화면인 채 떠나도(탭 닫기·뒤로) «자동» 이 저장값으로 굳지 않게 — 시작이 곧 얼굴 화면이라 흔한 경로다(2026-11-09).
+     bfcache 로 돌아오면 다시 얼굴 화면의 방법으로. */
+  window.addEventListener('pagehide', function () { if (active) restoreMode(); });
+  window.addEventListener('pageshow', function (e) { if (e.persisted && active) { try { AT().setMode(handsFree() ? 'auto' : 'button'); } catch (x) {} } });
   function exit() {
     if (!active) return;
     active = false;
     if (poll) { clearInterval(poll); poll = null; }
     try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
-    // 말하는 방법을 들어오기 전으로 — 저장값이 없던 사람은 «없음» 으로(기본 버튼 모드)
-    try {
-      if (prevMode !== 'auto') { AT().setMode('button'); if (prevMode == null) localStorage.removeItem(MODE_KEY); }
-    } catch (e) {}
+    menuBack();
+    restoreMode();
     if (speechForced && g('_speechOn') === true && typeof window.toggleSpeech === 'function') window.toggleSpeech();
     speechForced = false;
     var ring = document.getElementById('tavatar-ring');
@@ -456,6 +482,112 @@
     window.addEventListener('resize', function () { if (active) refreshOpen(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+
+  /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 화면의 정본을 그대로 부른다 */
+  var slowFrom = null, menuHome = null;
+  function menuOpen() { var p = document.getElementById('menuPanel'); return !!(p && p.parentNode === root && p.classList.contains('open')); }
+  /* 나갈 때 설정 패널을 원래 자리(상단바 ⋮)로 */
+  function menuBack() {
+    var p = document.getElementById('menuPanel'), m = document.getElementById('menuMask');
+    if (!menuHome || !p || !m) return;
+    try { if (typeof window.closeMenu === 'function') window.closeMenu(); } catch (e) {}
+    menuHome.appendChild(m); menuHome.appendChild(p); menuHome = null;
+  }
+  /* 설정 창에서 고른 «말하는 방법»·«자막» 을 얼굴 화면(자동/버튼 · CC)에도 맞춘다 — 한 번만 건다 */
+  function menuWire() {
+    var tb = document.getElementById('menuTalkBtns'), sb = document.getElementById('subBtns'), F = window.FtkCall;
+    if (tb && !tb.__ftk) { tb.__ftk = 1; tb.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-talk]');
+      if (b && active) F.setHands(b.getAttribute('data-talk') === 'auto'); }); }
+    if (sb && !sb.__ftk) { sb.__ftk = 1; sb.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-s]');
+      if (b && active) F.setCc(b.getAttribute('data-s')); }); }
+  }
+  var CALL = {
+    en: en,
+    /* ⋮ 설정 — 새 창을 만들지 않고 채팅 화면의 설정 패널을 그대로 연다(말하는 방법·속도·레벨·연령대·친구·자막) */
+    menu: function () {
+      var p = document.getElementById('menuPanel'), m = document.getElementById('menuMask');
+      if (!active || !p || !m || typeof window.toggleMenu !== 'function') return;
+      if (p.parentNode !== root) { menuHome = p.parentNode; root.appendChild(m); root.appendChild(p); menuWire(); }
+      window.toggleMenu();
+    },
+    /* 🎯 상황 연습이면 상황 이름을 붙인다 — 채팅 화면의 «상황:» 줄이 얼굴 화면에는 없다 */
+    title: function () {
+      var s = sitOn() && g('SITUATION');
+      return zh() ? t('A.i 중국어 말하기', 'A.i Chinese Speaking') : t('A.i 말하기', 'A.i Speaking') + (s ? ' · ' + t(s.ko, s.en) : '');
+    },
+    thinking: function () { return root && root.classList.contains('fixing') ? t('틀린 곳 확인 중... 조금 걸려요', 'Checking your sentence... one moment') : ''; },
+    text: teacherText,
+    /* 소리 조각 = 화면이 실제로 나눠 읽는 그 규칙(_speechChunks) — 없으면 통째로 한 조각 */
+    parts: function (text) { try { return typeof window._speechChunks === 'function' ? window._speechChunks(text) : [text]; } catch (e) { return [text]; } },
+    audio: function () { return g('_ttsAudio') || null; },
+    tap: onFaceTap,
+    close: exit,
+    /* AI 대답 중(#wgFinish 꺼짐)이면 버리지 않고 대답이 끝난 뒤 누른다(2026-11-09) */
+    finish: function () {
+      exit(); var b = document.getElementById('wgFinish'); if (!b) return;
+      var go = function () { if (!b.disabled) b.click(); };
+      if (window.AiSpeakingProgress && window.AiSpeakingProgress.afterReply) window.AiSpeakingProgress.afterReply(go); else go();
+    },
+    /* 🔁 다시 듣기 — 화면의 «다시 듣기» 와 같은 길(btn 을 넘기면 대화 차례로 세지 않는다) */
+    replay: function () {
+      var s = teacherText();
+      if (!active || !s || g('sending') || typeof window.speak !== 'function') return;
+      try { if (typeof window._micAbortQuiet === 'function') window._micAbortQuiet(); } catch (e) {}
+      clearHelp();
+      window.speak(s, document.createElement('button'));
+    },
+    /* .5X — 이 화면에서만 «아주 느리게»(1단계, 저장 안 함). 끄거나 나가면 원래 속도로 */
+    slow: function (on) {
+      if (typeof window.setRate !== 'function') return;
+      if (on && slowFrom == null) { slowFrom = g('_rateLevel'); window.setRate(1, false); }
+      else if (!on && slowFrom != null) { window.setRate(slowFrom, false); slowFrom = null; }
+    },
+    hands: function (auto) { try { AT().setMode(auto ? 'auto' : 'button'); } catch (e) {} },
+    turns: myTurns,
+    /* 🖥 넓은 화면 오른쪽 대화 기록 — 화면 말풍선 그대로(_warmText = 화면이 그 말풍선에 넣은 원문) */
+    log: function () {
+      return [].map.call(document.querySelectorAll('#log .msg.me, #log .msg.ai'), function (d) {
+        return { me: d.classList.contains('me'), text: String(d._warmText || '').trim() };
+      });
+    },
+    /* ⌨️ 넓은 화면 글쓰기 칸 — 대답 고르기와 같은 길(pickAnswer = 입력칸에 넣고 보내기) */
+    type: function (txt) { if (!active || g('sending')) return false; pickChip(txt); return true; }
+  };
+
+  /* ⚠️ 이 블록은 CALL «뒤» 에 둔다 — ?setup=0 은 인라인이 먼저 startWarmup() 을 불러 이 파일이 실리는 «그 순간» enter() 가 돈다.
+     CALL 보다 위에 있으면 var CALL 이 아직 undefined 라 영상통화 화면이 빈 손잡이로 붙는다(제목·✕·다시 듣기·끝내기가 죽음, 2026-11-09 실측). */
+  /* 🚪 «시작» 하면 곧바로 얼굴 대화(2026-11-09 사장님 「휴대폰 키면 이것을 default 로」) —
+     폰은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js) 이라 «시작 = 이 화면» 하나로 둔다.
+     시작 버튼(startWarmup — 인라인 스크립트의 전역 함수)을 감싸 «설정이 닫힌 뒤» 한 번만 연다.
+     ✕ 로 나가면 이 페이지에서는 다시 안 연다(🎚️ 로 설정을 다시 열고 시작해도) — ▶ 로 언제든 다시 들어온다.
+     ⛔ ?setup=0(수업 흐름·공유 링크) 페이지는 끝까지 채팅 화면이다 — 장면 고르기 칸이 거기 있다(나중에 🎚️ 로 다시 시작해도).
+     ✅ 단 상황별 말하기(?setup=0&sit=…)는 «대화 화면» 설정을 따른다(2026-11-09 사장님 「상황 고르기에서도 간단 대화」).
+     ⛔ 엘리더잼(책·주제로 시작)은 열지 않는다 — 진행 막대(질문 n/20 · 💡 · 그만하기)가 채팅 화면에만 있다.
+     ⛔ 수업 안(iframe)은 enter() 가 스스로 막는다. */
+  var autoDone = /[?&]setup=0(?:&|$)/.test(location.search) && !sitOn();
+  function sitOn() { try { return typeof window.situationActive === 'function' && !!window.situationActive(); } catch (e) { return false; } }
+  function eleaderOn() { try { return /^엘리더잼 L\d/.test(String((g('WCTX') || {}).textbook || '')); } catch (e) { return false; } }
+  /* 🖥️ AI 말하기 › 공통 설정 «대화 화면» 에서 «학습 도구» 를 고르면 채팅 화면 그대로 둔다(js/ai-speaking-settings.js KEYS.screen) */
+  function wantsTools() { try { return localStorage.getItem('mangoi_ai_screen_mode') === 'full'; } catch (e) { return false; } }
+  function autoEnter() {
+    if (autoDone || active || eleaderOn() || wantsTools()) return;
+    autoDone = true;
+    try { enter(); } catch (e) {}
+  }
+  (function wrapStart() {
+    var orig = window.startWarmup;
+    if (typeof orig !== 'function' || orig.__ftkWrapped) return;
+    var w = function () {
+      var r = orig.apply(this, arguments);
+      autoEnter();
+      return r;
+    };
+    w.__ftkWrapped = true;
+    window.startWarmup = w;
+    if (g('_warmStarted') === true) autoEnter();   // 이 파일이 오기 «전» 에 이미 «시작» 을 눌렀으면 지금 연다
+  })();
 
   window.WarmupFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };
 })();

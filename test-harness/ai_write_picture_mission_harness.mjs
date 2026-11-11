@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // AI 영작 — 그림 속 미션 단어 · 도움 접기 · 사용 방법(사진+화살표) 감시 (2026-10-08 선생님 피드백)
 //  ① 미션 단어가 «그 그림에 실제로 보이는» 낱말이다 — 모든 그림에 3개씩, 그림을 바꾸면 따라 바뀐다
 //  ② 첫 화면은 «그림 보고 쓰기» 중심: (2026-10-19 사장님 지시) 브레인스토밍은 그림 «바로 아래» 로 나왔고 글감은 «장면·글감 선택» 하나로 합쳤다.
@@ -5,9 +6,9 @@
 //  ③ 📖 사용 방법 버튼·설명서 사진 5장이 실재하고, 버튼이 공용 칩에 가리는 머리줄에 있지 않다
 //  ④ 서버가 복수형(candles)도 «미션 단어를 썼다» 로 센다
 import fs from 'node:fs';
-const ROOT = new URL('../cloudflare-deploy/', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../cloudflare-deploy/', import.meta.url));
 const html = fs.readFileSync(ROOT + 'public/ai-write.html', 'utf8');
-const api = fs.readFileSync(ROOT + 'src/api-ai.ts', 'utf8');
+const api = fs.readFileSync(ROOT + 'src/api-ai-writing.ts', 'utf8');
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('  ✅ ' + m); } else { fail++; console.log('  ❌ ' + m); } };
 const bodyAt = (src, at) => { const i = src.indexOf('{', at); let d = 0; for (let k = i; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };

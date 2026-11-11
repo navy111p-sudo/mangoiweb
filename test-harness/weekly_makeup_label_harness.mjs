@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 주간 전체 스케줄 — 보강수업(makeup)이 «보강» 칸(temp)으로 보이는가 (2026-10-06 사장님 · 2026-10-07 «보충»→«보강» 이름 통일)
 // 서버 mapType 을 api-admin.ts 에서 오려 내 실제로 돌리고, 화면 문구를 대조한다.
 // 짝: «보강은 temp» 옆에 «정규·그룹·휴무·레벨테스트는 그대로» 를 둔다. 체험은 2026-10-07 부터 자기 칸(trial).
@@ -5,7 +6,7 @@ import fs from 'node:fs';
 const rd = (p) => fs.readFileSync(new URL('../cloudflare-deploy/' + p, import.meta.url), 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✅', n); } else { fail++; console.log('  ❌ FAIL', n); } };
-const api = rd('src/api-admin.ts');
+const api = readAdminModuleGraph(adminModuleFile => rd("src/" + adminModuleFile));
 const a = api.indexOf('const mapType = (ct: string): string => {');
 let e = -1, d = 0;
 if (a >= 0) for (let i = api.indexOf('{', a); i < api.length; i++) { if (api[i] === '{') d++; else if (api[i] === '}' && --d === 0) { e = i; break; } }

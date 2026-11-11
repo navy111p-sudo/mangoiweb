@@ -1,7 +1,9 @@
+import { handleWritingApi } from './api-ai-writing';
+import { handleSpeakingSession, recordSpeakingTurn, clearSpeakingSessions } from './ai-speaking-session';
 import type { EleaderEngines } from './eleader-engines';
 import { handleEleaderApi } from './api-eleader';
 // ═══════════════════════════════════════════════════════════════════════
-// 🤖 api-ai.ts — AI 영작 첨삭(AW) + AI 영어친구 챗봇(CF) (25차 분리)
+// 🤖 AI API — 영작은 전용 모듈에 위임, AI 친구·수업 질문·명령은 여기서 처리
 //   게임화 포인트/배지는 api-points·api-games 의 export 헬퍼 사용.
 // ═══════════════════════════════════════════════════════════════════════
 import { loadActiveGoal, goalPromptLine } from './student-goal';   // 🗓 4주 목표(2026-10-10)
@@ -15,25 +17,23 @@ import { applyEmpathyGuard, FRIEND_EMPATHY_RULE } from './warmup-empathy';   // 
 import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token';
 import { ensurePointTables, applyPointTransaction } from './api-points';
 import { checkEarnAllowed } from './point-policy';   // 🪙 하루 상한 정본(복제 금지)
-import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
-import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
-import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
-import { checkAdminSession } from './auth-admin';
-import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage';
-import { markVocabTag, VOCAB_TAG_AWKWARD } from './vocab-tags';   // 🏷️ 단어장 «어색한 표현» 꼬리표(2026-11-02)
+
+import { handleAiCommandApi } from './api-ai-command';
+
 import { looksGarbledKo } from './ko-readable';   // 🔤 수업 중 질문의 한국어 뜻 거르기(2026-11-01)   // 🚦 고칠 곳 3단계 판정(오류·참고·인정) — «왜» 설명은 그 안에서 correction-reason 을 씀
-import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked,
-         aiFriendTrimSentences, aiFriendNormalizeLevel,
-         AI_FRIEND_DEFAULT_LEVEL, AI_FRIEND_LEVELS } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint, aiFriendStudentAsked, aiFriendTrimSentences, aiFriendNormalizeLevel, AI_FRIEND_LEVELS } from './ai-friend-level'; // 🎚 눈높이(레벨) 정본
 import { studentCallName, scrubLoginId } from './student-call-name';   // 🧑 학생을 부를 이름 — 아이디 금지(2026-11-01)
 import { resolveFriendName, wrongSelfName, askedOwnName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { stripAddedKorean, hasAddedKorean } from './reply-korean';               // 🇰🇷 모델이 덧붙인 한국어 번역 제거 — 「뜻」 버튼 설계를 지킨다
-import { parseJsonBody } from './api-util';
 import { assessPronFix } from './pron-focus';   // 🎯 집중교정 발음 교정(2026-11-01)
 /* ✏️ «교정 카드» 판정 정본 — 웜업과 «같은 한 벌» 을 쓴다 (2026-09-09 사장님 「A.i 친구도 똑같이」).
    ⛔ 파일 이름이 warmup 이라고 복제해 오지 말 것. 판정이 두 벌이 되면 한쪽만 고쳐진다. */
 import { backfillPastTenseFix } from './tense-backfill';
 import { focusedCandidate, focusedReplyFix, recoverFocusedFix, FOCUSED_DRAFT_RULE } from './focused-correction';
+import { speakingObservation } from './speaking-observations';
+import { creditFriendAward, friendRequestId, FRIEND_AWARDS } from './ai-friend-point-credit';
+import { logSpeakingGrowth } from './speaking-growth';
+import { correctionTimingOf, correctionPrompt, showDuringPractice } from './ai-speaking-progress';
 import { AI_FRIEND_CORRECTION_RULE, parseWarmupOutput, verifyWarmupFix,
          decideWarmupFixShow, warmupShouldOfferRepeat, isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
@@ -47,15 +47,14 @@ import { handleClassAsk } from './class-ask';
 import { handleClassAskStream, wantsClassAskStream } from './class-ask-stream';   // ✋ A.i 선생님 수업 — 학생 질문 즉답(2026-10-08)
 import { connectorRule, connectorPromptBlock, linkBandForFriendLevel, turnOpenerLine } from './conversation-connectors';
 import { AVATAR_NATURAL_OPENERS } from './conversation-connectors';   // 🔗 연결 표현 정본(2026-10-28 · 세 화면 공용)
-import { handleStoryApi } from './story-correct';   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
+   // 📖 동화책 바꿔 쓰기 AI 한 번 더 보기·기록(2026-10-13)
 import { recordAiLatency } from './ai-latency-log';   // ⏱ «학생이 얼마나 기다리는가» (A-3)
 import { createJsonTextTap, takeSentences } from './stream-json-text';   // 📡 스트리밍 본문 추출 (A-1)
 /* 🔁 «같은 질문 두 번 금지» 정본 — 엘리더잼·일반 A.i 말하기와 «같은 판정» (2026-10-28 사장님 「AI 영어친구에도 같은 질문 금지 적용해줘」).
    ⛔ 판정을 여기에 복제하지 말 것 — 이 화면은 부르기만 한다. */
-import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest } from './question-memory';
-import { FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산(웜업과 같은 값)
+import { questionSession, questionMemory, askedQuestionsLine, repeatedQuestions, retryRepeatedQuestion, repeatQuestionHintEn, isReaskRequest, isDontKnowAnswer, QM_FRIEND_ROWS } from './question-memory';
+import { FRIEND_FRAG_RETRY_BUDGET_MS as FRAG_RETRY_BUDGET_MS } from './reply-questions';   // ⏱ 다시 뽑기 시간 예산 — A.i 친구는 9초(웜업 5초와 다름 · 이유는 reply-questions.ts)
 
-let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
 export async function handleAiApi(
   request: Request,
   url: URL,
@@ -64,477 +63,11 @@ export async function handleAiApi(
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
+  if (path === '/api/ai/speaking-progress') return handleSpeakingSession(request, url, env);
   if (path.startsWith('/api/ai/eleader/')) return handleEleaderApi(request, url, env, eleaderEngines);
 
-    // ═══════════════════════════════════════════════════════════════
-    // ✍️ Phase AW — AI 영작 첨삭 (Grammarly + GPT)
-    // ═══════════════════════════════════════════════════════════════
-    const ensureWriteSchema = async () => {
-      // D1 의 exec() 는 멀티라인 SQL 미지원 — 반드시 한 줄로
-      await env.DB.exec(`CREATE TABLE IF NOT EXISTS ai_writing_corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, original_text TEXT NOT NULL, corrected_text TEXT, feedback TEXT, level TEXT, score INTEGER, created_at INTEGER NOT NULL);`);
-      // 📅 (2026-10-26 제안 6) 어느 주제(선생님 숙제·내 주제)로 쓴 글인가 — 지연 ALTER, 한 워커에 한 번만 시도
-      if (!_awTopicColTried) {
-        _awTopicColTried = true;
-        try { await env.DB.exec(`ALTER TABLE ai_writing_corrections ADD COLUMN topic_id INTEGER`); }
-        catch (e: any) { if (!/duplicate column/i.test(String(e?.message || e))) _awTopicColTried = false; }   // 일시 장애면 다음 요청에서 다시 시도
-        try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_awc_topic ON ai_writing_corrections(topic_id)`); } catch { /* 칸이 없으면 실패 — 무해 */ }
-      }
-    };
-
-    if (method === 'POST' && path === '/api/ai/write-correct') {
-      await ensureWriteSchema();
-      const b: any = await request.json().catch(() => ({}));
-      const text = String(b.text || '').trim();
-      const level = String(b.level || 'A2').trim();
-      const uid = String(b.uid || '').trim();
-      if (!text || text.length < 3) return json({ ok: false, error: 'text_too_short' }, 400);
-      if (text.length > 2000) return json({ ok: false, error: 'text_too_long' }, 400);
-
-      const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
-1. Provide a corrected version (preserve student's meaning). Fix ALL the problems you list in "issues" (both "error" and "unnatural" items) and ONLY those; keep every other word exactly as the student wrote it.
-2. Provide a numeric score 0-100 for overall quality.
-3. List ONLY real problems (0-5 items — an EMPTY list is correct when the writing has no problems). Each item: original phrase (copied EXACTLY from the student's text), suggested phrase, category, and a REQUIRED brief reason IN KOREAN (one short, simple, grammatical Korean sentence ending in "~요." that explains WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty. If you cannot write natural Korean, write the reason in simple English instead.
-   - category "error": grammar, spelling, or a wrong word.
-   - category "unnatural": grammatical, but a native speaker would clearly not say it this way (often a word-for-word translation from Korean). These MUST be corrected too, not just mentioned: "suggested" is the ONE most common native expression closest to the student's meaning and tone. Example: "My condition is not good today." -> "I'm not feeling well today." (reason: "condition" usually means a medical state; natives say "I'm not feeling well.").
-     Optional "alternatives" (0-3 items, unnatural only): OTHER natural ways a native speaker would say the same thing, if any exist (e.g. for "I'm happy": "I feel great", "I'm so glad"). Each item: {"text":"<English only>","when":"<short Korean note on nuance or when to use it, e.g. 친구와 가볍게 말할 때>"}. Do not repeat "suggested" or list near-identical copies; use an empty list if there are none. Choose only the MOST suitable ones: the best fit for the student's meaning and ${level} level, ordered from most common/natural to less common.
-   - Do NOT list phrasing that is already correct and natural just because another way exists. Examples to leave alone: "When the water boils" (do not change to "Once the water has boiled"); "I'll teach you how to make it" (do not change "teach" to "show").
-   - Never list an item whose suggested phrase is the same as the original.
-4. Provide one encouraging tip in natural Korean (1-2 short sentences ending in "~요.").
-5. Reply to the CONTENT of the student's writing like a pen-pal friend, in ENGLISH ONLY appropriate for ${level} level (1-2 short sentences, warm, may end with a small question). Never write Korean in "reply".
-6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" is REQUIRED and must be a short Korean sentence saying WHY the new word is better (nuance, register, precision) — an item with an empty "why" is DISCARDED, so never leave it blank. If nothing is worth upgrading, use an empty list.
-
-Respond in this strict JSON format only, no markdown:
-{
-  "corrected": "...",
-  "score": 85,
-  "issues": [{"original":"...","suggested":"...","category":"error","reason":"..."},{"original":"...","suggested":"...","category":"unnatural","reason":"...","alternatives":[{"text":"...","when":"..."}]}],
-  "tip": "...",
-  "reply": "...",
-  "upgrades": [{"from":"...","to":"...","why":"..."}]
-}
-
-Student text: """${text}"""`;
-
-      if (!env.AI) {
-        return json({ ok: false, error: 'AI_binding_missing' }, 503);
-      }
-
-      const models = [
-        '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
-        '@cf/meta/llama-3.1-8b-instruct',
-        '@cf/meta/llama-3-8b-instruct',
-      ];
-      let raw = '';
-      let lastErr: any = null;
-      for (const m of models) {
-        try {
-          const resp: any = await env.AI.run(m, {
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 1500, temperature: 0.3,
-          });
-          if (typeof resp === 'string') raw = resp;
-          else if (resp && typeof resp.response === 'string') raw = resp.response;
-          else if (resp && resp.response) raw = JSON.stringify(resp.response);
-          else if (resp && resp.result && typeof resp.result === 'string') raw = resp.result;
-          raw = String(raw || '').trim();
-          if (raw) break;
-        } catch (e: any) {
-          lastErr = e;
-          console.error(`[write-correct] model ${m} failed:`, e?.message || e);
-        }
-      }
-
-      // JSON 추출 시도 — 다양한 응답 형식 대응
-      const mm = raw.match(/\{[\s\S]*\}/);
-      let parsed: any = {};
-      try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
-
-      // AI 가 JSON 으로 응답 안 했을 때 안전한 폴백
-      let corrected = String(parsed.corrected || '').trim();
-      if (!corrected || corrected === text) {
-        // 기본 폴백: 첫 글자 대문자화 + 마침표 추가
-        corrected = text.charAt(0).toUpperCase() + text.slice(1);
-        if (!/[.!?]$/.test(corrected.trim())) corrected = corrected.trim() + '.';
-      }
-      const score = Math.max(0, Math.min(100, Number(parsed.score || 75)));
-      // ✍️ [2026-07-27] 첨삭에 '왜 고쳤는지'가 안 보이던 문제(직원 피드백 #14).
-      //   프롬프트는 이유(reason)를 한국어로 요구하고 화면도 이유를 렌더링한다 — 그런데
-      //   모델이 reason 을 비워 보내도 서버가 그대로 통과시켜, 학생 화면에 "with → to" 만 떴다.
-      //   (폴백 소형 모델로 내려갈수록 잘 비운다.) 여기서 두 가지를 보장한다:
-      //     ① 이유가 비면 원본/교정 형태를 보고 규칙 기반으로 최소한의 설명을 채운다
-      //     ② 그래도 못 채우면 그 항목은 아예 내보내지 않는다(빈 "💡" 만 뜨는 것보다 낫다)
-      //   문구는 학생 대상이므로 '틀렸다'가 아니라 '이렇게 하면 더 자연스럽다' 톤을 지킨다.
-      /* 🔤 [2026-08-31] «왜 고쳤는지» 는 프롬프트에 기대지 않는다.
-         운영 D1 실측: 최근 8건의 교정 **21건 전부** 이유가 폴백 일반 문구였다 —
-         즉 모델이 reason 을 매번 비워 보낸다. 학생은 «무엇을» 만 보고 «왜» 는 못 배웠다.
-         정본은 `src/correction-reason.ts` 의 explainCorrection(원문→교정 낱말 diff 분류).
-         ⛔ 분류가 안 되면 null 을 돌려주고, 그때만 일반 문구를 쓴다 — 지어내지 않는다. */
-      /* 🚦 [2026-11-01 엘리더잼 원장님 피드백] 맞게 쓴 표현까지 «고칠 곳» 으로 띄우던 것을 막습니다.
-         정본은 `src/write-issue-triage.ts` — 원문과 같은 수정안·학생이 안 쓴 말은 버리고,
-         🔴 오류만 issues(빨간 줄)로, 🟡 «문법은 맞지만 원어민이 안 쓰는 표현» 은 suggestions 로 가릅니다.
-         ✏️ [2026-11-02 사장님 결정] 🟡 는 «참고» 가 아니라 «원어민 표현으로 고쳐 주기» 입니다 — corrected 에도 반영되고,
-            대표 표현 1개 + 말투·상황이 다른 표현 최대 2개(alternatives, «언제 쓰는지» 와 함께)를 보냅니다.
-         ⚠️ issues 는 아래에서 단어장 저장·판단력 오답 기록에 쓰입니다 — 단어장에는 🟡 도 넣고(2026-11-02), 판단력 오답 기록에는 🟡 를 넣지 않습니다
-            (맞게 쓴 표현을 오답으로 기록하면 원장님이 지적한 그 일이 기록에서 되풀이됩니다). */
-      const _tri = triageIssues(text, parsed.issues);
-      const issues = _tri.issues.map(({ original, suggested, reason }) => ({ original, suggested, reason }));
-      const suggestions = _tri.suggestions.map(({ original, suggested, reason, alternatives }) => ({ original, suggested, reason, alternatives: alternatives || [] }));
-      if (_tri.dropped.length) console.log('[write-correct] triage dropped:', JSON.stringify(_tri.dropped.map(d => d.why)));
-      /* 🔤 [2026-11-01 실사고] 한국어에 약한 보조 모델이 «낱말 조각» 을 늘어놓은 글(「지도 알는 어 지도 었다…」)이
-         그대로 학생 화면에 나갔습니다. 읽을 수 있는 한국어가 아니면 기본 문구로 바꿉니다(정본 isReadableKo). */
-      const _tipRaw = String(parsed.tip || '').trim().slice(0, 300);
-      const tip = isReadableKo(_tipRaw) ? _tipRaw : '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.';
-      // 💬 망고 선생님의 답장 — 첨삭을 '검사'가 아니라 '대화'로 만드는 펜팔 답장
-      // 💬 답장은 «영어로만» — 한글이 섞이면(깨진 한국어가 이 칸에 온 실사고) 답장을 아예 안 보입니다.
-      const _replyRaw = String(parsed.reply || '').trim().slice(0, 400);
-      const reply = isEnglishReply(_replyRaw) ? _replyRaw : '';
-      // ⬆️ [2026-08-30] 어휘 업그레이드 — 쉬운 단어를 더 자연스러운 원어민 표현으로.
-      //   ⚠️ 모델이 «학생이 쓰지도 않은 단어» 를 고쳐 준 것처럼 지어내는 일이 있다.
-      //      그러면 학생 화면에 «내가 안 쓴 말» 이 내 글에서 고쳐진 것처럼 뜬다 →
-      //      from 이 실제 원문에 있는 경우만 통과시킨다(없으면 그 항목을 버린다).
-      //   ⚠️ to 는 화면에 «따라 쓸 영어» 로 나가므로 한글·한자가 섞이면 안 된다.
-      /* 🔤 [2026-08-31] why 가 비면 **그 항목을 아예 내보내지 않는다**(사장님 결정 — A안).
-         운영 D1 실측: 이 기능이 나간 뒤 실제로 나온 업그레이드 1건의 why 가
-         **서버 폴백 문구 그대로**였다(「더 자연스럽고 어른스러운 표현이에요」) — 즉 모델이
-         why 를 비워 보내고 서버가 채우고 있었다. 교정 이유(reason)가 21/21 폴백이던 것과 같은 패턴.
-         ⛔ 어휘 «왜» 는 의미 판단이라 교정 이유처럼 결정론으로 만들 수 없다
-            (`special → memorable` 이 왜 나은지는 낱말 diff 로 셀 수 없다).
-            그래서 지어내는 대신 **버립니다** — 같은 화면의 교정 이유(issues)가 이미 그 규칙이다.
-         ⚠️ 그래서 업그레이드는 «가끔 0건» 이 정상입니다. 화면이 비었다고 고장이 아닙니다. */
-      const _lowText = text.toLowerCase();
-      const upgrades = (Array.isArray(parsed.upgrades) ? parsed.upgrades : [])
-        .slice(0, 6)
-        .map((u: any) => ({
-          from: String(u?.from || '').trim().slice(0, 60),
-          to: String(u?.to || '').trim().slice(0, 60),
-          why: String(u?.why || '').trim().slice(0, 160),
-        }))
-        .filter((u: any) =>
-          u.from && u.to &&
-          u.from.toLowerCase() !== u.to.toLowerCase() &&
-          /^[A-Za-z][A-Za-z' -]{0,59}$/.test(u.to) &&
-          // ⚠️ 이유는 «한국어로 6자 이상» 일 때만 인정한다(issues 와 같은 기준).
-          //    빈 값·영어 한 낱말이 그대로 학생 화면에 나가던 것을 막는다.
-          /[가-힣]/.test(u.why) && u.why.length >= 6 &&
-          isReadableKo(u.why) &&   // 깨진 한국어(「지도 알는 어 지도 었다…」)는 버림 — 2026-11-01 실사고
-          _lowText.includes(u.from.toLowerCase()))
-        .slice(0, 3);
-
-      // 📚 미션 단어 검증 — 클라이언트가 보낸 미션 단어 중 실제 글에 쓰인 단어를 서버가 판정
-      //   (보너스 포인트 지급 근거이므로 클라이언트 자가신고를 믿지 않고 서버가 단어경계로 확인)
-      const missionWords: string[] = Array.isArray(b.mission_words)
-        ? b.mission_words.slice(0, 5).map((w: any) => String(w || '').trim()).filter((w: string) => /^[a-zA-Z' -]{1,30}$/.test(w))
-        : [];
-      const missionUsed = missionWords.filter(w =>
-        // 복수형(-s/-es)도 «썼다» 로 센다 — 그림 속 미션 단어는 단수로 주는데 아이들은 «candles» 로 쓴다(2026-10-08)
-        new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es)?\\b`, 'i').test(text));
-
-      // raw 가 있긴 한데 JSON 파싱 실패 → AI 응답 텍스트를 tip 에 일부 포함
-      const meta = raw && !Object.keys(parsed).length
-        ? { ai_raw_excerpt: raw.slice(0, 500), parsed: false }
-        : { parsed: true };
-
-      // 📅 어느 주제로 쓴 글인가(숙제 제출 확인용) — 양의 정수만. 화면이 보낸 번호라 «제출» 의 근거일 뿐 권한·포인트에는 안 쓴다.
-      const _tid = Number(b.topic_id);
-      const topicId = Number.isInteger(_tid) && _tid > 0 && _tid < 1e9 ? _tid : null;
-      let topicRecorded = false;   // 📅 «그 주제로 냈다» 가 정말 적혔는가 — 화면은 이것이 true 일 때만 ✓ 를 그린다
-      try {
-        const now = Date.now();
-        const fb = JSON.stringify({ issues, suggestions, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta });
-        try {
-          await env.DB.prepare(
-            `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at, topic_id) VALUES (?,?,?,?,?,?,?,?)`
-          ).bind(uid || null, text, corrected, fb, level, score, now, topicId).run();
-          topicRecorded = topicId !== null && !!uid;
-        } catch (e1: any) {
-          // ⚠️ topic_id 칸이 아직 없으면(ALTER 실패) 그 칸 없이라도 남긴다 — 첨삭 기록이 통째로 사라지지 않게
-          console.warn('[write-correct] insert with topic_id failed, retry without:', e1?.message || e1);
-          await env.DB.prepare(
-            `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at) VALUES (?,?,?,?,?,?,?)`
-          ).bind(uid || null, text, corrected, fb, level, score, now).run();
-        }
-      } catch (e: any) {
-        console.error('[write-correct] DB insert failed:', e?.message || e);
-      }
-
-      // 🎁 포인트 적립 + 배지 검사 — 서명 토큰의 uid 와 요청 uid 가 일치하는 로그인 사용자만.
-      //   (토큰 없이 uid 만 넣어 호출하는 무인증 요청은 첨삭은 되지만 포인트는 안 쌓임 → 파밍 방지)
-      let pointsEarned: any = null;
-      let missionBonus: any = null;
-      let streakBonus: any = null;
-      let earnedBadges: any[] = [];
-      const vocabSaved: string[] = [];
-      const awAuthUid = await authUidGlobal(request, url, env, b);
-      // 🪙 결과 화면이 «왜 포인트가 없는지» 를 말할 수 있게 — 로그인 안 한(또는 남의 아이디) 첨삭은 적립 대상이 아니다(2026-11-02)
-      const pointsGuest = !(awAuthUid && awAuthUid === uid && !uid.startsWith('guest_'));
-      if (awAuthUid && awAuthUid === uid && !uid.startsWith('guest_')) {
-        // 규칙 기반 적립 인라인 헬퍼 — 쿨다운/일일한도는 point_rule_log 기준(KST 자정 경계)
-        const earnWritingRule = async (code: string, label: string, amount: number, dailyCap: number, description: string, cooldownSec = 0) => {
-          try {
-            await ensurePointTables(env);
-            const now = Date.now();
-            await env.DB.prepare(`INSERT INTO point_rules (code, label, amount, cooldown_sec, daily_cap, enabled, description, updated_at) VALUES (?,?,?,?,?,1,?,?) ON CONFLICT(code) DO NOTHING`)
-              .bind(code, label, amount, cooldownSec, dailyCap, description, now).run();
-            const rule: any = await env.DB.prepare(`SELECT * FROM point_rules WHERE code=? AND enabled=1`).bind(code).first();
-            if (!rule) return null;
-            if ((rule.cooldown_sec || 0) > 0) {
-              const last: any = await env.DB.prepare(`SELECT triggered_at FROM point_rule_log WHERE user_id=? AND rule_code=? ORDER BY triggered_at DESC LIMIT 1`).bind(uid, code).first();
-              if (last && (now - last.triggered_at) < rule.cooldown_sec * 1000) return { cooldown: true };
-            }
-            if (rule.daily_cap) {
-              const KST_OFF = 9 * 3600 * 1000;
-              const todayMs = Math.floor((now + KST_OFF) / 86400000) * 86400000 - KST_OFF;
-              const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
-              if ((cnt?.c || 0) >= rule.daily_cap) return { capped: true, cap: rule.daily_cap };
-            }
-            /* 🪙 (2026-09-01) 하루 전체 상한(100점)·게임묶음 상한(30점)도 함께 본다.
-               정본은 checkEarnAllowed 하나이고, 그 전에는 이 경로가 통째로 건너뛰고 있었다. */
-            const allow = await checkEarnAllowed(env, uid, code, Number(rule.amount) || 0);
-            if (!allow.ok) return { capped: true, cap: allow.cap, used: allow.used };
-            const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount: rule.amount, reason: rule.label, ruleCode: code, meta: { score, level } });
-            await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,?)`)
-              .bind(uid, code, rule.amount, now, r.txnId, JSON.stringify({ score, level })).run();
-            return { amount: rule.amount, label: rule.label, newBalance: r.newBalance };
-          } catch (e: any) {
-            console.error(`[write-correct] earn ${code} failed:`, e?.message || e);
-            return null;
-          }
-        };
-        pointsEarned = await earnWritingRule('ai_writing', 'AI 영작 첨삭 완료', 10, 5, 'AI 영작 첨삭을 받을 때마다 지급 (하루 5회)');
-        if (missionWords.length >= 3 && missionUsed.length >= 3) {
-          missionBonus = await earnWritingRule('ai_writing_mission', '영작 미션 단어 달성', 15, 2, '미션 단어 3개 이상을 글에 사용하면 보너스 (하루 2회)');
-        }
-        // 🔥 연속 영작 마디 보상 — 7·14·21…일마다 +50P (쿨다운 6일로 같은 마디 중복 방지)
-        try {
-          const KST_OFF = 32400000;
-          const days: any = await env.DB.prepare(
-            `SELECT DISTINCT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d FROM ai_writing_corrections WHERE student_uid = ? ORDER BY d DESC LIMIT 120`
-          ).bind(uid).all();
-          const ds = ((days.results || []) as any[]).map(r => Number(r.d));
-          const todayD = Math.floor((Date.now() + KST_OFF) / 86400000);
-          let wStreak = 0;
-          if (ds.length && ds[0] === todayD) {
-            wStreak = 1;
-            for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) wStreak++;
-          }
-          if (wStreak >= 7 && wStreak % 7 === 0) {
-            streakBonus = await earnWritingRule('ai_writing_streak', '연속 영작 7일 달성', 50, 1, '7일 연속 영작할 때마다 지급', 6 * 86400);
-            if (streakBonus && streakBonus.amount) (streakBonus as any).streak = wStreak;
-          }
-        } catch (e: any) { console.error('[write-correct] streak bonus failed:', e?.message || e); }
-        // 📗 첨삭 표현 → 단어장 자동 저장 (짧은 교정 표현만, 사용자별 중복 방지, 회당 최대 3개)
-        try {
-          await env.DB.exec(`CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, word TEXT NOT NULL, korean TEXT, example TEXT, level INTEGER DEFAULT 0, next_review_at INTEGER NOT NULL, last_reviewed_at INTEGER, correct_count INTEGER DEFAULT 0, wrong_count INTEGER DEFAULT 0, created_at INTEGER NOT NULL);`);
-          const nowV = Date.now();
-          // 🔴 오류 먼저, 그다음 🟡 어색한 표현(원어민 표현으로 고친 것)도 단어장에 — 2026-11-02 사장님 지시.
-          //    ⚠️ 판단력 오답 기록(jList)은 그대로 «오류만» 입니다 — 🟡 는 틀린 것이 아니라서.
-          const vocabCands = [...issues.slice(0, 6).map((iss: any) => ({ iss, awkward: false })), ...suggestions.slice(0, 6).map((iss: any) => ({ iss, awkward: true }))];
-          for (const { iss, awkward } of vocabCands) {
-            if (vocabSaved.length >= 3) break;
-            const sug = String(iss?.suggested || '').trim();
-            const reason = String(iss?.reason || '').trim().slice(0, 80);
-            if (!sug || sug.length > 40 || !/[a-zA-Z]/.test(sug)) continue;
-            const dup: any = await env.DB.prepare(`SELECT id FROM vocabulary WHERE user_id=? AND LOWER(word)=LOWER(?) LIMIT 1`).bind(uid, sug).first();
-            if (dup) continue;
-            const vIns: any = await env.DB.prepare(`INSERT INTO vocabulary (user_id, word, korean, example, level, next_review_at, created_at) VALUES (?,?,?,?,0,?,?)`)
-              .bind(uid, sug, reason || '영작 첨삭에서 배운 표현', corrected.slice(0, 120), nowV, nowV).run();
-            // 🏷️ 🟡 어색한 표현이면 단어장 화면이 따로 표시하도록 꼬리표(던지지 않음 — 실패해도 카드는 저장됨)
-            if (awkward) await markVocabTag(env.DB, Number(vIns?.meta?.last_row_id), uid, VOCAB_TAG_AWKWARD);
-            vocabSaved.push(sug);
-          }
-        } catch (e: any) { console.error('[write-correct] vocab save failed:', e?.message || e); }
-        try {
-          const earned = await checkAndAwardBadges(env, uid);
-          earnedBadges = earned
-            .map(code => BADGE_CATALOG.find(c => c.code === code))
-            .filter(Boolean);
-        } catch (e: any) {
-          console.error('[write-correct] badge check failed:', e?.message || e);
-        }
-
-        // 🧠 [판단력 D3] 영작 교정 = 판단 이벤트. issues(원문→교정)를 그대로 기록(재-LLM 없음).
-        //   issue 있으면 각 issue = "더 나은 표현을 지나친 판단"(오답유형 매핑), 없으면 최적 판단 1건.
-        try {
-          const jList = issues.length
-            ? issues.slice(0, 3).map((iss: any) => ({
-                situation: 'AI writing correction', skill_tag: 'writing',
-                chosen: String(iss?.original || '').slice(0, 300),
-                better: String(iss?.suggested || '').slice(0, 300),
-                is_optimal: 0, choice_score: score,
-                misconception: guessMisconception(String(iss?.reason || '')),
-                feedback_ko: String(iss?.reason || '').slice(0, 200),
-              })).filter((j: any) => j.chosen || j.better)
-            : [{ situation: 'AI writing correction', skill_tag: 'writing',
-                 chosen: text.slice(0, 200), better: corrected.slice(0, 200),
-                 is_optimal: 1, choice_score: score }];
-          if (jList.length) await recordJudgmentEvents(env, { studentUid: uid, source: 'writing', refId: Date.now(), judgments: jList });
-        } catch (e: any) { console.warn('[write-correct] judgment capture skip:', e?.message); }
-      }
-
-      // raw 도 lastErr 도 없을 일이 거의 없지만, 어느쪽이든 결과는 반환 (ok: true)
-      // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
-      return json({
-        ok: true,
-        corrected, score, issues, suggestions, tip, reply, upgrades, level,
-        mission_words: missionWords, mission_used: missionUsed,
-        points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus, points_guest: pointsGuest,
-        earned_badges: earnedBadges, vocab_saved: vocabSaved,
-        topic_recorded: topicRecorded,
-        ...(raw ? {} : { ai_unavailable: true, fallback: true }),
-      });
-    }
-
-    // 📖 동화책 «바꿔 쓰기» — 이미 등록된 경로의 «비어 있는 POST» 에 얹습니다(src/index.ts 무수정).
-    //    action 이 story_fix·story_log 가 아니면 story-correct.ts 가 400 으로 거절합니다. 판정·상한은 전부 그 파일 정본.
-    if (method === 'POST' && path === '/api/ai/write-history') {
-      return handleStoryApi(request, env, { json, authUid: (b: any) => authUidGlobal(request, url, env, b), recordFailure: (f: any) => recordAiFailure(env, f) });
-    }
-
-    if (method === 'GET' && path === '/api/ai/write-history') {
-      await ensureWriteSchema();
-      const uid = String(url.searchParams.get('uid') || '').trim();
-      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 IDOR 방지 — 서명 토큰(mango_token)의 uid 와 요청 uid 가 일치해야만 조회.
-      //   (예전엔 uid 만 알면 남의 첨삭 이력을 볼 수 있었음 → uid-token-auth 관례 적용)
-      const authUid = await authUidGlobal(request, url, env);
-      if (!authUid || authUid !== uid) {
-        return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      }
-      const rs = await env.DB.prepare(
-        `SELECT id, original_text, corrected_text, feedback, level, score, created_at FROM ai_writing_corrections WHERE student_uid = ? ORDER BY created_at DESC LIMIT 30`
-      ).bind(uid).all();
-      return json({ ok: true, items: rs.results || [] });
-    }
-
-    // ── GET /api/ai/write-stats?uid=&token= — 영작 성장 리포트 (스트릭·통계·30일 추이) ──
-    if (method === 'GET' && path === '/api/ai/write-stats') {
-      await ensureWriteSchema();
-      const uid = String(url.searchParams.get('uid') || '').trim();
-      if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 본인 통계만 — write-history 와 동일한 서명 토큰 인증
-      const authUid = await authUidGlobal(request, url, env);
-      if (!authUid || authUid !== uid) {
-        return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      }
-      const KST_OFF = 32400000;
-      const now = Date.now();
-      const todayD = Math.floor((now + KST_OFF) / 86400000);
-      // 전체 통계
-      const tot: any = await env.DB.prepare(
-        `SELECT COUNT(*) AS n, ROUND(AVG(score)) AS avg_score, MAX(score) AS best_score FROM ai_writing_corrections WHERE student_uid = ?`
-      ).bind(uid).first();
-      // 최근 30일 일별 시리즈 (성장 그래프용)
-      const sinceMs = (todayD - 29) * 86400000 - KST_OFF;
-      const daily = await env.DB.prepare(
-        `SELECT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d, COUNT(*) AS n, ROUND(AVG(score)) AS avg_score, MAX(score) AS best_score
-         FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ? GROUP BY d ORDER BY d ASC`
-      ).bind(uid, sinceMs).all();
-      const series = ((daily.results || []) as any[]).map(r => ({
-        date: new Date(Number(r.d) * 86400000).toISOString().slice(0, 10),
-        count: r.n || 0, avg_score: r.avg_score || 0, best_score: r.best_score || 0,
-      }));
-      // 연속 영작일 (오늘 또는 어제부터 역방향)
-      const days: any = await env.DB.prepare(
-        `SELECT DISTINCT CAST((created_at + ${KST_OFF}) / 86400000 AS INTEGER) AS d FROM ai_writing_corrections WHERE student_uid = ? ORDER BY d DESC LIMIT 120`
-      ).bind(uid).all();
-      const ds = ((days.results || []) as any[]).map(r => Number(r.d));
-      let streak = 0;
-      if (ds.length && (ds[0] === todayD || ds[0] === todayD - 1)) {
-        streak = 1;
-        for (let i = 1; i < ds.length && ds[i] === ds[i - 1] - 1; i++) streak++;
-      }
-      const wroteToday = ds.length > 0 && ds[0] === todayD;
-      // 이번주 vs 지난주 평균점 (성장 한 줄 메시지용) — 주 경계는 KST 월요일
-      const dow = (todayD + 3) % 7;               // 1970-01-01(목)=day0, 목→3 이므로 +3 하면 월=0
-      const weekStartD = todayD - dow;
-      const weekStartMs = weekStartD * 86400000 - KST_OFF;
-      const prevWeekStartMs = (weekStartD - 7) * 86400000 - KST_OFF;
-      const thisW: any = await env.DB.prepare(
-        `SELECT COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`
-      ).bind(uid, weekStartMs).first();
-      const lastW: any = await env.DB.prepare(
-        `SELECT COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ? AND created_at < ?`
-      ).bind(uid, prevWeekStartMs, weekStartMs).first();
-      return json({
-        ok: true,
-        total: tot?.n || 0, avg_score: tot?.avg_score || 0, best_score: tot?.best_score || 0,
-        streak, wrote_today: wroteToday,
-        series,
-        this_week: { count: thisW?.n || 0, avg_score: thisW?.avg_score || 0 },
-        last_week: { count: lastW?.n || 0, avg_score: lastW?.avg_score || 0 },
-      });
-    }
-
-    // ── GET /api/ai/write-leaderboard?uid=&token= — 🏆 이번 주 영작왕 (작성 편수 기준) ──
-    //   점수 경쟁은 저학년에 역효과 → "많이 쓴 사람" 기준. 이름은 마스킹해 PII 비노출,
-    //   uid+token 이 오면 내 순위(me)도 함께 반환. uid 없이 호출해도 목록은 조회 가능.
-    if (method === 'GET' && path === '/api/ai/write-leaderboard') {
-      /* ⚠️ 게스트 패턴은 `guest%` 다 — `guest_%` 로 좁히면 «밑줄 없는» bare `guest` 가 샙니다.
-         그 값은 실제로 화면이 만듭니다(js/game-track.js·js/idx-daily-checkin.js 의 기본값,
-         js/idx-x8.js 의 폴백)이고 auth-admin.ts 의 resolveOwnerScope 도 `/^guest/i` 로 봅니다.
-         2026-09-05 D1 실측으로는 이 표에 아직 0건이지만, 같은 날 «맛보기»(로그인 없이 하루)를
-         열어 게스트 유입이 늘므로 지금 넓혀 둡니다. */
-      await ensureWriteSchema();
-      const KST_OFF = 32400000;
-      const todayD = Math.floor((Date.now() + KST_OFF) / 86400000);
-      const weekStartMs = (todayD - ((todayD + 3) % 7)) * 86400000 - KST_OFF;
-      const rs = await env.DB.prepare(
-        `SELECT student_uid, COUNT(*) AS n, ROUND(AVG(score)) AS avg_score FROM ai_writing_corrections
-         WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND LOWER(student_uid) NOT LIKE 'guest%'
-         GROUP BY student_uid ORDER BY n DESC, avg_score DESC LIMIT 10`
-      ).bind(weekStartMs).all();
-      const rows = ((rs.results || []) as any[]);
-      // 이름 조회(students_erp) 후 마스킹 — "김민준" → "김✱✱", "Amy" → "A✱✱"
-      const maskName = (s: string) => {
-        const t = String(s || '').trim();
-        if (!t) return '익명';
-        return t.charAt(0) + '✱✱';
-      };
-      const nameMap = new Map<string, string>();
-      if (rows.length) {
-        try {
-          const qs = rows.map(() => '?').join(',');
-          const ns = await env.DB.prepare(
-            `SELECT user_id, korean_name, english_name FROM students_erp WHERE user_id IN (${qs})`
-          ).bind(...rows.map(r => r.student_uid)).all();
-          for (const r of ((ns.results || []) as any[])) {
-            nameMap.set(r.user_id, String(r.korean_name || r.english_name || '').trim());
-          }
-        } catch {}
-      }
-      const items = rows.map((r, i) => ({
-        rank: i + 1,
-        name: maskName(nameMap.get(r.student_uid) || r.student_uid),
-        count: r.n || 0, avg_score: r.avg_score || 0,
-      }));
-      // 내 순위 — 토큰 인증된 본인만
-      let me: any = null;
-      const lbUid = String(url.searchParams.get('uid') || '').trim();
-      if (lbUid) {
-        const authUid = await authUidGlobal(request, url, env);
-        if (authUid && authUid === lbUid) {
-          const mine: any = await env.DB.prepare(
-            `SELECT COUNT(*) AS n FROM ai_writing_corrections WHERE student_uid = ? AND created_at >= ?`
-          ).bind(lbUid, weekStartMs).first();
-          const myN = mine?.n || 0;
-          if (myN > 0) {
-            const above: any = await env.DB.prepare(
-              `SELECT COUNT(*) AS c FROM (SELECT student_uid FROM ai_writing_corrections
-               WHERE created_at >= ? AND student_uid IS NOT NULL AND student_uid != '' AND LOWER(student_uid) NOT LIKE 'guest%'
-               GROUP BY student_uid HAVING COUNT(*) > ?)`
-            ).bind(weekStartMs, myN).first();
-            me = { rank: (above?.c || 0) + 1, count: myN };
-          } else {
-            me = { rank: null, count: 0 };
-          }
-        }
-      }
-      return json({ ok: true, week_start: new Date(weekStartMs + KST_OFF).toISOString().slice(0, 10), items, me });
-    }
-    // ═══════════════════════════════════════════════════════════════
-    // ✍️ Phase AW 끝
-    // ═══════════════════════════════════════════════════════════════
-
+  const writingResponse = await handleWritingApi(request, url, env);
+  if (writingResponse) return writingResponse;
 
     // ═══════════════════════════════════════════════════════════════
     // 💬 Phase CF — AI 24시간 영어 친구 챗봇
@@ -657,12 +190,19 @@ Student text: """${text}"""`;
         .test(String(last.content || ''));
     };
     /* 🐢 "천천히 말해줘 / 다시 말해줘 / What? / 뭐라고?" 같은 부탁인가 — 무시하고 제 얘기만 하면 안 된다
-       ⚠️ 첫 줄 «I don't know» 하나만 이 화면이 더 받고, 나머지 세 줄은 정본 QM_REASK_KO·EN·ECHO(src/question-memory.ts)와 «글자 그대로» 같다.
-          하니스가 이 블록을 vm 으로 떼어 돌려 import 를 못 쓴다 — 한쪽만 고치지 말 것(ai_friend_no_repeat_question_harness ①-18 이 원문 대조). */
+       ⚠️ 네 줄 모두 정본 QM_REASK_KO·EN·ECHO·DONT_KNOW_MEANING(src/question-memory.ts)과 «글자 그대로» 같다.
+          하니스가 이 블록을 vm 으로 떼어 돌려 import 를 못 쓴다 — 한쪽만 고치지 말 것(ai_friend_no_repeat_question_harness ①-18 이 원문 대조).
+       🔴 (2026-11-05 실측) 예전엔 영어 줄 맨 앞에 «I don't know» 가 «문장 어디서나» 붙어 있었다 — 「I don't know, anyway I like riding
+          a bicycle.」·「I don't know. But I love Beauty and the Beast」 까지 «천천히 말해 달라» 로 읽혀, 지난 기록의 «I don't know» 턴
+          대부분이 「Yes! I will speak slowly.」 로 시작했고 «훨씬 짧게» 지시 탓에 「You like bike.」 같은 깨진 영어가 나왔다.
+          ⛔ 되살리지 말 것. «답을 모른다»(그 말만)는 정본 isDontKnowAnswer 가 따로 받고(dontKnowHint), «뜻을 모른다» 는 넷째 줄이 받는다.
+       🔴 (2026-11-08 반복 검사 실측) 한국어 «모르겠» 도 같은 병이었다 — 첫째 줄에 «문장 어디서나» 있어 「모르겠어요, 근데 저는 축구 좋아해요」 에
+          «천천히» 힌트가 붙었다. 이제 «그 말만»(셋째 줄)일 때만 요청이다. ⛔ 첫째 줄에 되살리지 말 것(ai_friend_reply_fuzz_harness ①-3 이 잡는다). */
     const aiFriendIsMetaAsk = (s: string) =>
-      /(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:(?:다시|좀|한\s*번)\s*)?(?:말씀|말|얘기|읽어|설명)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:좀\s*)?해\s*(?:줘(?![서야])|주세요|주실래|줄래|주시겠)|못\s*알아\s*(?:들었|듣겠)|알아\s*듣기\s*(?:힘들|어려)|쉬운\s*말로\s*(?:(?:말|얘기|설명)\s*)?(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|모르겠|너무\s*(?:빠르게|빨리)\s*말|한\s*번\s*(?:더|만)\s*(?:말씀|말|얘기)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)/.test(String(s || '')) ||
-      /\bi don['’]?t know\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+slow down\b|\bslow down,? please\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:speak|talk|say (?:it|that)|read (?:it|that)|go)(?: english)?(?: a (?:little|bit))?(?: more)? (?:slowly|slower|slow)\b|\bplease(?: more)? (?:slowly|slower|slow)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:a (?:little|bit) )?(?:more )?(?:slowly|slower|slow|simpler|easier|shorter),? please\b|\byou(?:['’]re| are)?\s+(?:(?:talk|talking|speak|speaking)\s+(?:too|so|very|really)|too) fast\b|\byour (?:voice|talking|speaking) is (?:too|so) fast\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|tell me) (?:it |that )?(?:again|one more time)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+repeat(?: (?:it|that|please|again|the question|the sentence|one more time))?\b|\bi (?:don['’]?t|do not|can['’]?t|cannot|couldn['’]?t|didn['’]?t|not) (?:really )?understand(?: (?:you|that|it|this|anything|the question|your question|the word|the sentence|english|what you(?:['’]re| are) saying|what you (?:said|mean)|what (?:that|it) means))?(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|speak|talk|explain)(?: it| that)? (?:more )?(?:simply|simpler|easier|more easily|shorter)\b|\b(?:you|please)\s+make it (?:simple|simpler|easy|easier|short|shorter)\b|\b(?:simple|simpler|easy|easier|short|shorter) (?:words|english|sentences?),? please\b|\b(?:can you|please) use (?:easy|easier|simple|simpler) words\b|\b(?:didn['’]?t|can['’]?t|couldn['’]?t|did not|cannot|could not|don['’]?t) hear you\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+speak (?:up|slower|louder|more slowly)\b|\bwhat (?:was|is) the question\b/iu.test(String(s || '')) ||
-      /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？])[^\p{L}\p{N}]*$/iu.test(String(s || ''));
+      /(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:(?:다시|좀|한\s*번)\s*)?(?:말씀|말|얘기|읽어|설명)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|(?:천천히|느리게|쉽게|짧게|간단히|또박또박|크게|다시)\s*(?:좀\s*)?해\s*(?:줘(?![서야])|주세요|주실래|줄래|주시겠)|못\s*알아\s*(?:들었|듣겠)|알아\s*듣기\s*(?:힘들|어려)|쉬운\s*말로\s*(?:(?:말|얘기|설명)\s*)?(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)|너무\s*(?:빠르게|빨리)\s*말|한\s*번\s*(?:더|만)\s*(?:말씀|말|얘기)\s*(?:해\s*)?(?:줘(?![서야])|주세요|주실래|줄래|주시겠|주실\s*수|줄\s*수)/u.test(String(s || '')) ||
+      /\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+slow down\b|\bslow down,? please\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:speak|talk|say (?:it|that)|read (?:it|that)|go)(?: english)?(?: a (?:little|bit))?(?: more)? (?:slowly|slower|slow)\b|\bplease(?: more)? (?:slowly|slower|slow)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:a (?:little|bit) )?(?:more )?(?:slowly|slower|slow|simpler|easier|shorter),? please\b|\byou(?:['’]re| are)?\s+(?:(?:talk|talking|speak|speaking)\s+(?:too|so|very|really)|too) fast\b|\byour (?:voice|talking|speaking) is (?:too|so) fast\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|tell me) (?:it |that )?(?:again|one more time)\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+repeat(?: (?:it|that|please|again|the question|the sentence|one more time))?\b|\bi (?:don['’]?t|do not|can['’]?t|cannot|couldn['’]?t|didn['’]?t|not) (?:really )?understand(?: (?:you|that|it|this|anything|the question|your question|the word|the sentence|english|what you(?:['’]re| are) saying|what you (?:said|mean)|what (?:that|it) means))?(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+(?:say|speak|talk|explain)(?: it| that)? (?:more )?(?:simply|simpler|easier|more easily|shorter)\b|\b(?:you|please)\s+make it (?:simple|simpler|easy|easier|short|shorter)\b|\b(?:simple|simpler|easy|easier|short|shorter) (?:words|english|sentences?),? please\b|\b(?:can you|please) use (?:easy|easier|simple|simpler) words\b|\b(?:didn['’]?t|can['’]?t|couldn['’]?t|did not|cannot|could not|don['’]?t) hear you\b|\b(?:you|please|um+|uh+|sorry|oh|ok|okay|teacher|what|huh|too fast|too hard|again)[,.!?]?\s+speak (?:up|slower|louder|more slowly)\b|\bwhat (?:was|is) the question\b/iu.test(String(s || '')) ||
+      /^[^\p{L}\p{N}]*(?:(?:oh|um+|uh+|wait|아|음|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|wha+t?|huh|sorry|excuse me|뭐|뭐라고요?|too fast|너무\s*빨라요?)[^\p{L}\p{N}]+){0,2}(?:wha+t?|huh|pardon(?: me)?|i beg your pardon|come again|say what|what was that|what (?:did|do) you (?:say|said|mean|ask)|what did you just say|what you (?:say|said)|what does (?:it|that) mean|again\s*[?？]|(?:once )?again,? please|(?:one more time|once more)(?:\s*[?？]|,? please)|(?:please )?(?:say (?:it |that )?again|tell me again|slow down|repeat(?: (?:it|that|again|the question|the sentence|one more time))?|(?:speak|talk|say it|read it|go)(?: a (?:little|bit))?(?: more slowly| slower)|speak (?:up|louder)|explain (?:it |that )?(?:more )?simply|use (?:easy|easier|simple|simpler) words)(?:,? please)?|(?:speak|talk|say it|read it)(?: more)? slowly,? please|too fast(?: for me)?(?:,? (?:teacher|please))?|(?:you(?:['’]re| are) )?(?:talking|speaking) too fast|louder|slower|more slowly|don['’]?t understand(?:,? sorry)?|not understand|(?:a (?:little|bit) )?(?:more )?(?:slow|slower|louder|slowly|simpler|easier|shorter),? please|i (?:can['’]?t|cannot|couldn['’]?t) hear(?: you)?(?: well)?|sorry,? i (?:didn['’]?t|did not|couldn['’]?t) (?:hear|catch)(?: (?:that|it|you|what you said))?|뭐|머|뭐라고|뭐라구|뭐라고요|뭐라구요|뭐요|뭐라고\s*(?:하셨어요|하셨죠|하셨나요|했어요?|했니|했지)|다시요?|(?:다시\s*)?한\s*번\s*(?:만\s*)?(?:더\s*)?요|(?:잘\s*)?(?:안|못)\s*(?:들려요?|들렸어요?|들었어요?)|(?:잘\s*)?못\s*알아\s*들어요?|소리가?\s*(?:잘\s*)?(?:안\s*들려요?|작아요?)|무슨\s*(?:말|뜻|말씀)이(?:에요|야|예요|세요)?|이해(?:가|를)?\s*(?:안\s*(?:돼|되|가)|못\s*(?:했|해))[^\s\p{P}]*|(?:천천히|다시|느리게|쉽게|크게|또박또박)\s*(?:다시\s*)?(?:말|얘기)\s*해(?:\s*봐(?:요)?)?|(?:(?:좀|더|조금만?|다시)\s*)?(?:천천히|느리게|쉽게|짧게|간단히)(?:\s*(?:좀|다시))?(?:\s*해(?:\s*(?:줘|주세요))?|요)?|너무\s*(?:빨라요?|빠르다|빠르네요?)|(?:eh|네|응|예|에|엥|어|sorry|excuse me)\s*[?？]|(?:(?:선생님|쌤|teacher|어+|흠+|저도|저는|전|나도|난)[^\p{L}\p{N}]+){0,2}(?:(?:잘|정말|진짜|아직|하나도|전혀|좀|솔직히)\s*)?(?:(?:너무\s*)?(?:빨라서|빠르게\s*말해서|빨리\s*말해서|어려워서|길어서|안\s*들려서)\s*)?(?:(?:영어|질문|그\s*말|이\s*말|선생님\s*말)(?:를|을|가|이|는|은|도)?\s*)?(?:(?:(?:무슨|뭔)\s*(?:말|소리|뜻|말씀)인지|(?:무슨|뭔)\s*소린지|뭐라는지|뭐라시는지|뭐라고\s*(?:하는|하시는|하셨는|했는)지|뭔지)\s*)?(?:(?:잘|정말|진짜|하나도|전혀|좀)\s*)?모르겠(?:어요?|네요?|는데요?|습니다|다|음)?(?:[^\p{L}\p{N}]+(?:선생님|쌤|teacher|천천히(?:\s*(?:말해\s*)?(?:주세요|줘|요))?|다시(?:\s*(?:말해\s*)?(?:주세요|줘|요))?))?(?:[^\p{L}\p{N}]*[ㅠㅜ]+(?:\s[ㅠㅜ]+)?)?)[^\p{L}\p{N}]*$/iu.test(String(s || '')) ||
+      /\bi (?:don['’]?t|do not) (?:really )?know what (?:(?:(?:that|this|the) (?:word|question|sentence)|that|it|this|you) (?:means?|meant|said|say)|(?:(?:that|this|the) word )?["'“”‘’][\p{L}-]+["'“”‘’] (?:means?|meant)|(?:that|this|the) word [\p{L}-]+ (?:means?|meant)|you(?:['’]re| are) saying)(?=[^\p{L}\p{N}]*$|\s*[.!?](?:\s|$)|\s*,\s*(?:sorry|please|can you|could you|say|again|teacher)\b)|^[^\p{L}\p{N}]*(?:(?:um+|uh+|sorry|teacher|but|and|so|oh)[^\p{L}\p{N}]+){0,2}what (?:does|do) (?:(?:the|this|that) word(?: ["'“”‘’]?[\p{L}-]+["'“”‘’]?)?|["'“”‘’][\p{L}-]+["'“”‘’]) mean(?:[^\p{L}\p{N}]+(?:teacher|please|in korean))?[^\p{L}\p{N}]*$/iu.test(String(s || ''));
     /* 🈚 (2026-07-27 사장님 신고) Llama 가 한국어 팁을 쓰다 중국어 단어를 섞는다
        ("💡猴子들은 바나나와 많은 과일들을 좋아해요"). 영어친구챗 답변에 한자가 정당하게
        나올 일은 없다 — 한자가 섞인 💡팁은 통째로 떼고(팁은 선택 요소·반쪽 문장을 남기지
@@ -705,12 +245,13 @@ Student text: """${text}"""`;
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
       /* 🎯 집중교정이면 옛 게이트(두 번째부터·연달아 막기)를 건너뛰고 검증된 교정을 매번 보여 준다(2026-10-31). */
-      const friendMode = correctionModeOf(b.correction_mode);   // 🎚️ 값이 없으면 집중교정
-      const immediateFix = friendMode === 'focused';
+      const timing = (correctionTimingOf(b.correction_timing) || null);
+      const practiceSession = typeof b.practice_session === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(b.practice_session) ? b.practice_session : '';
+      const friendMode = correctionModeOf(timing === 'after-lesson' ? 'free_talk' : timing === 'key-mistakes' ? 'balanced' : b.correction_mode);
+      const immediateFix = friendMode === 'focused' || timing === 'immediate';
       /* 🎯 발음 교정 — 집중교정 + 음성(WAV) + 기준 낱말이 있을 때만 Azure 발음평가를 «미리» 돌린다.
          응답을 기다리게 하지 않으려고 여기서 시작하고, 응답을 만들 때 결과만 받는다(실패는 null). */
-      const pronIn: any = (friendMode === 'focused' && b.pron && typeof b.pron === 'object') ? b.pron : null;
-      const pronP: Promise<any> = pronIn ? assessPronFix(env as any, pronIn.audio_b64, pronIn.target) : Promise.resolve(null);
+      const pronIn: any = (friendMode === 'focused' && (!timing || timing === 'immediate') && b.pron && typeof b.pron === 'object') ? b.pron : null;
       /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
          ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
             학생이 고른 레벨이 리셋된 것처럼 보입니다. */
@@ -728,14 +269,18 @@ Student text: """${text}"""`;
       const authUid = await authUidGlobal(request, url, env, b);
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      // Start paid audio work only after the existing ownership gate.
+      const pronP: Promise<any> = pronIn ? assessPronFix(env as any, pronIn.audio_b64, pronIn.target) : Promise.resolve(null);
+      const awardRequestId=friendRequestId(b.request_id) || (b.request_id == null ? friendRequestId(b.progress_turn) : null);
 
       // 🐢 (2026-07-27) 응답 지연 최소화 — 서로 무관한 조회들을 순서대로 기다리지 않고 한꺼번에 보낸다.
       //   (gamSnapshot 은 "오늘 몇 번째 대화인가"를 이번 메시지가 기록된 뒤에 세야 정확해서
       //   여기서 같이 시작하지 않는다 — 채팅 로그 저장 이후에 계산한다.)
       const [recent, st, wk, turns, goalNow, pastFixes, vw]: any[] = await Promise.all([
-        /* 🔁 40줄 + 시각 — «같은 질문 두 번 금지» 의 기억(qmem)은 지금 이어지는 대화(1시간 넘게 쉬면 끊음) 40줄까지 본다.
+        /* 🔁 QM_FRIEND_ROWS(160줄) + 시각 — «같은 질문 두 번 금지» 의 기억(qmem)은 지금 이어지는 대화(1시간 넘게 쉬면 끊음)를 그만큼 본다.
+           (2026-11-08 운영 실측: 40줄일 때 20턴 넘은 대화에서 앞 질문을 잊고 또 물었다 — 정본 주석 question-memory.ts)
            ⚠️ 모델에게 보여 주는 대화(history)는 예전처럼 최근 20줄만 — 지시를 늘리지 않는다. */
-        env.DB.prepare(`SELECT role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT 40`).bind(uid).all(),
+        env.DB.prepare(`SELECT role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id DESC LIMIT ?`).bind(uid, QM_FRIEND_ROWS).all(),
         env.DB.prepare(`SELECT english_name, korean_name, textbook, level FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first().catch(() => null),
         // 🎯 약점 단어 — 정본 src/weak-words.ts(최근 60일 · 최근 먼저). 오래된 약점을 «요즘» 으로 말하지 않게.
         env.DB.prepare(`SELECT item, ko FROM game_progress WHERE user_id = ? AND lang = 'en' AND ${WEAK_WHERE} ORDER BY ${WEAK_ORDER} LIMIT 5`).bind(uid, weakSince(Date.now())).all().catch(() => null),
@@ -762,11 +307,14 @@ Student text: """${text}"""`;
       /* 🐢 학생이 «다시·천천히·모르겠어요» 를 부탁했거나 말이 잘려 «다시 말해 줘» 를 시킬 턴이면, 방금 질문을 다시 묻는 것이
          요청을 들어주는 것이다 — 그 질문은 기억에서 뺀다(reask). 그 앞에 물은 질문은 그대로 막는다.
          (2026-10-28 함정 대조 실측: 「Can you say that again slowly?」 → 「Sure! Is your dog big?」 가 새 질문으로 바뀌었다.)
-         ⚠️ «요청» 판정은 정본 isReaskRequest — 아래 metaHint(aiFriendIsMetaAsk)보다 좁다(영어 «I don't know» 는 «답» 으로 본다).
-            정본이 요청이라 하면 metaHint 도 반드시 켜진다(하니스 ①-18 대조) — 판정은 «다시 물어도 된다» 인데 지시는 안 시키는 일이 없게. */
-      const reaskTurn = isReaskRequest(msg) || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
+         ⚠️ «요청» 판정은 정본 isReaskRequest — 아래 metaHint(aiFriendIsMetaAsk)와 정규식 원문이 같다(하니스 ①-18 대조).
+            정본이 요청이라 하면 metaHint 도 반드시 켜진다 — 판정은 «다시 물어도 된다» 인데 지시는 안 시키는 일이 없게.
+         🤷 (2026-11-05) «I don't know» 그 말만(isDontKnowAnswer)도 이번 턴엔 그 질문을 기억에서 뺀다 — dontKnowHint 가
+            «같은 것을 쉽게·두 개 중 고르기로» 다시 묻게 하므로 그것이 반복으로 잡히면 안 된다. */
+      const dontKnowTurn = isDontKnowAnswer(msg);
+      const reaskTurn = isReaskRequest(msg) || dontKnowTurn || (aiFriendLooksCut(msg) && !aiFriendJustAskedAgain(history));
       let qmem: ReturnType<typeof questionMemory> = null;
-      try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
+      try { qmem = questionMemory(questionSession(historyAll, latT0), msg, { reask: reaskTurn, maxMsgs: QM_FRIEND_ROWS }); } catch (e: any) { console.warn('[chat-friend] question memory failed:', e?.message || e); }
       const repN = (t: string): number => { try { return repeatedQuestions(t, qmem).length; } catch { return 0; } };
 
       /* 🧑 이름은 학생이 고른다(Emma·Jake·Lily·Noah) — 예전에는 네 갈래가 전부 "named Mango" 라,
@@ -843,8 +391,12 @@ Student text: """${text}"""`;
          ⛔ 되묻기 강제를 «없애서» 풀지 마세요 — 기초 학생은 질문이 없으면 대화가 그 자리에서
             끝납니다(2026-09-03 결정). 여기서 하는 일은 «물어본 턴에만» 대답을 먼저 시키는 것입니다. */
       const studentAsked = aiFriendStudentAsked(msg);
+      /* 🙋 (2026-11-05 사장님 「F1~F5 진행」) 첫마디 줄(THIS TURN'S OPENER)과 «무엇보다 먼저 대답» 이 같은 첫 자리를 다퉜다 —
+         「What about you?」 에 대답한 것이 10/21 이후 4번 중 1번(실측). 이제 «첫마디는 두어 낱말까지, 그다음 문장이 곧 대답» 으로
+         자리를 나누고, 되묻기(What/How about you?)는 «같은 질문을 AI 자신에 대해» 답하라고 못 박는다.
+         ⛔ 예문을 문장째 주지 말 것 — 모델이 그대로 베낀다(그래서 «your own favorite, your own day» 처럼 틀만 준다). */
       const answerRule = studentAsked
-        ? '- 🔴 THE STUDENT JUST ASKED YOU SOMETHING. Answer it first, in one short sentence, before anything else. Answering matters more than the cheer — drop the cheer if you need the room. Never reply to a question by only asking another question.\n'
+        ? '- 🔴 THE STUDENT JUST ASKED YOU SOMETHING. Answer it in your FIRST sentence — only the short opener (if any) may come before it. If they ask "What about you?" or "How about you?", answer that same question about YOURSELF. Answering matters more than the cheer — drop the cheer if you need the room. Never reply to a question by only asking another question.\n'
         : '';
       const askRule = lvSpec.plain
         ? (studentAsked
@@ -884,13 +436,15 @@ ${AVATAR_NATURAL_OPENERS}\n${connectorCtx ? connectorCtx + '\n' : ''}- Use 1-2 f
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - NEVER write Korean inside "reply". Do not translate your own English, and do not add a grammar tip there — corrections go in the "fix" field below, which the student sees as its own card. Showing Korean next to the English stops them from reading the English at all, and they have a separate button for the meaning.
 - NEVER use Chinese characters (한자) or Japanese anywhere.
-${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
+${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it only when it fits the talk — never force it into an unrelated sentence or use it after sad news; skipping it is fine. Cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
 ${askedLine}- A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
-- If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
+- If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST agree to that request and then do it — use shorter, easier sentences right away, but keep every sentence complete and correct. Never ignore the request and carry on with your own topic.
+- "I don't know" means they don't know the answer, not "slow down": help with the same question (easier words or two choices). If they add something else, follow that.
 - Never break character. Never say you are an AI. Never use words far above the student's level.
 ${AI_FRIEND_CORRECTION_RULE}
-${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
+${immediateFix ? FOCUSED_DRAFT_RULE : ''}
+${timing ? 'Correction timing overrides earlier timing instructions: ' + correctionPrompt(timing) : ''}`;
 
       const messages: any[] = [{ role: 'system', content: system }];
       for (const h of history) {
@@ -907,8 +461,13 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         ? ` [The student's message is very short or cut off — do NOT guess and do NOT repeat your last reply. Reply in ONE short line and ask them to say the whole sentence again.]`
         : (aiFriendLooksCut(msg)
           ? ` [You already asked them to repeat last time — do NOT ask again. Warmly answer whatever you did understand and ask ONE easy question.]` : '');
+      /* 🔴 (2026-11-05 실측) 옛 문구 「much shorter and easier words」 를 모델은 «문법 낱말을 버려라» 로 읽었다 —
+         「Yes! You like bike. Do you ride bike today?」·「You like movie. What movie?」. 짧게 하되 «완전한 문장» 을 함께 못 박는다. */
       const metaHint = aiFriendIsMetaAsk(msg)
-        ? ` [The student is asking you to slow down / repeat / speak more simply. Say yes to that first, then answer again in much shorter and easier words.]` : '';
+        ? ` [The student is asking you to slow down / repeat / speak more simply, or did not understand you. Agree in a word or two first (for example "Sure!"), then say it again in shorter, easier words — but keep every sentence complete and correct: never drop little words like "do", "a" or "the".]`
+        : (dontKnowTurn
+          ? ` [The student does not know the answer to your last question. That is okay — say so kindly, then ask the same thing again in an easier way, with two choices to pick from. Use complete, correct sentences and stay on the same topic.]`
+          : '');
       messages.push({ role: 'user', content: msg + cutHint + metaHint });
 
       // env.AI 가 binding 안되어 있을 가능성 방어
@@ -966,10 +525,12 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
               겹친 시간까지 더하면 model_ms 가 전체 ms 보다 커진다. 안 겹친 나머지는 기다리는 쪽이 더한다. */
         const mT0 = Date.now();
         latTries++;
+        // ⚠️ «이 호출이 실제로 제약을 실었나» — 공유 friendRF 는 동시에 도는 다시 묻기가 먼저 꺼 버릴 수 있다(그러면 본 호출이 폴백 없이 실패).
+        const sentRF = friendRF;
         try {
           return await env.AI.run(model, friendAIOpts(msgs, maxTokens, temperature));
         } catch (rfErr: any) {
-          if (!friendRF || !isRfRejection(rfErr)) throw rfErr;
+          if (!sentRF || !isRfRejection(rfErr)) throw rfErr;
           console.warn('[chat-friend] response_format rejected, retrying without:', rfErr?.message || rfErr);
           friendRF = false;
           latTries++;
@@ -1002,7 +563,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       let streamTried = false;
       /* 🎚️ (2026-11-03) 이 턴의 계획 — 규칙으로 잡힌 교정·칭찬 위험·균형 «다시 묻기» 여부(순수 함수, 던지지 않음).
          ⚠️ 잘린 말·«천천히 말해 줘» 같은 부탁은 교정할 문장이 아니다(cut). */
-      const turnPlan = planFriendTurn(friendMode, msg, { cut: aiFriendLooksCut(msg) || aiFriendIsMetaAsk(msg) });
+      const turnPlan = planFriendTurn(friendMode, msg, { cut: aiFriendLooksCut(msg) || aiFriendIsMetaAsk(msg) || dontKnowTurn });   // «I don't know» 그 말만은 교정할 문장이 아니다(예전처럼 다시 묻기 안 함 — 속도 그대로)
       /* 🔁 미리듣기 멈춤 — 이 대화에서 이미 물은 질문이 나오면 그 문장부터 안 흘려보낸다(최종본은 아래에서 다시 뽑힌다).
          안 멈추면 학생이 같은 질문을 «먼저 듣고», 그다음 바뀐 답을 또 듣는다.
          ⚠️ 시간 예산을 넘긴 턴은 다시 안 뽑으니 멈추지도 않는다(웜업 createWarmupLive 와 같은 규칙).
@@ -1073,6 +634,24 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         ? recheckBalancedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))   // 480 = 집중교정 recoverFocusedFix 와 같은 여유(JSON 잘림 방지)
         : null;
       if (recheckP) recheckP.then((f: any) => previewGate.recheck(!!f));
+      /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리 응답」) 집중교정 «교정만 다시 묻기» 를
+         본 호출과 «동시에» 시작한다 / Focused mode: start the correction recheck alongside the main call.
+         [왜] 예전에는 본 답이 «다» 만들어진 뒤에야 이 호출을 «차례로» 불렀다 — 맞는 문장(교정 없음)이면 매 턴
+              모델 왕복이 하나 더 붙었고, 집중교정은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
+         ⚠️ 쓰는 «순서» 는 그대로다 — 모델의 교정 → 과거형 보완 → 콩글리시 → 답장 속 «You can say» → 이것(아래 waitFocusedRecover).
+            그래서 규칙 보완이 잡는 문장이면 시작하지 않는다(어차피 안 쓰인다). 모델이 교정을 주면 결과를 버린다(호출 하나가 헛돈다 — 그 비용과 바꾼 것).
+         ⚠️ 모델 시간(latModelMs)에는 «본 호출과 안 겹친 나머지» 만 더한다 — 균형 다시 묻기와 같은 규칙(overlap).
+         ⛔ 던지지 않는다 — recoverFocusedFix 가 스스로 삼키고, 혹시 몰라 .catch 로 한 번 더 막는다(실패 = 교정 없음 = 예전과 같은 방향).
+         ⚠️ 본 호출이 «먼저» 나가게 한 박자(마이크로태스크) 뒤에 시작한다 — 바로 아래 for 문이 await 없이 곧장 env.AI.run 을 부르므로
+            그다음 차례에 이것이 돈다(여전히 «동시에»). 가짜 모델을 쓰는 하니스들이 «첫 호출 = 대화 답» 으로 대본을 짜 두었다
+            (CLAUDE.md 2장 «새 모델 호출을 더하면 대본이 한 칸 밀립니다» — conversation_connectors 가 실제로 밀렸다). */
+      const focusedRuleFix = () => focusedCandidate(backfillPastTenseFix(msg), msg)
+        || focusedCandidate(konglishFix(msg), msg);
+      const focusedRecoverP: Promise<any> | null =
+        (immediateFix && !focusedRuleFix())
+          ? Promise.resolve().then(() => recoverFocusedFix(msg, async (msgs: any[]) => await runFriend(models[0], msgs, 480, 0.2, true))).catch(() => null)
+          : null;
+      const runMainReply = (model: string, run = runFriend) => run(model, messages, 300, 0.8);
       for (const m of models) {
         try {
           /* 스트리밍은 «한 번만» 시도합니다 — 실패하면 같은 모델을 옛 방식으로 다시 불러
@@ -1081,13 +660,13 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           if (wantStream && sseSend && !streamTried) {
             streamTried = true;
             try {
-              resp = await runFriendStreaming(m, messages, 300, 0.8);
+              resp = await runMainReply(m, runFriendStreaming);
             } catch (se: any) {
               console.warn('[chat-friend] stream call failed, falling back:', se?.message || se);
-              resp = await runFriend(m, messages, 300, 0.8);
+              resp = await runMainReply(m);
             }
           } else {
-            resp = await runFriend(m, messages, 300, 0.8);
+            resp = await runMainReply(m);
           }
           reply = takeFriendReply(resp);
           if (reply) { usedModel = m; commitFix(); break; }
@@ -1107,7 +686,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       if (!reply) {
         friendRetry = await retryFriendModels({
           models, startedAt: latT0,
-          call: (rm) => runFriend(rm, messages, 300, 0.8),
+          call: (rm) => runMainReply(rm),
           take: (r) => takeFriendReply(r),
           onError: (rm, e: any) => { lastErr = e; console.error(`[chat-friend] retry model ${rm} failed:`, e?.message || e); },
         });
@@ -1136,11 +715,21 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⚠️ 다시 뽑은 것이 «같은 질문이 없거나 줄었고» 글자 반복도 아닐 때만 받는다 — 아니면 원래 답(대화를 끊지 않는다).
          ⚠️ 던지지 않는다 — 모델이 던지면 거기서 멈추고 지금까지의 답을 쓴다. */
       if (reply && usedModel && immediateFix) {
+        /* ⚡ 위에서 미리 시작한 다시 묻기를 받는다 — 안 겹친 나머지만 모델 시간에 더한다.
+           ⚠️ 미리 부른 것은 첫 모델(models[0])이다. 본 답이 «폴백 모델» 에서 나왔고 미리 부른 것이 빈손이면
+              예전처럼 그 모델로 한 번 더 묻는다(첫 모델이 흔들린 턴에 교정을 잃지 않게). */
+        const waitFocusedRecover = async (): Promise<any> => {
+          if (!focusedRecoverP) return await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+          const w0 = Date.now();
+          let got: any = null;
+          try { got = await focusedRecoverP; } finally { latModelMs += Date.now() - w0; }
+          if (!got && usedModel !== models[0]) got = await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+          return got;
+        };
         focusedFix = focusedCandidate(rawFix, msg)
-          || focusedCandidate(backfillPastTenseFix(msg), msg)
-          || focusedCandidate(konglishFix(msg), msg)
+          || focusedRuleFix()
           || focusedReplyFix(reply, msg)
-          || await recoverFocusedFix(msg, (msgs) => runFriend(usedModel, msgs, 480, 0.2));
+          || await waitFocusedRecover();
         if (focusedFix) { rawFix = focusedFix; reply = focusedFix.now; }
       }
       if (reply && usedModel && !focusedFix) {
@@ -1299,9 +888,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         /* 🇰🇷 모델이 고친 것이 없으면(뜻이 통해 넘어간 경우) 규칙 보완(과거형·콩글리시 표)으로 한 번 더 본다.
            🎚️ 그래도 없으면 균형 «다시 묻기» 결과(이미 본 호출과 동시에 돌고 있다 — 안 겹친 나머지만 기다린다).
            ⛔ 모델의 교정이 있으면 그것이 먼저다 — 보완·다시 묻기는 «모델이 놓친 것» 만 받는다.
-           ⚠️ 이 식의 규칙 보완은 friend-correction-flow.ts 의 deterministicFriendFix(turnPlan.detFix)다.
-              집중교정 경로(위 focusedCandidate 줄)는 아직 backfill·konglish 를 «같은 순서로» 직접 부른다 —
-              규칙을 더할 때 두 자리를 함께 볼 것(합치는 것은 집중교정 하니스가 걸린 별건).
+           ⚠️ 이 식은 turnPlan.detFix를 쓴다. 집중교정의 focusedRuleFix는 두 후보에 집중교정 검증을 별도로 적용한다.
            ⏱ 다시 묻기는 «본 답이 끝난 뒤» 최대 RECHECK_EXTRA_WAIT_MS 만 더 기다린다(함정 대조 2026-11-03 — 상한이 없었다).
               모델이 다 실패한 폴백 턴이면 기다리지 않는다(학생이 못 볼 교정을 «보여 줬다» 로 남기지 않게). */
         const waitRecheck = async () => {
@@ -1320,7 +907,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
            낱말 안 겹침…). 평문·빈 응답에는 이미 로그가 있는데 이것만 없었습니다.
            ⛔ 학생 발화나 교정 문장을 로그에 싣지 마세요 — «버렸다» 는 사실만 남깁니다. */
         if (!verified && rawFix) console.warn('[chat-friend] fix rejected by verify');
-        if (verified) {
+        if (verified && showDuringPractice(timing, verified)) {
           /* 이번 답장까지 세어 1부터 시작한다.
              🔴 2026-09-09 까지는 turnNo 가 1 이면 게이트가 «막았습니다» — `turnCount - lastShownTurn(0) < 2`
                 가 1-0=1 로 걸려 «학생의 맨 첫 마디» 는 원리상 교정해 줄 수 없었습니다(정본을 돌려 실측).
@@ -1331,7 +918,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
                 ⛔ 「조회가 실패해도 전부 통과한다」고 적지 마세요 — major 만 통과합니다. */
           if (!turns) console.warn('[chat-friend] turn count query failed — 작은 실수 교정이 계속 막힙니다');
           const turnNo = Number((turns && (turns as any).n) || 0) + 1;
-          const mkey = 'aifriendfix:' + uid;
+          const mkey = 'aifriendfix:' + uid + (timing && practiceSession ? ':' + practiceSession : '');
           let memoIn: any = null;
           try {
             const rawMemo = (env as any).SESSION_STATE ? await (env as any).SESSION_STATE.get(mkey) : null;
@@ -1348,11 +935,15 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           const decided = decideWarmupFixShow(verified, memoIn, turnNo, { immediate: immediateFix });
           // 🎚️ 모드별 게이트 — 자유대화는 따라 말하기 없음, 집중교정은 검증된 교정을 매번(warmup-honest gateFixForMode).
           showFix = gateFixForMode(friendMode, verified, decided.show, false).show;
+          const shown = Number.isSafeInteger(memoIn?.timingShown) ? memoIn.timingShown : 0;
+          if (timing === 'after-lesson' || (timing === 'key-mistakes' && (!(env as any).SESSION_STATE || verified.severity !== 'major' || shown >= 3))) showFix = null;
+          (decided.memo as any).timingShown = shown + (timing === 'key-mistakes' && showFix ? 1 : 0);
           // 🔁 보여 준 교정은 남겨 다음 대화에서 다시 쓰게 한다(KV 메모는 6시간 «간격» 만 기억). 던지지 않는다.
           if (showFix) await logAiFriendFix(env.DB, uid, showFix, Date.now());
           offerRepeat = warmupShouldOfferRepeat(decided.show, decided.memo, turnNo);
           if (friendMode === 'free_talk') offerRepeat = false;
           else if (friendMode === 'focused') offerRepeat = !!showFix;
+          if (timing === 'after-lesson' || !showFix) offerRepeat = false;
           try {
             if ((env as any).SESSION_STATE) {
               await (env as any).SESSION_STATE.put(mkey, JSON.stringify(decided.memo), { expirationTtl: 6 * 3600 });
@@ -1372,9 +963,21 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
          ⚠️ 저장(아래 INSERT)·응답 «전» 이어야 학생이 들은 문장과 다음 턴이 읽는 기록이 같다. */
       reply = finishFriendReply(reply, { mode: friendMode, verified: verifiedFix, shown: showFix, msg, fallback: usedFallback, suspect: !!rawFix });
 
+      /* 📦 화면이 «답» 을 그리고 읽는 데 쓰는 칸 — 아래 final 이벤트와 마지막 응답(done)이 «같은 함수» 로 만든다.
+         ⛔ 두 곳에 따로 적지 마세요 — 한쪽만 고치면 «먼저 읽은 답» 과 «정본» 이 갈립니다. */
+      const replyOut = (): any => ({
+        // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
+        //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
+        ...(usedFallback ? { ai_unavailable: true } : {}),
+        fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
+        ...(!usedFallback && timing === 'after-lesson' && verifiedFix ? { review_fix: verifiedFix } : {}),
+        // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
+        ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}),
+      });
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
       //   이번 메시지를 못 세거나(레이스) 다음 새로고침에야 반영돼 부정확해진다.
+      let chatSaved=false;
       try {
         const now = Date.now();
         await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'user', msg, level, now).run();
@@ -1388,10 +991,34 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
            ⚠️ 대신 폴백의 흔적이 D1 에 안 남습니다 — 이 뒤로 빈도의 정본은 아래 console.error 뿐입니다. */
         if (!usedFallback) {
           await env.DB.prepare(`INSERT INTO ai_friend_chats (student_uid, role, content, level, created_at) VALUES (?,?,?,?,?)`).bind(uid, 'assistant', reply, level, now + 1).run();
+          chatSaved=true;
         }
       } catch (e: any) {
         console.error('[chat-friend] DB insert failed:', e?.message || e);
         // DB 실패해도 reply는 반환
+      }
+
+      const captured = !usedFallback && chatSaved
+        ? await recordSpeakingTurn(request, env, b, { app:'friend',student:msg,assistant:reply,correction:verifiedFix?.now || '' }) : false;
+      const rewardSession = captured && friendRequestId(b.progress_turn) === awardRequestId ? String(b.progress_session) : undefined;
+
+      /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 더 빨리」) 최종 답을 «먼저» 보낸다 / Send the final reply first.
+         [왜] 예전에는 포인트(D1 조회·적립 여러 번 «차례로»)·지연 기록·발음 채점까지 «다» 끝난 뒤에야 done 한 번으로
+              답을 보냈다. 집중교정(기본값)은 미리듣기가 없어서 그 시간을 학생이 통째로 기다렸다.
+         [어떻게] 기록 저장(위 대화 INSERT 2 + 말하기 세션 기록) «뒤», 포인트 «앞» 에서 final 이벤트로 먼저 보내고,
+              나머지는 스트림을 연 채로 이어서 한다 — 응답 본문을 흘리는 동안은 워커가 살아 있다(Cloudflare 문서
+              «A Worker that is still streaming a response body remains active»). 포인트·발음(pron_fix)은 예전처럼 done 에 실린다.
+         ⚠️ 저장을 final «앞» 에 둔 이유(함정 대조 2026-11-06): 답을 듣자마자 앱을 닫아 접속이 끊기면 그 뒤 작업은 취소될 수 있다 —
+            «학생은 들었는데 그 턴이 기록에 없다» 가 되지 않게, 들은 문장(이 reply)이 먼저 저장된다. 대가는 D1 쓰기 몇 번(수십 ms).
+            끊겨서 못 받을 수 있는 것은 포인트뿐이다(«덜 주는» 쪽 — 화면은 done 이 와야 +P 를 그린다).
+            화면은 done 이 올 때까지 보내기 버튼을 잠가 두므로 다음 턴이 포인트 처리보다 먼저 올 수도 없다.
+         ⛔ 옛 화면은 final 을 모른다 — data 줄을 «done 이 아니면 문장(t)» 으로만 읽어서 t 가 없는 이 이벤트는 그냥 지나간다(예전과 같음).
+         ⛔ JSON 경로(stream 미사용)에는 보내지 않는다 — 응답 계약 그대로.
+         ⛔ 이 블록을 저장 «위» 로 되돌리지 마세요 — ai_friend_speed_harness ②-8·②-9 가 잡습니다. */
+      let latFinalMs = 0;   // ⏱ 학생이 «답» 을 받은 시각(스트리밍) — 지연 기록의 ms 는 이것(없으면 끝까지)
+      if (sseSend) {
+        sseSend({ final: 1, ok: true, reply, ...replyOut() });
+        latFinalMs = Date.now() - latT0;
       }
 
       // 🎮 게임화 — 포인트/스트릭/오늘의 단어 보너스. 실패해도 채팅 응답은 정상 반환.
@@ -1401,7 +1028,7 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       try {
         gam = await aiFriendGamSnapshot(uid);
         gam.awarded = 0; gam.word_bonus = 0; gam.voice_bonus = 0; gam.listen_bonus = 0;
-        if (!/^guest/i.test(uid)) {
+        if (!/^guest/i.test(uid) && !usedFallback && chatSaved && awardRequestId && (!b.progress_session || rewardSession)) {
           await ensurePointTables(env);
           const KST_OFF = 9 * 3600 * 1000;
           const todayMs = Math.floor((Date.now() + KST_OFF) / 86400000) * 86400000 - KST_OFF;
@@ -1409,9 +1036,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
             const c: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM point_rule_log WHERE user_id=? AND rule_code=? AND triggered_at>=?`).bind(uid, code, todayMs).first();
             return c?.c || 0;
           };
-          // ⚠️ 적립 자체(logAward)는 잔액을 읽고-쓰는 순서라 같은 유저에 대해 동시 실행하면
-          //   레이스로 한쪽 적립이 유실될 수 있다 — 반드시 순서대로. "오늘 이미 썼나" 조회만
-          //   서로 무관한 읽기라 한꺼번에 보낸다.
+          // 각 지급은 D1 batch 안에서 청구·한도·지갑·두 원장을 함께 커밋한다.
+          // 아래 조회는 표시와 불필요한 시도 감소용이며, 최종 지급 판단은 원자적 SQL에서 한다.
           const logAward = async (code: string, amount: number, label: string) => {
             /* 🪙 (2026-09-01) 하루 전체 상한(100점)을 여기서도 본다 — 정본 checkEarnAllowed.
                ⚠️ **«줬는지» 를 반드시 돌려준다.** 처음엔 조용히 return 했는데, 부르는 쪽이
@@ -1419,11 +1045,10 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
                   말했다(ai-friend.html 이 그 값으로 축하 토스트를 그린다). 없는 포인트를 지어내는
                   것은 상한을 넘기는 것보다 나쁘다 — 규칙서 2장 「⛔ 지어내지 마세요」.
                ⚠️ 여기서 던지지는 않는다 — 포인트가 대화를 막으면 안 된다. */
-            const allow = await checkEarnAllowed(env, uid, code, amount);
-            if (!allow.ok) { console.log('[ai-friend] 포인트 상한 — 적립 건너뜀:', code, allow.error); return false; }
-            const r = await applyPointTransaction(env, { userId: uid, type: 'earn', amount, reason: label, ruleCode: code });
-            await env.DB.prepare(`INSERT INTO point_rule_log (user_id, rule_code, amount, triggered_at, txn_id, meta) VALUES (?,?,?,?,?,NULL)`).bind(uid, code, amount, Date.now(), r.txnId).run();
-            return true;
+            const policy=FRIEND_AWARDS[code as keyof typeof FRIEND_AWARDS];
+            if(!policy||policy.amount!==amount)return false;
+            try{return (await creditFriendAward(env.DB,uid,awardRequestId,code as keyof typeof FRIEND_AWARDS,rewardSession))===amount;}
+            catch{console.warn('[ai-friend] atomic award unavailable',code);return false;}
           };
           const wod = gam.word;
           const wantWord = !!(wod && new RegExp(`\\b${wod.w}\\b`, 'i').test(msg));
@@ -1447,7 +1072,9 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
           if (wantVoice && voiceUsed < 5 && await logAward('ai_friend_voice', 1, '영어로 말하기')) gam.voice_bonus = 1;
           if (wantListen && listenUsed < 5 && await logAward('ai_friend_listen', 1, '자막 없이 듣기')) gam.listen_bonus = 1;
           /* 🪙 이번 턴에 대화 포인트를 못 받은 이유 — 화면이 «왜 0P 인지» 를 말하게. 'daily'=오늘 10번 다 받음 · 'total'=하루 전체 상한 */
-          gam.chat_capped = chatUsed >= 10 ? 'daily' : (gam.awarded ? null : 'total');
+          const afterChatUsed=gam.awarded?chatUsed:await usedToday('ai_friend_chat');
+          const afterAllowance=gam.awarded?{ok:true}:await checkEarnAllowed(env,uid,'ai_friend_chat',2);
+          gam.chat_capped=afterChatUsed>=10?'daily':(!afterAllowance.ok?'total':null);
           if (gam.earned_today != null) gam.earned_today = Number(gam.earned_today) + gam.awarded + gam.word_bonus + gam.voice_bonus + gam.listen_bonus;
         }
       } catch (e: any) {
@@ -1466,7 +1093,9 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
         await recordAiLatency(env, {
           feature: 'chat-friend',
           model: usedModel || 'fallback',
-          ms: Date.now() - latT0,
+          /* ⏱ (2026-11-06) 스트리밍이면 «final 을 보낸 시각» — 그 뒤 저장·포인트는 학생이 기다리지 않는다.
+             ⚠️ 그래서 이날부터 chat-friend 의 ms 는 그 앞보다 «저장·포인트 시간만큼» 작게 나온다(재는 자리가 바뀐 것 — 비교할 때 감안). */
+          ms: latFinalMs || (Date.now() - latT0),
           model_ms: latModelMs,
           tries: latTries,
           chars: (reply || '').length,
@@ -1479,14 +1108,13 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       }
 
       const pronFix = await pronP;   // 🎯 발음 교정 결과(없으면 null)
+      const progress=practiceSession?speakingObservation({sessionId:practiceSession,turn:latT0,input:msg,lang:'en',ok:!usedFallback,kickoff:false,grade:null,fix:verifiedFix,eventId:awardRequestId||undefined}):null;
+      if(progress&&chatSaved&&awardRequestId)await logSpeakingGrowth(env.DB,uid,'friend',progress,awardRequestId);
+
       return { ok: true, reply, level, persona, model: usedModel || 'fallback', gam,
-                    // 🚨 «AI 가 답을 못 만들었다» 를 화면이 알 수 있게. 옛 화면은 이 칸을 모르고
-                    //    그냥 reply 를 그리므로 «고치기 전» 과 같습니다(안전한 방향).
-                    ...(usedFallback ? { ai_unavailable: true } : {}),
-                    fix: usedFallback ? null : showFix, repeat: usedFallback ? false : offerRepeat,
-                    ...(pronFix ? { pron_fix: pronFix } : {}),
-                    // 📡 스트리밍으로 미리 보낸 문장과 최종본이 «다른가» — 화면이 그때만 다시 읽습니다.
-                    ...(wantStream ? { replaced: streamedText && streamedText.trim() !== reply.trim() ? 1 : 0 } : {}) };
+                    progress,
+                    ...replyOut(),   // ai_unavailable · fix · repeat · replaced — final 이벤트와 같은 함수(위 replyOut)
+                    ...(pronFix ? { pron_fix: pronFix } : {}) };
       };
 
       /* 📡 옛 경로 — stream 을 안 보내면 지금까지와 똑같습니다. */
@@ -1518,14 +1146,20 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       } });
     }
 
+    // 기록 조회·레벨 응답·초기화는 같은 소유자 판정을 사용한다.
+    const denyChatHistoryAccess = async (uid: string, body?: unknown): Promise<Response | null> => {
+      const authUid = await authUidGlobal(request, url, env, body);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      return null;
+    };
+
     if (method === 'GET' && path === '/api/ai/chat-history') {
       await ensureChatSchema();
       const uid = String(url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 열람 차단)
-      const authUid = await authUidGlobal(request, url, env);
-      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const denied = await denyChatHistoryAccess(uid);
+      if (denied) return denied;
       const rs = await env.DB.prepare(
         `SELECT id, role, content, created_at FROM ai_friend_chats WHERE student_uid = ? ORDER BY id ASC LIMIT 200`
       ).bind(uid).all();
@@ -1558,9 +1192,8 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       if (String(b.action || '') !== 'level_suggest') return json({ ok: false, error: 'unknown_action' }, 400);
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      const authUid = await authUidGlobal(request, url, env, b);
-      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const denied = await denyChatHistoryAccess(uid, b);
+      if (denied) return denied;
       const okRec = await recordSuggestAnswer(env.DB, uid, 'aifriend',
         { from: b.from, to: b.to, decision: b.decision, evidence: b.evidence }, Date.now());
       return okRec ? json({ ok: true }) : json({ ok: false, error: 'bad_answer' }, 400);
@@ -1571,11 +1204,10 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-      // 🔐 IDOR 방지 — 서명 토큰의 uid 와 요청 uid 일치 필수 (타인 대화 삭제 차단)
-      const authUid = await authUidGlobal(request, url, env, b);
-      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+      const denied = await denyChatHistoryAccess(uid, b);
+      if (denied) return denied;
       await env.DB.prepare(`DELETE FROM ai_friend_chats WHERE student_uid = ?`).bind(uid).run();
+      await clearSpeakingSessions(env, uid);
       /* ✏️ 교정 메모도 함께 지운다 (2026-09-09 함정 대조).
          턴 수는 위 DELETE 로 0 으로 돌아가는데 KV 의 lastShownTurn 은 6시간 남아 있어서,
          「대화 초기화」를 누른 학생은 최대 6시간 동안 교정이 조용히 억제된다.
@@ -1588,51 +1220,5 @@ ${immediateFix ? FOCUSED_DRAFT_RULE : ''}`;
     // 💬 Phase CF 끝
     // ═══════════════════════════════════════════════════════════════
 
-    // 🥭 Phase 21 — AI 명령 (Workers AI Llama 3.3 70B)
-    //   POST /api/admin/ai-command  { command: string }
-    //     · 자연어 명령을 의도 분류 (answer / navigate / query / action)
-    //     · query intent 는 서버에서 자동 도구 실행 후 결과 반환
-    //     · action intent 는 confirm_text 만 반환 (실행은 ai-action 엔드포인트)
-    //   POST /api/admin/ai-action   { name: string, args: object }
-    //     · 사용자가 confirm 다이얼로그 OK 한 후 호출
-    //     · 화이트리스트 액션만 실행 (send_kakao_self/issue_sticker/mark_intervention)
-    // ════════════════════════════════════════════════════════════
-    if (method === 'POST' && path === '/api/admin/ai-command') {
-      if (!env.AI) {
-        return json({ ok: false, error: 'ai_binding_missing',
-                      hint: 'wrangler.toml 에 [ai] binding=AI 설정 후 재배포 필요' }, 503);
-      }
-      const body = await parseJsonBody(request);
-      const command = body?.command || '';
-      if (!command) return json({ ok: false, error: 'command_required' }, 400);
-      // 🌐 프런트에서 전달한 언어 힌트 (en/ko) — AI 답변 언어 결정
-      const lang = (body?.lang === 'en') ? 'en' : 'ko';
-      const result = await processAiCommand(env, command, lang);
-      return json(result, result.ok === false ? 500 : 200);
-    }
-
-    // 🎒 학생 검색창 AI — 관리자 ai-command 와 동일 엔진, 학생 스코프 (공개)
-    //   POST /api/student/ai-command  { command }
-    if (method === 'POST' && path === '/api/student/ai-command') {
-      const body = await parseJsonBody(request);
-      const command = body?.command || '';
-      if (!command) return json({ intent: 'answer', answer: '검색어를 입력해주세요.' }, 200);
-      const result = await processStudentCommand(env, command);
-      return json(result, 200);
-    }
-
-    if (method === 'POST' && path === '/api/admin/ai-action') {
-      const body = await parseJsonBody(request);
-      const name = body?.name || '';
-      const args = body?.args || {};
-      if (!name) return json({ ok: false, error: 'name_required' }, 400);
-      // 🔒 adminUserId 는 감사로그(created_by/by) 귀속용 — 클라이언트가 임의로 보낼 수 있는
-      //   x-admin-user-id 헤더 대신, 세션쿠키에서 검증된 실제 로그인 사용자로 고정한다.
-      const _aiSess = await checkAdminSession(request, env as any);
-      const adminUserId = _aiSess.ok ? (_aiSess.username || null) : null;
-      const result = await executeAction(env, name, args, adminUserId);
-      return json(result, result.ok === false ? 400 : 200);
-    }
-
-  return null;  // 이 도메인 라우트가 아님 → 호출측이 기존 라우팅 계속
+  return handleAiCommandApi(request, url, env);
 }

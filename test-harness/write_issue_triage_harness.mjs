@@ -29,7 +29,7 @@ const PUB = join(ROOT, 'cloudflare-deploy/public');
 const TRI_SRC = readFileSync(join(SRC, 'write-issue-triage.ts'), 'utf8');
 const CR_SRC = readFileSync(join(SRC, 'correction-reason.ts'), 'utf8');
 const KO_SRC = readFileSync(join(SRC, 'ko-readable.ts'), 'utf8');   // 🔤 2026-11-01 «읽을 수 있는 한국어» 공용 정본
-const AI_SRC = readFileSync(join(SRC, 'api-ai.ts'), 'utf8');
+const AI_SRC = readFileSync(join(SRC, 'api-ai-writing.ts'), 'utf8');
 const HTML = readFileSync(join(PUB, 'ai-write.html'), 'utf8');
 const SEED = Number(process.env.TRIAGE_SEED || 20261101) >>> 0;
 const QUIET = process.env.TRIAGE_QUIET === '1';

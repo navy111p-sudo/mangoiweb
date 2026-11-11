@@ -21,8 +21,51 @@ export interface CapiLevel {
   difficulty: number;       // 웜업 엔진 수준(src/index.ts WARMUP_LEVELS 1~8)
   age: CapiAge;             // 웜업 엔진 연령대(src/warmup-audience.ts)
   cefr: string;             // 지시문에 싣는 수준 설명
+  ask: string;              // 이 레벨에서 «물어도 되는 질문» 규칙(지시문에만 싣는다 — 화면엔 안 보낸다). 아래 ASK_* 참고
+  follow: string;           // 후속 턴 «대답 이어받기» 규칙(레벨마다 — 아래 FOLLOW_*). 시작 턴엔 안 싣는다
   topics: CapiTopic[];
 }
+
+/* ❓ 레벨별 «물어도 되는 질문» 사다리 (2026-11-05 이병엽 이사님 피드백)
+ *  발단: Level 3 「가장 좋아하는 동물」에서 아이가 진돗개를 말하자 AI 가
+ *        "Why do you think Jindo dogs are loyal to only one master?" 를 물었고, 다음 질문도
+ *        «왜 진돗개가 좋은 반려견으로 여겨지나» 였다 — 한국어로도 답하기 어려운 이유·지식 질문이라 대화가 끊긴다.
+ *  원인: 후속 질문 지시가 레벨과 상관없이 «why, how, … what they think» 를 시키고 있었다(Level 2 는 엔진의
+ *        «Yes/No·양자택일만» 지시와 정반대였다).
+ *  사다리: L2 예/아니오·둘 중 고르기 → L3 + 짧은 What/Who/Where/When(왜·어떻게 금지)
+ *          → L4 «내 선택» 에 대한 why 까지 → L5 내 생각(의견)까지.
+ *  공통: 아이 자신의 삶(경험·가진 것·좋아하는 것·바람)만 묻고, 공부해야 아는 사실·이유는 묻지 않는다.
+ *        AI 가 방금 말한 사실을 퀴즈로 되묻지 않는다(진돗개 사고가 정확히 이 모양).
+ *  ⚠️ 프롬프트(확률)일 뿐이다 — 생성된 질문을 검사해 다시 뽑는 단계는 웜업 엔진(src/index.ts, 공동 금지구역)
+ *     몫이라 사람 승인 대기. 감시: test-harness/eleader_capi_topics_harness.mjs ⑨절. */
+const ASK_COMMON =
+  `Question rule: ask only about the learner's own life (what they did, have, like, want or feel). ` +
+  `Never ask them to explain facts they would need to study, and never quiz them on a fact you just told them. `;
+const ASK_L2 =
+  `Level rule: only Yes/No questions or A-or-B choices with both answer words in the question, under 8 words. ` +
+  `Never ask Why or How questions, and never ask what they think. `;
+const ASK_L3 =
+  `Level rule: Yes/No, A-or-B, or a short What/Who/Where/When question about the learner, under 10 words. ` +
+  `Never ask Why or How questions, and never ask what they think about something. `;
+const ASK_L4 =
+  `Level rule: simple questions about the learner's own experience, under 12 words. ` +
+  `You may ask "Why do you like it?" about their own choices and feelings, but not about facts. `;
+const ASK_L5 =
+  `Level rule: you may ask why, how or what they think about their own life and ideas, under 15 words, ` +
+  `but never ask for exact facts, numbers or expert explanations. `;
+/** 후속 턴 «대답 이어받기» — 레벨마다 따로(⚠️ L2 에 «이름·장소·때» 를 시키면 What/Where 질문이 되어 L2 규칙·엔진과 정반대). */
+const FOLLOW_L2 =
+  `Build on their answer with a Yes/No or A-or-B question: if they said yes, ask about one detail (like "Is it big or small?"); ` +
+  `if they said no, ask if they would like to. `;
+const FOLLOW_L3 =
+  `Build on their answer: if they said yes, ask about one detail (like "What is its name?" or "Is it white or brown?"); ` +
+  `if they said no, ask if they would like to. `;
+const FOLLOW_OPEN =
+  `Build on their answer: if they said yes, ask about one detail (a name, a place or a time); ` +
+  `if they said no, ask if they would like to, or which one they would choose. `;
+/** 막혔을 때 한 단계 내려가기 — «짧은 답» 이 아니라 «모름·한국어·막힘» 일 때만(L2·L3 은 짧은 답이 정상이다). */
+const ASK_STUCK =
+  `If they say they don't know, answer in Korean, or seem stuck, ask an easier Yes/No or A-or-B question about the same thing. `;
 
 type Row = [ko: string, en: string, point?: string];
 const make = (prefix: string, rows: Row[]): CapiTopic[] =>
@@ -165,13 +208,13 @@ const UNIT_LESSON = { ko: '단원', en: 'Unit' };
 /** 화면 탭 순서 그대로. 수준(difficulty)·연령(age)은 엔진 축에 맞춘 값 — 바꾸면 AI 말투가 바뀝니다. */
 export const ELEADER_CAPI_LEVELS: readonly CapiLevel[] = [
   { id: 'l2', label: 'Level 2', ko: '캐피 기본 레벨5', en: 'CAPI Basic Level 5', unit: UNIT_BOOK, difficulty: 2, age: 'kid',
-    cefr: 'young learners (about A1-A2)', topics: make('c2', L2) },
+    cefr: 'young learners (about A1-A2)', ask: ASK_L2, follow: FOLLOW_L2, topics: make('c2', L2) },
   { id: 'l3', label: 'Level 3', ko: '캐피 심화1', en: 'CAPI Advanced 1', unit: UNIT_LESSON, difficulty: 3, age: 'child',
-    cefr: 'primary learners (about A2)', topics: make('c3', L3) },
+    cefr: 'primary learners (about A2)', ask: ASK_L3, follow: FOLLOW_L3, topics: make('c3', L3) },
   { id: 'l4', label: 'Level 4', ko: '캐피 심화2', en: 'CAPI Advanced 2', unit: UNIT_LESSON, difficulty: 4, age: 'child',
-    cefr: 'primary learners (about A2+/B1)', topics: make('c4', L4) },
+    cefr: 'primary learners (about A2+/B1)', ask: ASK_L4, follow: FOLLOW_OPEN, topics: make('c4', L4) },
   { id: 'l5', label: 'Level 5', ko: '캐피 심화3', en: 'CAPI Advanced 3', unit: UNIT_LESSON, difficulty: 5, age: 'child',
-    cefr: 'upper-primary learners (about B1)', topics: make('c5', L5) },
+    cefr: 'upper-primary learners (about B1)', ask: ASK_L5, follow: FOLLOW_OPEN, topics: make('c5', L5) },
 ];
 
 /** 주제 id → 주제와 레벨. 모르는 값이면 null(본문 값을 믿지 않기 — 정확일치만). */
@@ -202,14 +245,15 @@ export function eleaderCapiPrompt(id: unknown, kickoff: boolean, learnerSaid?: u
   const { level, topic } = hit;
   const T = JSON.stringify(topic.en);
   const head = `Eleader Jam ${level.en} speaking practice for ${level.cefr}. Today's topic: ${T}. ` +
-    `This is a personal conversation topic, not a story to retell: help the learner talk about their own life, experiences, opinions and feelings about this topic. ` +
+    `This is a personal conversation topic, not a story to retell: help the learner talk about their own life, experiences and feelings about this topic. ` +
     `Talk like a warm, curious friend, not a quiz machine. Ask exactly ONE question per turn and keep every sentence complete and grammatical. ` +
     `Never use Korean in English sentences. Never ask the same question twice in this chat, not even in other words. ` +
-    `Stay on this topic or on what the learner just told you; if the learner wants to talk about something else, kindly bring it back to the topic. `;
+    `Stay on this topic or on what the learner just told you; if the learner wants to talk about something else, kindly bring it back to the topic. ` +
+    ASK_COMMON + level.ask;   // ❓ 레벨별 질문 사다리 — 시작·후속 턴 모두에 싣는다
   const askedLine = typeof asked === 'string' ? asked : '';
   if (kickoff) {
     return `${head}${askedLine}START NOW: greet the learner in one short sentence, say today's topic in simple words, ` +
-      `then ask ONE easy opening question that lets them start talking about their own experience with it.`;
+      `then ask ONE easy opening question that lets them start talking about their own experience with it, following the question rule.`;
   }
   const said = typeof learnerSaid === 'string' ? learnerSaid.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
   const saidLine = said
@@ -218,6 +262,8 @@ export function eleaderCapiPrompt(id: unknown, kickoff: boolean, learnerSaid?: u
   return `${head}${saidLine}${askedLine}` +
     `First react in one short sentence to what the learner said, using their own words; do not just repeat their sentence back. ` +
     `If the answer is very short, unclear or not English, kindly show them one simple way to say it in English. ` +
-    `Then ask ONE new follow-up question that helps them say more: why, how, when, who, how they felt, or what they think. ` +
+    ASK_STUCK +
+    `Then ask ONE new follow-up question that helps them say a little more, following the question rule. ` +
+    level.follow +
     `Never ask back what they just told you, and never invent facts about the learner.`;
 }

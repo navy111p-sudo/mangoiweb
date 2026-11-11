@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* 🔀 «직접 배정» → 수강신청 합치기 (2026-09-30 사장님 «배정 경로가 어떠하든 같은 조건과 버튼»)
  *  ① 정본(enroll-direct.ts + enroll-direct-merge.ts)을 타입 제거로 «실제로» 돌린다 — 진짜 SQLite(D1 모양으로 감쌈)
  *     · dry 는 아무것도 안 쓴다 · 묶음마다 신청서 1건 · 수업 source 가 adm-enroll:<id> 로 바뀐다
@@ -14,7 +15,7 @@ let PASS = 0, FAIL = 0;
 const ok = (c, n) => { if (c) { PASS++; console.log('  ✅ ' + n); } else { FAIL++; console.log('  ❌ ' + n); } };
 const SRC_D = process.env.DIRECT_SRC || 'cloudflare-deploy/src/enroll-direct.ts';
 const SRC_M = process.env.MERGE_SRC || 'cloudflare-deploy/src/enroll-direct-merge.ts';
-const A = readFileSync(process.env.ADMIN_SRC || 'cloudflare-deploy/src/api-admin.ts', 'utf8');
+const A = readAdminSourceFromFile(process.env.ADMIN_SRC || 'cloudflare-deploy/src/api-admin.ts');
 const C = readFileSync(process.env.CORE_SRC || 'cloudflare-deploy/public/js/adm-core.js', 'utf8');
 
 const strip = (t) => stripTypeScriptTypes(t).replace(/^import .*$/gm, '').replace(/^export /gm, '');
@@ -177,13 +178,15 @@ console.log('④ 화면');
     for (let i = C.indexOf('{', i0); i0 > 0 && i < C.length; i++) { if (C[i] === '{') d++; else if (C[i] === '}') { d--; if (!d) { i1 = i; break; } } }
     return i1 > 0 ? C.slice(i0, i1 + 1) : '';
   };
+  /* 📋 (2026-11-05) 목록이 쓰는 칸 도우미(EN_COLS·_enTd·_enDay 등)도 정본에서 함께 오려 낸다 */
+  const HELP = (() => { const a = C.indexOf('const EN_COLS = '); const b = C.indexOf('function _enDirectList('); return (a > 0 && b > a) ? C.slice(a, b) : ''; })();
   const RE = cut('_renderEnrollments');
-  ok(!!RE && /async function enMergeDirect\(\)/.test(C), '전제: _renderEnrollments · enMergeDirect 가 있다');
+  ok(!!RE && !!HELP && /async function enMergeDirect\(\)/.test(C), '전제: _renderEnrollments · enMergeDirect 가 있다');
   const summary = (hq) => {
     const box = { innerHTML: '' }, tb = { innerHTML: '' };
     try {
       new Function('adminLang', '_enItems', '_enDirect', '_enQuery', '_enDupOnly', '_esc', '_fmtDate', 'document', 'window', 'EN_STATUS_META', 'EN_LIVE', '__enSel',
-        'let __enShown=[];function _enStatusMeta(){return {};}function _enDupKey(){return "";}function _enSyncSelUI(){}function _enDirectList(){return [];}function _enDirectRow(){return "";}\n' + RE + '\nreturn _renderEnrollments;')(
+        'let __enShown=[];function _enStatusMeta(){return {};}function _enDupKey(){return "";}function _enSyncSelUI(){}function _enDirectList(){return [];}function _enDirectRow(){return "";}\n' + HELP + '\n' + RE + '\nreturn _renderEnrollments;')(
         'ko', [], [{ key: 'k' }], '', false, (s) => String(s), () => '', { getElementById: (id) => (id === 'en-summary' ? box : id === 'enrollments-table' ? tb : null) },
         { _isHqMgrOrUp: hq }, {}, ['pending', 'confirmed', 'active'], new Set())();
     } catch (e) { return 'ERR ' + e.message; }

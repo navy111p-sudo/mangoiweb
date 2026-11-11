@@ -1,3 +1,4 @@
+import { gamesSrc } from './_srcbundle.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
@@ -5,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { hasForeignGloss, isKoreanGloss, normalizeKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from '../cloudflare-deploy/src/korean-vocab.ts';
+import { hasForeignGloss, isKoreanGloss, isShortGloss, normalizeKoreanGloss, repairKoreanGlosses, readableKoreanVocabulary } from '../cloudflare-deploy/src/korean-vocab.ts';
 
 const readable = await readableKoreanVocabulary([
   {id:1,word:'savory',korean:'풍부한風味의'},
@@ -47,7 +48,7 @@ await repairKoreanGlosses(Array.from({ length: 41 }, () => ({ word: 'school', ko
 assert.equal(calls, 3);
 
 // Execute the real gen-quiz route with a fake database, preserving SQL routing and INSERT parameters.
-const src = readFileSync(new URL('../cloudflare-deploy/src/api-games.ts', import.meta.url), 'utf8');
+const src = gamesSrc();
 const start = src.indexOf("    if (method === 'POST' && path === '/api/vocab/gen-quiz')");
 const end = src.indexOf("    // ── POST /api/vocab/quiz-submit", start);
 assert.ok(start > 0 && end > start);
@@ -55,7 +56,7 @@ const wrapped = stripTypeScriptTypes('async function routeFixture() {\n' + src.s
 const code = wrapped.slice(wrapped.indexOf('{') + 1, wrapped.lastIndexOf('}'));
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 // 🔐 (2026-10-19) 라우트가 본인 확인(vocabWriteDenied)을 부른다 — 여기서는 «통과» 로 두고 뜻 검사만 본다(게이트 자체는 vocab_write_owner_gate_harness).
-const route = new AsyncFunction('env', 'request', 'sourceName', 'normalizeKoreanGloss', 'isCleanText', 'url', 'vocabWriteDenied', `
+const route = new AsyncFunction('env', 'request', 'sourceName', 'normalizeKoreanGloss', 'isCleanText', 'url', 'vocabWriteDenied', 'isShortGloss', `
   const method='POST', path='/api/vocab/gen-quiz';
   const ensureMicroLearnSchema=async()=>{};
   const json=x=>x;
@@ -70,7 +71,7 @@ async function quiz(sourceName, glosses, distractors) {
       async run() { saved.push(binds); return { meta: { last_row_id: saved.length } }; },
     };
   } } };
-  const result = await route(env, { json: async () => ({ user_id: 'fixture', source: sourceName, count: glosses.length || 1 }) }, sourceName, normalizeKoreanGloss, isKoreanGloss, new URL('https://mangoi.ai/api/vocab/gen-quiz'), async () => null);
+  const result = await route(env, { json: async () => ({ user_id: 'fixture', source: sourceName, count: glosses.length || 1 }) }, sourceName, normalizeKoreanGloss, isKoreanGloss, new URL('https://mangoi.ai/api/vocab/gen-quiz'), async () => null, isShortGloss);
   return { result, saved };
 }
 for (const source of ['mywords', 'textbook']) {

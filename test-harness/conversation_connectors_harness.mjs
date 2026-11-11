@@ -29,6 +29,46 @@ try { LV = await load('ai-friend-level.ts'); } catch (e) { console.log('  (ai-fr
 ok(!!(C && C.connectorRule && C.connectorPromptBlock && C.connectorIssues), '⓪ 전제: 정본(conversation-connectors.ts)을 불러왔다');
 ok(!!(RQ && RQ.fragmentQuestions) && !!(LV && LV.aiFriendBrokenQuestions && LV.AI_FRIEND_LEVELS), '⓪ 전제: 조각 질문·눈높이 판정 정본을 불러왔다');
 if (!C) finish();
+// 실제 음성 검사에서 나온 두 질문 + 인용 예문·축약형·줄바꿈 경계.
+const singleQuestionCases = [
+  ["You're welcome! What color and size are you looking for?", "You're welcome! What color are you looking for?"],
+  ["What size, color, and style would you like?", "What size would you like?"],
+  ["Can you tell me what brand and price you prefer?", "Can you tell me what brand you prefer?"],
+  ["What color and size do you need, and do you have the receipt?", "What color do you need?"],
+  ["Which color, red or blue, do you prefer?", "Which color, red or blue, do you prefer?"],
+  ["Do you want a large or a small size?", "Do you want a large or a small size?"],
+  ["Did you buy it here and do you have the receipt?", "Did you buy it here?"],
+  ["I see! So the cheering really made a difference. How did you prepare for this race, was it hard to get ready?", "I see! So the cheering really made a difference. How did you prepare for this race?"],
+  ["What did you buy and how much did it cost?", "What did you buy?"],
+  ["What did you buy, and why?", "What did you buy?"],
+  ["Is $2.50 enough and do you need a receipt?", "Is $2.50 enough?"],
+  ["Can you pay now or would you like to pay later?", "Can you pay now or would you like to pay later?"],
+  ["How high is your fever, do you know?", "How high is your fever, do you know?"],
+  ["Got it! Do you have the receipt and the box it came in?", "Got it! Do you have the receipt?"],
+  ["Do you have a receipt or the order number?", "Do you have a receipt or the order number?"],
+  ["I see, do you have the receipt?", "I see, do you have the receipt?"],
+  ["Do you like apples and bananas?", "Do you like apples and bananas?"],
+  ["I see. Let's take a closer look. Can you tell me more about your headache? Is it a sharp pain or a dull ache?", "I see. Let's take a closer look. Can you tell me more about your headache?"],
+  ["Dr. Mango is here. Do you have a fever? Do you cough?", "Dr. Mango is here. Do you have a fever?"],
+  ["I don't know yet. Does it hurt? When did it start?", "I don't know yet. Does it hurt?"],
+  ["You can ask \"Do you have a fever?\" Does it hurt? When did it start?", "You can ask \"Do you have a fever?\" Does it hurt?"],
+  ["You can ask 'What is your name?' Does it hurt? When did it start?", "You can ask 'What is your name?' Does it hurt?"],
+  ["You can ask 'What's your name?' Does it hurt? When did it start?", "You can ask 'What's your name?' Does it hurt?"],
+  ["You can ask “How are you?” Does it hurt? When did it start?", "You can ask “How are you?” Does it hurt?"],
+  ["You can ask ‘How are you?’ Does it hurt? When did it start?", "You can ask ‘How are you?’ Does it hurt?"],
+  ["Does it hurt?\nWhen did it start?", "Does it hurt?"],
+  ["Does it hurt?When did it start?", "Does it hurt?"],
+  ["Does it hurt?? When did it start?", "Does it hurt??"],
+  ["Does it hurt？ When did it start？", "Does it hurt？"],
+  ["Do you want water or juice?", "Do you want water or juice?"],
+  ["Hello. Do you feel better?", "Hello. Do you feel better?"],
+  ["Can you say \"Do you feel better?\" with me?", "Can you say \"Do you feel better?\" with me?"],
+  ["You can say \"Do you feel better?\"", "You can say \"Do you feel better?\""],
+  ["Hello, please have a seat.", "Hello, please have a seat."],
+  ["", ""]
+];
+for (const [input, expected] of singleQuestionCases) ok(RQ?.firstQuestionOnly(input) === expected, "한 질문: " + input.slice(0, 70), RQ?.firstQuestionOnly(input));
+
 const conn = rd(resolve(SRC, 'conversation-connectors.ts'));
 ok(!/^\s*import\s/m.test(conn), '⓪ 정본은 import 가 없다(하니스가 그대로 돌린다)');
 
@@ -346,8 +386,10 @@ console.log('⑧ 이번 턴 첫마디');
   ok(clash.length === 0, '고른 첫마디가 «최근 시작 말» 과 안 겹친다 — 「다르게 시작해」 줄과 서로 다른 말을 하지 않는다', clash.slice(0, 3));
   ok(disobeyTried > 0 && disobeyFixed === disobeyTried, '모델이 한 번 어기면 다음 턴에 바로 다시 싣는다(스스로 맞춰진다)', [disobeyFixed, disobeyTried]);
   { const lines = new Set(); let btw = 0, any = 0;
-    for (let i = 0; i < 300; i++) { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain ' + i + '. Do you like it?' }]); lines.add(quoted(l).filter((x) => ALL.includes(x)).join('|')); if (/start it with "By the way,"/.test(l)) btw++; if (/with "Anyway,"/.test(l)) any++; }
-    ok(lines.size >= 4 && btw > 30 && btw < 200 && any === 300, '후보가 돌아가며 바뀌고, By the way 는 «새 질문으로 넘어갈 때만» 가끔(약 1/3), Anyway 는 «모르겠다» 칸에 늘 있다', { combos: lines.size, btw, any }); }
+    for (let i = 0; i < 300; i++) { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain ' + i + '. Do you like it?' }]); lines.add(quoted(l).filter((x) => ALL.includes(x)).join('|')); if (/If their story is done and you ask about something new, start it with "By the way,"/.test(l)) btw++; if (/"I don't know" or confused: [^;]*, then ask it again more easily \(two choices\)/.test(l) && !/start your next question with "Anyway,"/.test(l)) any++; }
+    /* 🧭 (2026-11-05) «모름» 칸은 «Anyway, 다음 질문» 이 아니라 «같은 것을 쉽게·두 개 중 고르기로» — 옛 문구는 모르는 학생을 새 주제로 넘겼다(AI 친구 실측).
+       By the way 는 «주제를 바꾸려고 쓰지 마» 를 먼저 말한다. 옛 문구로 되돌리면 any 가 0 이 된다. */
+    ok(lines.size >= 4 && btw > 30 && btw < 200 && any === 300, '후보가 돌아가며 바뀌고, By the way 는 «주제를 바꾸려고 쓰지 말고» 새 질문으로 넘어갈 때만 가끔(약 1/3), «모르겠다» 칸은 늘 «같은 것을 쉽게 다시» 다', { combos: lines.size, btw, any }); }
     { const l = C.turnOpenerLine([{ role: 'assistant', content: 'Plain 1. Do you like it?' }]);
       ok(/Sad or hard news: .*good or fun news: .*something surprising: .*a short answer or plain information: .*If none fits, use another short one with the same feeling\./.test(l),
         '«문맥에 맞게» — 좋은 소식·놀라운 말·평범한 정보를 «뜻으로» 나눠 주고, 딱 맞는 것이 없으면 같은 느낌의 다른 말을 허락한다', l); }
@@ -436,6 +478,139 @@ const post = async (p, body, tok) => {
   return { status: r.status, j, sys: String(seen[0]?.messages?.[0]?.content || '') };
 };
 const has = (sys, band) => sys.includes(C.connectorRule(band));
+// 상황 20개 모두: 실제 워커 + 가짜 AI/KV/SQLite. 운영 AI·DB는 부르지 않는다.
+{
+  const { runInNewContext } = await import('node:vm');
+  const box = {};
+  runInNewContext(rd(resolve(ROOT, 'cloudflare-deploy/public/js/ai-situations.js')), box);
+  const scenes = box.MangoiSituations.list;
+  const saveRun = AI.run;
+  for (const scene of scenes) {
+    let calls = 0;
+    AI.run = async (model, opts) => {
+      seen.push(opts); calls++;
+      return { response: JSON.stringify({ reply: calls === 1 ? "You are welcome! Get some rest now." : 'Do you need anything else?', fix: null }) };
+    };
+    const sid = 'scene-continue-' + scene.id;
+    const r = await post('/api/warmup/chat', { session_id: sid, student_input: 'Thank you.', lesson_topic: scene.role, difficulty: 3, correction_mode: 'free_talk' });
+    ok(r.status === 200 && r.j.ai_response.endsWith('?') && calls === 2, scene.id + ': 인사로 끝난 답변을 질문으로 재생성', r.j);
+    ok(r.sys.includes(scene.topics) && r.sys.includes('반드시 새 영어 질문 하나로 끝내') && scene.topics.split(',').length >= 12,
+      scene.id + ': 서로 다른 연습 소재 12개 이상 + 계속 질문 지시가 모델에 전달된다');
+    const saved = JSON.parse(kv.get('warmup:' + sid));
+    ok(saved.at(-1).content === r.j.ai_response, scene.id + ': 화면과 서버 대화 기억이 같은 질문');
+    const two = "I see. Let's take a closer look. Can you tell me more about your headache? Is it a sharp pain or a dull ache?";
+    const first = "I see. Let's take a closer look. Can you tell me more about your headache?";
+    calls = 0;
+    AI.run = async (model, opts) => { seen.push(opts); calls++; return { response: JSON.stringify({ reply: two, fix: null }) }; };
+    const oneSid = sid + '-one';
+    const one = await post('/api/warmup/chat', { session_id: oneSid, student_input: 'Thank you.', lesson_topic: scene.role, difficulty: 4, correction_mode: 'free_talk' });
+    ok(one.status === 200 && one.j.ai_response === first && calls === 1, scene.id + ': 첫 질문만 내보내며 추가 모델 호출 없음', one.j);
+    ok(JSON.parse(kv.get('warmup:' + oneSid)).at(-1).content === first, scene.id + ': 버린 둘째 질문은 서버 기억에도 없음');
+    ok(one.sys.includes('[질문 순서]') && one.sys.includes('한 가지 정보만') && one.sys.includes('학생의 다음 답변을 받은 뒤'), scene.id + ': 한 문장에 여러 정보도 몰아 묻지 않도록 지시');
+    AI.run = async (model, opts) => { seen.push(opts); return { response: JSON.stringify({ reply: 'Is it a sharp pain or a dull ache?', fix: null }) }; };
+    const next = await post('/api/warmup/chat', { session_id: oneSid, student_input: 'It hurts on the left side.', lesson_topic: scene.role, difficulty: 4, correction_mode: 'free_talk' });
+    ok(next.status === 200 && next.j.ai_response === 'Is it a sharp pain or a dull ache?', scene.id + ': 학생이 답한 다음 턴에 다음 질문을 한다', next.j);
+
+  }
+  const doctor = box.MangoiSituations.find('doctor');
+  for (const [sceneId, prior, answer, repeated, nextQuestion] of [
+    ['birthday', 'What flavor of ice cream do you like best?', 'I like chocolate ice cream.', 'Is the chocolate ice cream your favorite flavor?', 'Do you want another scoop?'],
+    ['directions', 'Can I help you?', 'Yes, I need help finding the library.', 'Are you looking for the library?', 'What street are you on?'],
+    ['art-class', 'What are you drawing today?', 'A cat.', 'Is the cat in your drawing?', 'What color is the cat?'],
+    ['art-class', 'What are you drawing?', 'I am drawing a cat.', 'Is the cat in your drawing?', 'What color is the cat?'],
+    ['library', 'Do you want a book about space or animals?', 'Space.', 'Oh, really?', 'Which planet interests you?'],
+    ['train', 'Where would you like to go today?', "Hello, I'm going home.", "You're going home?", 'When do you want to leave?'],
+    ['restaurant', 'Do you want ice in your lemonade?', 'Yes, I want ice.', 'Okay! So, to recap, you have the grilled chicken sandwich, fries, and a glass of lemonade with ice. Is that correct?', 'What would you like for dessert?'],
+    ['restaurant', 'Do you want ketchup or mustard with your fries?', 'I want ketchup with my fries.', "So, to confirm, you'd like fries with ketchup, right?", 'Would you like a drink?'],
+  ]) {
+    const sid = 'scene-confirm-' + sceneId + '-' + answer.length;
+    kv.set('warmup:' + sid, JSON.stringify([{ role: 'assistant', content: prior }]));
+    let calls = 0;
+    AI.run = async () => ({ response: JSON.stringify({ reply: ++calls === 1 ? repeated : nextQuestion }) });
+    const r = await post('/api/warmup/chat', { session_id: sid, student_input: answer, lesson_topic: box.MangoiSituations.find(sceneId).role, correction_mode: 'free_talk' });
+    ok(r.status === 200 && r.j.ai_response === nextQuestion && calls === 2, sceneId + ': 이미 받은 답을 확인하는 대신 다음 질문', r.j);
+  }
+  for (const failure of ['no-question', 'error', 'fragment', 'wrong-name', 'repeat']) {
+    let calls = 0;
+    if (failure === 'repeat') kv.set('warmup:scene-fail-repeat', JSON.stringify([{ role: 'assistant', content: 'Oh, I see. Do you feel better?' }, { role: 'user', content: 'Yes.' }]));
+    AI.run = async () => {
+      calls++;
+      if (calls > 1 && failure === 'error') throw new Error('sandbox AI unavailable');
+      return { response: JSON.stringify({ reply: calls === 1 || failure === 'no-question' ? 'Get some rest now.' : failure === 'fragment' ? 'Your favorite food?' : failure === 'wrong-name' ? 'My name is WrongName. Do you feel better?' : failure === 'repeat' ? 'All right. Do you feel better?' : '', fix: null, speaking_help: null }) };
+    };
+    const r = await post('/api/warmup/chat', { session_id: 'scene-fail-' + failure, student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 3, correction_mode: 'free_talk' });
+    ok(r.status === 200 && r.j.ai_response === 'Let us try another moment here. What would you like to do next?', '재생성 ' + failure + ': 안전 질문으로 계속', r.j);
+  }
+  let calls = 0;
+  AI.run = async () => { calls++; return { response: JSON.stringify({ reply: 'Do you feel better?', fix: null }) }; };
+  const healthy = await post('/api/warmup/chat', { session_id: 'scene-healthy', student_input: 'Yes.', lesson_topic: doctor.role, correction_mode: 'free_talk' });
+  ok(healthy.status === 200 && healthy.j.ai_response === 'Do you feel better?' && calls === 1, '이미 질문이면 추가 AI 호출 없이 그대로');
+  AI.run = async () => ({ response: JSON.stringify({ reply: 'You are welcome.', fix: null }) });
+  const ordinary = await post('/api/warmup/chat', { session_id: 'scene-ordinary', student_input: 'Thank you.', correction_mode: 'free_talk' });
+  ok(ordinary.status === 200 && ordinary.j.ai_response === 'You are welcome.', '일반 교재·자유 대화에는 상황별 계속 질문을 강제하지 않는다');
+  AI.run = async (model, opts) => {
+    if (!opts.stream) return { response: JSON.stringify({ reply: 'Do you feel better?', fix: null }) };
+    const rawReply = JSON.stringify({ reply: 'Get some rest now. ', fix: null });
+    return new ReadableStream({ start(c) {
+      c.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ response: rawReply }) + '\n\ndata: [DONE]\n\n'));
+      c.close();
+    } });
+  };
+  const streamed = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+    body: JSON.stringify({ session_id: 'scene-stream', student_input: 'Thank you.', lesson_topic: doctor.role, difficulty: 3, correction_mode: 'free_talk', stream: 1 }),
+  }), env, ctxW);
+  const events = (await streamed.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+  const done = events.find(e => e.done);
+  ok(done?.ok && done.ai_response === 'Do you feel better?' && done.replaced === 1, '스트리밍도 먼저 읽은 마무리 인사를 최종 질문으로 교체', events);
+  let doubleReply = 'I see. Can you tell me more about your headache? Is it a sharp pain or a dull ache?';
+  AI.run = async (model, opts) => {
+    if (!opts.stream) return { response: JSON.stringify({ reply: doubleReply, fix: null }) };
+    return new ReadableStream({ start(c) {
+      c.enqueue(new TextEncoder().encode('data: ' + JSON.stringify({ response: JSON.stringify({ reply: doubleReply, fix: null }) }) + '\n\ndata: [DONE]\n\n'));
+      c.close();
+    } });
+  };
+  const separateReply = doubleReply;
+  for (const [sessionId, scene, modelReply, expected] of [
+    ['scene-one-stream', doctor, separateReply, 'I see. Can you tell me more about your headache?'],
+    ['scene-items-stream', box.MangoiSituations.find('exchange'), 'Got it! Do you have the receipt and the box it came in?', 'Got it! Do you have the receipt?'],
+    ['scene-compound-stream', box.MangoiSituations.find('exchange'), 'I see. Did you buy it here and do you have the receipt?', 'I see. Did you buy it here?'],
+    ['scene-attribute-stream', box.MangoiSituations.find('exchange'), 'I see. What color and size are you looking for?', 'I see. What color are you looking for?'],
+  ]) {
+    doubleReply = modelReply;
+    const oneStream = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+      body: JSON.stringify({ session_id: sessionId, student_input: 'Thank you.', lesson_topic: scene.role, difficulty: 4, correction_mode: 'free_talk', stream: 1 }),
+    }), env, ctxW);
+    const oneEvents = (await oneStream.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+    const oneDone = oneEvents.find(e => e.done);
+    ok(oneDone?.ok && oneDone.ai_response === expected, 'SSE 최종 답변도 첫 질문 하나만', oneDone);
+    ok(oneEvents.filter(e => e.t).map(e => e.t).join(' ') === expected.match(/^[^.!]+[.!]/)?.[0] && oneDone?.halted === 'question_pending',
+      '질문을 확정 전에는 읽지 않고 앞의 반응만 미리 읽는다', oneEvents);
+  }
+  const directions = box.MangoiSituations.find('directions');
+  const walkingQuestion = 'But you wanted to walk, right?';
+  const initialWalking = walkingQuestion + " So, let's start walking down this street.";
+  AI.run = async (model, opts) => {
+    if (!opts.stream) return { response: JSON.stringify({ reply: walkingQuestion, fix: null }) };
+    const raw = JSON.stringify({ reply: initialWalking, fix: null });
+    return new Response('data: ' + JSON.stringify({ response: raw }) + '\n\ndata: [DONE]\n\n').body;
+  };
+  const walking = await W8.fetch(new Request('https://mangoi.ai/api/warmup/chat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://mangoi.ai' },
+    body: JSON.stringify({ session_id: 'scene-walk-play-once', student_input: 'I can see the bus stop from here.', lesson_topic: directions.role, difficulty: 4, correction_mode: 'free_talk', stream: 1 }),
+  }), env, ctxW);
+  const walkingEvents = (await walking.text()).split('\n').filter(l => l.startsWith('data:')).map(l => JSON.parse(l.slice(5)));
+  const walkingDone = walkingEvents.find(e => e.done);
+  ok(walkingDone?.ok && walkingDone.ai_response === walkingQuestion && walkingDone.streamed === 0 && !walkingEvents.some(e => e.t),
+    '길 묻기 실측 재현: 미리듣기에서 질문을 읽지 않고 재생성 확정 후 한 번만 전달', walkingEvents);
+  AI.run = async () => ({ response: JSON.stringify({ reply: separateReply, fix: null }) });
+  const ordinaryTwo = await post('/api/warmup/chat', { session_id: 'ordinary-two', student_input: 'Thank you.', correction_mode: 'free_talk' });
+  ok(ordinaryTwo.status === 200 && ordinaryTwo.j.ai_response === separateReply, '상황별 밖의 대화에는 새 제한을 적용하지 않는다', ordinaryTwo.j);
+  AI.run = saveRun;
+}
+
 // 웜업 — 난이도별 수준 · 둘째 턴부터 «시작 말» 줄
 {
   for (const [d, band] of [[1, 'beginner'], [2, 'beginner'], [5, 'intermediate'], [7, 'advanced'], [0, 'beginner']]) {

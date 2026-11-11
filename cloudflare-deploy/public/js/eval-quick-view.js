@@ -92,6 +92,15 @@
       + '<div class="evq-tx">' + esc(String(text).trim()) + '</div></div>';
   }
 
+  // These are the values saved with this log, not today's level or inferred attendance.
+  function logDetails(e, en) {
+    var T = function (a, b) { return en ? a : b; };
+    var states = { attended: T('Attended', '출석'), late: T('Late', '지각'), absent: T('Absent', '결석') };
+    var state = Object.prototype.hasOwnProperty.call(states, e.attendance_status) ? states[e.attendance_status] : T('Not recorded', '기록 없음');
+    return sec(T('Student level (saved with this log)', '학생 레벨 (일지 저장 당시)'), String(e.student_level || '').trim() || T('Not recorded', '기록 없음'))
+      + sec(T('Class status (recorded in this log)', '수업 출결 (일지 기록)'), state);
+  }
+
   /** 행 하나 → 창 본문 HTML. 하니스가 이 함수를 오려 내 실제로 돌린다. */
   function renderEval(e, en) {
     var T = function (enS, koS) { return en ? enS : koS; };
@@ -115,7 +124,7 @@
     return '<div class="evq-hd"><div class="evq-ti"><b>📝 ' + esc(e.student_name || T('Class log', '수업일지')) + '</b>'
       + '<span class="evq-sub">' + esc(sub) + '</span></div>'
       + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
-      + '<div class="evq-bd">' + body + '</div>'
+      + '<div class="evq-bd">' + logDetails(e, en) + body + '</div>'
       + '<div class="evq-ft"><a href="/eval.html?id=' + encodeURIComponent(e.id) + '" target="_blank" rel="noopener">'
       + esc(T('Open the parent view ↗', '학부모 화면으로 보기 ↗')) + '</a>'
       + (e.__canEdit
@@ -136,6 +145,7 @@
       + '<span class="evq-sub">' + esc(String(e.lesson_date || '').slice(0, 10) || ymd(e.created_at)) + '</span></div>'
       + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
       + '<div class="evq-bd">'
+      + logDetails(e, en)
       + ta('note_en', T('Teacher note (English)', '강사 메모 (영어)'), e.note_en)
       + ta('note_ko', T('Shown to parents (Korean)', '학부모 안내 (한국어)'), e.note_ko)
       + (Number(e.parent_notified) === 1

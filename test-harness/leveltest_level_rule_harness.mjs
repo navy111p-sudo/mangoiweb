@@ -30,7 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = process.env.LEVELRULE_SRC || join(ROOT, 'cloudflare-deploy/src/api-admin.ts');
+const SRC = process.env.LEVELRULE_SRC || join(ROOT, 'cloudflare-deploy/src/api-admin-leveltest.ts');
 const src = readFileSync(SRC, 'utf8');
 
 let pass = 0, fail = 0;

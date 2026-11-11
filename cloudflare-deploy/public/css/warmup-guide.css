@@ -51,11 +51,17 @@ body #listening{margin:0 4px 8px}
 body .qs-row{padding:0;gap:8px;justify-content:space-between}
 .wg-state{color:#bfe4ff;font-size:14px;line-height:1.5;margin:0 4px 8px;min-height:21px}
 body .after{max-width:940px;padding:0 20px 24px}
-.wg-summary{border:0;padding:0;width:min(580px,calc(100vw - 24px));max-height:90svh;border-radius:20px;color:#f8fafc;background:#162a48;box-shadow:0 24px 80px #0008}
-.wg-summary::backdrop{background:#071124c9}
+.wg-summary{border:0;padding:0;width:min(580px,calc(100vw - 24px));max-height:90svh;border-radius:24px;color:#0f172a;background:#fff;box-shadow:0 24px 80px #0f172a40}
+.wg-summary::backdrop{background:#0f172a73}
+/* 요약창은 밝은 바탕(2026-11-09) - 어두운 화면용 .wg-btn·.wg-muted 색을 이 창 안에서만 바꾼다 */
+.wg-summary .wg-muted{color:#475569}
+.wg-summary .wg-btn{background:#fff;border-color:#cbd5e1;color:#0f172a}
+.wg-summary .wg-btn:hover{background:#f1f5f9}
+.wg-summary .wg-btn-primary,.wg-summary .wg-btn-primary:hover{background:#0f766e;border-color:#0f766e;color:#fff}
+.wg-summary .wg-btn:focus-visible{outline-color:#0284c7}
 .wg-summary-inner{padding:22px}
 .wg-summary h2{margin:0 0 8px;font-size:23px}
-.wg-summary pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:15px;line-height:1.65;padding:14px;background:#0c1d36;border-radius:12px;max-height:45svh;overflow:auto}
+.wg-summary pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:15px;line-height:1.65;padding:14px;background:#f1f5f9;color:#334155;border-radius:12px;max-height:45svh;overflow:auto}
 [hidden]{display:none!important}
 @media(max-width:640px){
  body .wrap{padding:10px 12px 16px;height:calc(100svh - 56px);min-height:520px;gap:8px}

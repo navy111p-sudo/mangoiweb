@@ -1,3 +1,5 @@
+import { referenceReadingEvidence } from '../cloudflare-deploy/src/speaking-audio-evidence.ts';
+import { gamesSrc } from './_srcbundle.mjs';
 // Execute the real page function and server route with local doubles. No live AI/DB calls.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -40,7 +42,7 @@ const page = read('public/ai-friend.html');
 const micCode = page.slice(page.indexOf('    async function friendRecordVoice(opts)'), page.indexOf('    function toggleMic()', page.indexOf('    async function micViaWhisper(auto)')));
 async function micCase({ voice = true, auto = true, text = hallucination, late = '', override = false } = {}) {
   const sent = [], hints = [], requests = []; let checks = 0;
-  const ctx = { Promise, String, _friendMicSeq: 0, _whisperOn: false, _recognizing: false,
+  const ctx = { Promise, String, _friendMicSeq: 0, _whisperOn: false,
     _lastRecBlob: null, _pendingVoice: false, document: { getElementById: () => ({ value: '' }) },
     updateMicUI() {}, stopSpeakingNow() {}, isEn: () => false,
     micHint: msg => hints.push(msg), sendMsg: () => sent.push('sent'),
@@ -80,7 +82,7 @@ check('submission boundary catches recorder override', () => assert.equal(overri
 const empty = await micCase({ text: '' });
 check('server rejection creates no user turn', () => assert.equal(empty.sent.length, 0));
 const face = read('public/js/aifriend-facetalk.js');
-const faceListen = face.slice(face.indexOf('  async function listen()'), face.indexOf('  async function send('));
+const faceListen = face.slice(face.indexOf('  function isCurrentTurn(my)'), face.indexOf('  async function send('));
 for (const voice of [false, true, null]) {
   const r = await micCase({ voice, text: 'Yes.' });
   r.sent.length = 0; r.requests.length = 0;
@@ -96,10 +98,10 @@ for (const voice of [false, true, null]) {
   });
 }
 
-const api = read('src/api-games.ts');
+const api = gamesSrc();
 const start = api.indexOf("    if (method === 'POST' && path === '/api/voice/transcribe')");
 const end = api.indexOf('    // ── POST /api/voice/coach', start);
-const route = new Function('request', 'env', 'json', 'sttRejectReason', 'isSttRepeatLoop', 'assessPronunciation',
+const route = new Function('request', 'env', 'json', 'sttRejectReason', 'isSttRepeatLoop', 'assessPronunciation', 'referenceReadingEvidence',
   stripTypeScriptTypes(`function run(){return (async () => {const method='POST', path='/api/voice/transcribe', url=new URL(request.url); ${api.slice(start, end)} })()} `) + 'return run();');
 async function serverCase(result, { strict = true, fail = false } = {}) {
   const calls = []; const fd = new FormData(); fd.append('audio', new Blob([new Uint8Array(2000)]), 'speech.webm');
@@ -108,7 +110,7 @@ async function serverCase(result, { strict = true, fail = false } = {}) {
   const r = await route(req, { AI: { run: async (model) => {
     calls.push(model); if (fail && model.includes('turbo')) throw new Error('offline');
     return result;
-  } } }, (body, status = 200) => ({ body, status }), sttRejectReason, isSttRepeatLoop, async () => null);
+  } } }, (body, status = 200) => ({ body, status }), sttRejectReason, isSttRepeatLoop, async () => null, referenceReadingEvidence);
   return { ...r, calls };
 }
 for (const strict of [true, false]) {
@@ -127,4 +129,25 @@ const fallback = await serverCase({ text: 'Yes.' }, { fail: true, strict: false 
 check('non-chat fallback remains available on actual failure', () => { assert.equal(fallback.body.text, 'Yes.'); assert.equal(fallback.calls.length, 2); });
 const valid = await serverCase({ text: 'Yes.', segments: [{ text: 'Yes.', avg_logprob: -.1 }] });
 check('valid server reply preserved', () => assert.equal(valid.body.text, 'Yes.'));
+const wrapped = await serverCase(Response.json({ text: 'I am twelve years old.' }));
+check('JSON Response body supplies the transcript, never the native text method', () => {
+  assert.equal(wrapped.body.text, 'I am twelve years old.');
+  assert.equal(wrapped.calls.length, 1);
+});
+const rateLimited = await serverCase(Response.json({ errors: ['busy'] }, { status: 429 }));
+check('strict response error is surfaced instead of being sent as speech', () => {
+  assert.equal(rateLimited.status, 503);
+  assert.equal(rateLimited.body.text, undefined);
+  assert.equal(rateLimited.calls.length, 1);
+});
+const wrappedFallback = await serverCase(Response.json({ text: 'Yes.' }), { fail: true, strict: false });
+check('base recognizer also reads the JSON response body', () => {
+  assert.equal(wrappedFallback.body.text, 'Yes.');
+  assert.equal(wrappedFallback.calls.length, 2);
+});
+const invalid = await serverCase({ text: () => 'not a transcript' });
+check('non-string text cannot become a student utterance', () => {
+  assert.equal(invalid.status, 503);
+  assert.equal(invalid.body.text, undefined);
+});
 console.log(`PASS ${count} / FAIL 0`);

@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 /* ══════════════════════════════════════════════════════════════════════
    🚨 결석 감지 → «기다리는 강사» 에게 알린다  (2026-08-07 실사고에서 나옴)
 
@@ -26,7 +27,7 @@ function check(name, cond) {
 }
 
 const sweep = rd('../cloudflare-deploy/src/absent-sweep.ts');
-const api = rd('../cloudflare-deploy/src/api-admin.ts');
+const api = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 
 /* 🪤 «이 이름을 쓰지 마라» 류 검사는 **주석을 걷어내고** 봐야 한다.
    안 그러면 «왜 쓰면 안 되는지» 적어 둔 주석 자체에 걸려 실패한다(실제로 걸렸다).

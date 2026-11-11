@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // -*- coding: utf-8 -*-
 // ⏸ 연기 수업 현황 하네스 (2026-07-23) — 의존성 없음 · node 로 바로 실행
 //   실행:  node test-harness/postponed_classes_harness.mjs
@@ -20,7 +21,7 @@ function check(name, cond){
   console.log(`  ${cond ? '✅' : '❌'} ${name}`);
 }
 
-const API   = R('../cloudflare-deploy/src/api-admin.ts');
+const API   = readAdminModuleGraph(adminModuleFile => R("../cloudflare-deploy/src/" + adminModuleFile));
 const INDEX = R('../cloudflare-deploy/src/index.ts');
 const PAGE_PATH = resolve(__dir, '../cloudflare-deploy/public/admin/postponed-classes.html');
 const ADMIN = R('../cloudflare-deploy/public/admin.html');

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* 📅 매주 수업 → 날짜별 수업 나누기 (src/schedule-split.ts) — 2026-10-02
    정본을 «실제로» 돌린다: 순수 계획 함수 + 진짜 SQLite(D1 모양 래퍼)로 실행 함수.
    「나눈다」 옆에 «안 나눈다»(미러 행·이미 날짜 행·취소된 행·다른 시각의 수강신청)를 짝으로 둔다. */
@@ -100,7 +101,7 @@ function mkEnv() {
 }
 
 console.log('④ 배선');
-const api = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const api = readAdminSourceFromFile(join(ROOT, 'cloudflare-deploy/src/api-admin.ts'));
 const i = api.indexOf("method === 'POST' && /^\\/api\\/admin\\/class-schedules\\/\\d+$/.test(path)");
 ok('(전제) POST 라우트를 찾았다', i > 0);
 const blk = api.slice(i, api.indexOf('\n    }\n', i));

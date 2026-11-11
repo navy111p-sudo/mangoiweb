@@ -1,3 +1,4 @@
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* 🆔 주간 스케줄 «새 슬롯» — 아이디만 적어도 등록 (2026-09-29 사장님 지시)
  *  ① 화면 파싱을 소스에서 오려 내 실제로 돌린다: 아이디만 → uid · 한글만 → 이름(예전) · 이름:아이디 → 둘 다
  *  ② 서버 확인 블록을 오려 내 진짜 SQLite 로 돌린다: 명부에 있음 → 통과 · 없음 → 거절 ·
@@ -8,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 let PASS = 0, FAIL = 0;
 const ok = (c, n) => { if (c) { PASS++; console.log('  ✅ ' + n); } else { FAIL++; console.log('  ❌ ' + n); } };
 const W = readFileSync('cloudflare-deploy/public/admin/weekly-schedule.html', 'utf8');
-const A = readFileSync('cloudflare-deploy/src/api-admin.ts', 'utf8');
+const A = readAdminSourceFromFile('cloudflare-deploy/src/api-admin.ts');
 
 console.log('① 화면 파싱');
 {

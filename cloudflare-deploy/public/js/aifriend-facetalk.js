@@ -41,12 +41,15 @@
         최상위 함수 선언이라 window 속성과 «같은 바인딩» 이다 — 여기서 갈아 끼우면 화면 안의
         맨이름 호출(stmSpeak·sendMsg)도 이 감싼 판을 부른다. */
   var pending = 0, lastSpeakEnd = 0, spokeThisTurn = false, speechEpoch = 0;
+  var said = [];               // 이번 차례에 소리로 나간 조각들(순서대로) — 자막용
   (function wrapSpeak() {
     if (typeof window.speakText !== 'function' || window.speakText.__ftk) return;
     var orig = window.speakText;
     var wrapped = function (text, btn, row, onDone) {
       var fired = false, epoch = speechEpoch;
       pending++; spokeThisTurn = true;
+      var said1 = String(text || '').replace(/^[\s\u2757\uFE0F]+/, '').trim();
+      if (said1 && !/^\u26A0/.test(said1)) said.push(said1);   // ⚠️ 줄은 소리가 안 난다(speakText 와 같은 규칙)
       var fin = function () {
         if (fired) return; fired = true;
         if (epoch === speechEpoch) { pending = Math.max(0, pending - 1); lastSpeakEnd = Date.now(); }
@@ -181,11 +184,13 @@
     });
     /* 얼굴을 누르면 — 말하는 중이면 끊고 바로 듣기, 쉬는 중이면 다시 시작 */
     root.querySelector('#ftkStage').addEventListener('click', onFaceTap);
-    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape') exit(); });
+    /* 캡처 단계 — 설정 시트의 Esc 처리보다 먼저 봐야 «설정만 닫기» 가 된다 */
+    document.addEventListener('keydown', function (e) { if (active && e.key === 'Escape' && !document.body.classList.contains('sheet-open')) exit(); }, true);
     document.addEventListener('visibilitychange', function () {
       if (active && document.hidden) { stopAll(); setState('pause'); showPauseNote(); }
     });
     labels();
+    try { window.FtkCall && window.FtkCall.mount(root, CALL); } catch (e) {}
   }
   function labels() {
     if (!root) return;
@@ -207,6 +212,7 @@
   function setOpen(on, byUser) {
     open = !!on;
     if (!glass) return;
+    root.classList.toggle('gl-open', open);
     var h = glassHeight();
     var shift = open ? 0 : Math.max(0, h.full - h.closedH);
     var wide = window.matchMedia && window.matchMedia('(min-width:760px)').matches;
@@ -254,10 +260,13 @@
     fillChips();
     setOpen(true, false);                      // ← «끌어올리기» 를 몰라도 저절로 열린다
   }
-  function showPauseNote() {
-    noteEl.textContent = t('잠깐 쉬는 중이에요. 선생님 얼굴을 누르면 다시 시작해요.', 'Paused. Tap the teacher to start again.');
+  function showNoteWithoutChips(message) {
+    noteEl.textContent = message;
     chipsEl.innerHTML = '';
     setOpen(true, false);
+  }
+  function showPauseNote() {
+    showNoteWithoutChips(t('잠깐 쉬는 중이에요. 선생님 얼굴을 누르면 다시 시작해요.', 'Paused. Tap the teacher to start again.'));
   }
 
   /* ── 대화 순서 ────────────────────────────────────────────────────── */
@@ -270,17 +279,28 @@
     return new Promise(function (res) {
       var t0 = Date.now();
       (function tick() {
-        if (my !== turnSeq || !active) return res(false);
+        if (!isCurrentTurn(my)) return res(false);
+        /* 대답이 늦게 소리 나면 sendMsg 가 먼저 끝나 watchSpeakState 가 멈춘다 — 기다리는 동안에도 «말하는 중» 으로 보인다(자막·영상통화 화면) */
+        if (state === 'think' && (pending > 0 || avatarSpeaking())) setState('speak');
         var quiet = pending === 0 && !avatarSpeaking() && Date.now() - lastSpeakEnd >= QUIET_MS;
         if (quiet || Date.now() - t0 > SPEAK_WAIT_MS) return res(true);
         setTimeout(tick, 150);
       })();
     });
   }
+  function isCurrentTurn(my) { return my === turnSeq && active; }
+  function handsFree() { try { return !window.FtkCall || window.FtkCall.handsFree(); } catch (e) { return true; } }
+  /* 다음 차례 — 자동이면 바로 듣고, ✋ 손 모드면 선생님 말이 끝난 뒤 쉬며 마이크(얼굴) 누르기를 기다린다 */
+  async function next() {
+    if (handsFree() && !needTap) return listen();
+    var my = ++turnSeq;
+    await waitQuiet(my);
+    if (isCurrentTurn(my)) setState('pause');
+  }
   async function listen() {
     var my = ++turnSeq;
     await waitQuiet(my);
-    if (my !== turnSeq || !active) return;
+    if (!isCurrentTurn(my)) return;
     if (!window.MangoiVoice || !MangoiVoice.supported()) {
       setState('pause');
       noteEl.textContent = t('이 브라우저는 마이크를 쓸 수 없어요. ✕ 를 눌러 글로 대화해 주세요.',
@@ -290,7 +310,7 @@
     setState('listen');
     var errReason = '';
     var said = await friendRecordVoice({
-      isCurrent: function () { return my === turnSeq && active; },
+      isCurrent: function () { return isCurrentTurn(my); },
       lang: 'en',
       silenceMs: 1500, // Faster hands-free turn end; retain the 700ms speaker echo guard.
       onState: function (s, info) {
@@ -300,16 +320,16 @@
         else if (s === 'error') errReason = (info && info.reason) || 'server';
       }
     });
-    if (my !== turnSeq || !active) return;
+    if (!isCurrentTurn(my)) return;
     said = String(said || '').trim();
     // friendRecordVoice checked the recording even when a click triggered 'speaking'.
     if (errReason === 'denied' || errReason === 'unsupported') {
       setState('pause');
-      noteEl.textContent = errReason === 'denied'
+      showNoteWithoutChips(errReason === 'denied'
         ? t('🎤 마이크 권한이 꺼져 있어요. 주소창의 자물쇠(🔒)에서 마이크를 «허용» 한 뒤 선생님 얼굴을 눌러 주세요.',
             'Mic permission is off. Allow the microphone (🔒 in the address bar), then tap the teacher.')
-        : t('이 브라우저는 마이크를 쓸 수 없어요. ✕ 를 눌러 글로 대화해 주세요.', 'This browser cannot use the microphone. Tap ✕ to type instead.');
-      chipsEl.innerHTML = ''; setOpen(true, false); return;
+        : t('이 브라우저는 마이크를 쓸 수 없어요. ✕ 를 눌러 글로 대화해 주세요.', 'This browser cannot use the microphone. Tap ✕ to type instead.'));
+      return;
     }
     if (!said) {
       silentRuns++;
@@ -320,12 +340,14 @@
                      'Not sure what to say? Pick one below, or just try again.');
       return listen();
     }
-    silentRuns = 0;
     await send(said, my);
   }
-  async function send(text, my) {
+  async function send(text, my, typed) {
+    silentRuns = 0;
     clearHelp();
+    setOpen(false, false);   // 말했거나 대답을 고른 뒤엔 도움판을 내린다 — 자막이 다시 보인다(2026-11-09 사장님)
     meEl.textContent = t('나: ', 'Me: ') + text; teacherEl.textContent = '';
+    said = [];
     refreshOpen();
     setState('think');
     spokeThisTurn = false;
@@ -333,11 +355,11 @@
     if (!input || typeof window.sendMsg !== 'function') { exit(); return; }
     input.value = text;
     /* 🎤 음성으로 보낸 턴 — 서버가 «말하기» 보너스를 셉니다(🎤 버튼과 같은 값) */
-    try { _pendingVoice = true; } catch (e) {}
+    try { _pendingVoice = !typed; } catch (e) {}   // 글로 쓴 턴은 남아 있던 표시까지 끈다
     watchSpeakState(my);
     try { await window.sendMsg(); } catch (e) {}
     try { input.blur(); } catch (e) {}
-    if (my !== turnSeq || !active) return;
+    if (!isCurrentTurn(my)) return;
     fillText();
     /* 답을 못 만든 턴(서버 오류·AI 불가)은 소리가 없다 — 그대로 다시 들으면 오류가 반복된다 */
     if (!spokeThisTurn) {
@@ -346,12 +368,12 @@
                              'The teacher could not answer just now. Tap the teacher to try again.');
       setOpen(true, false); return;
     }
-    listen();
+    next();
   }
   /* 선생님이 말하기 시작하면 주황 — 폴링은 이 턴 동안만 산다 */
   function watchSpeakState(my) {
     (function tick() {
-      if (my !== turnSeq || !active) return;
+      if (!isCurrentTurn(my)) return;
       if (state === 'think' && (avatarSpeaking() || pending > 0 && spokeThisTurn)) {
         setState('speak');
         var s = lastTeacherText(); if (s) { teacherEl.textContent = s; refreshOpen(); }
@@ -360,24 +382,57 @@
     })();
   }
   function pickChip(text) {
-    stopAll(); silentRuns = 0;
+    stopAll();
     var my = ++turnSeq;
     send(text, my);
   }
   function onFaceTap() {
     if (!active) return;
-    if (state === 'speak' || state === 'think' && pending > 0) { stopAll(); silentRuns = 0; clearHelp(); listen(); return; }
     if (state === 'listen') { try { MangoiVoice.stop(); } catch (e) {} return; }   // 다 말했으면 눌러서 바로 보내기
-    if (state === 'pause') { silentRuns = 0; clearHelp(); listen(); }
+    if (state === 'speak' || state === 'think' && pending > 0) stopAll();
+    else if (state !== 'pause') return;
+    silentRuns = 0;
+    clearHelp();
+    listen();
   }
 
   /* ── 켜기·끄기 ────────────────────────────────────────────────────── */
-  function enter() {
+  /* 🔊 이 모드는 «목소리로 하는 대화» — 소리를 꺼 두었으면 «이 동안만» 켜고 나갈 때 되돌린다.
+     ⛔ 저장값을 '1' 로 덮은 채 두지 않는다 — 열자마자 열리므로(2026-11-09) 꺼 둔 학생의 설정이 방문마다 사라진다. */
+  var SOUND_KEY = 'mangoi_aifriend_sound', soundForced = false;
+  function forceSound() {
+    try {
+      if (soundForced || typeof isSoundOn !== 'function' || isSoundOn()) return;
+      localStorage.setItem(SOUND_KEY, '1'); soundForced = true;
+      if (typeof updateSoundBtn === 'function') updateSoundBtn();
+    } catch (e) {}
+  }
+  function restoreSound() {
+    if (!soundForced) return;
+    soundForced = false;
+    try { localStorage.setItem(SOUND_KEY, '0'); if (typeof updateSoundBtn === 'function') updateSoundBtn(); } catch (e) {}
+  }
+  window.addEventListener('pagehide', function () { if (active) restoreSound(); });          // 얼굴 화면인 채 떠나도 되돌린다
+  window.addEventListener('pageshow', function (e) { if (e.persisted && active) forceSound(); });
+  /* 🖐 손짓 없이 저절로 열렸으면(autoOpen) 첫 마이크는 사람이 누를 때 연다 — 그 전에 열면 마이크 권한 창이 저절로 뜨고,
+        손짓 없이 만든 AudioContext 는 멈춘 채라 «말소리» 를 못 잰다. 화면을 한 번이라도 누르면 그 뒤는 예전처럼 자동. */
+  var needTap = false, tapArmed = false;
+  /* 저절로 열렸을 때 «누르기(제스처)» 없이 소리·마이크 분석이 돌 수 있는가 — 막히면 첫 마이크는 학생이 눌러서 연다.
+     (같은 사이트에서 넘어온 탭처럼 브라우저가 허락한 경우 AudioContext 가 처음부터 running 이다 → 예전처럼 자동) */
+  function activated() {
+    try { if (navigator.userActivation && navigator.userActivation.hasBeenActive) return true; } catch (e) {}
+    try { var C = window.AudioContext || window.webkitAudioContext; if (!C) return false;
+      var c = new C(), on = c.state === 'running'; try { c.close(); } catch (x) {} return on; } catch (e) { return false; }
+  }
+  function enter(auto) {
     if (active) return;
     hideHint();
     var ring = document.getElementById('tavatar-ring');
     if (!ring) return;
     build();
+    needTap = auto === true && !activated();
+    if (!tapArmed) { tapArmed = true; var clr = function () { needTap = false; };
+      root.addEventListener('pointerdown', clr, true); root.addEventListener('keydown', clr, true); }
     if (window.FriendAutoTalk) FriendAutoTalk.pause();
     active = true;
     homeParent = ring.parentNode; homeNext = ring.nextSibling;
@@ -388,13 +443,7 @@
           이 모드 동안만 읽기 전용으로 둔다(값은 스크립트로 넣을 수 있다). 끌 때 원래대로. */
     var inp0 = document.getElementById('msgInput');
     if (inp0) { inp0.__ftkRO = inp0.readOnly; inp0.readOnly = true; }
-    /* 이 모드는 «목소리로 하는 대화» 다 — 소리를 꺼 두었으면 켠다 */
-    try {
-      if (typeof isSoundOn === 'function' && !isSoundOn()) {
-        localStorage.setItem('mangoi_aifriend_sound', '1');
-        if (typeof updateSoundBtn === 'function') updateSoundBtn();
-      }
-    } catch (e) {}
+    forceSound();
     try { window.UXT && UXT.hit('ux:aifriend-facetalk-open'); } catch (e) {}
     stopAll(); silentRuns = 0;
     clearHelp(); fillText();
@@ -402,17 +451,29 @@
     root.querySelector('#ftkX').focus({ preventScroll: true });
     firstPeek();
     var hasTalk = !!lastTeacherText();
-    if (!hasTalk) greet(); else listen();
+    if (!hasTalk) greet(); else next();
   }
   function greet() {
     var my = ++turnSeq;
     var hi = '';
     try { if (typeof friendOf === 'function') hi = friendOf(personNow()).hi || ''; } catch (e) {}
-    if (!hi || typeof window.speakText !== 'function') return listen();
+    if (!hi || typeof window.speakText !== 'function') return next();
     teacherEl.textContent = hi; refreshOpen();
+    said = [];
     setState('speak');
     window.speakText(hi, null, null, function () {});
-    if (my === turnSeq) listen();
+    if (my === turnSeq) next();
+  }
+  /* 🔁 선생님 말 다시 듣기(영상통화 화면 왼쪽 버튼) — 첫 인사와 같은 길: 읽고, 끝나면 다음 차례 */
+  function replay() {
+    var s = lastTeacherText();
+    if (!active || !s || state === 'think' || typeof window.speakText !== 'function') return;
+    stopAll(); clearHelp(); silentRuns = 0;
+    teacherEl.textContent = s; refreshOpen();
+    said = [];
+    setState('speak');
+    window.speakText(s, null, null, function () {});
+    next();
   }
   /* 처음 한 번은 저절로 올라왔다 내려가며 «여기에 글이 있다» 를 보여 준다 */
   function firstPeek() {
@@ -426,6 +487,7 @@
     if (!active) return;
     active = false;
     stopAll();
+    restoreSound(); needTap = false;
     var ring = document.getElementById('tavatar-ring');
     if (ring && homeParent) {
       if (homeNext && homeNext.parentNode === homeParent) homeParent.insertBefore(ring, homeNext);
@@ -438,7 +500,8 @@
     setState('pause');
     try { window.dispatchEvent(new Event('resize')); } catch (e) {}   // 원래 자리 얼굴 비율 다시 맞추기
     try { window.UXT && UXT.hit('ux:aifriend-facetalk-close'); } catch (e) {}
-    var chat = document.getElementById('chat'); if (chat) chat.scrollTop = chat.scrollHeight;
+    /* 나눈 말이 있을 때만 맨 아래(방금 대화)로 — 빈 화면을 내리면 작은 폰에서 «오늘의 단어» 카드가 아바타 밑으로 숨는다 */
+    var chat = document.getElementById('chat'); if (chat && !chat.querySelector('.empty-state')) chat.scrollTop = chat.scrollHeight;
   }
 
   /* ── 입구: 선생님 얼굴 카드 ───────────────────────────────────────── */
@@ -507,7 +570,67 @@
     window.addEventListener('mangoi:lang-changed', onLang);
     window.addEventListener('resize', function () { if (active) refreshOpen(); });
   }
+  /* 📞 영상통화 화면(js/ftk-call.js)에 건네는 손잡이 — 새 판정 없이 이 파일의 정본을 그대로 부른다 */
+  var slowFrom = null;
+  var CALL = {
+    en: en,
+    title: function () { return t('A.i 친구하기', 'A.i Friend'); },
+    /* ⋮ 설정 — 이 화면의 ⚙ 설정 시트(레벨·속도·친구·자막…)를 그대로 연다. 시트는 얼굴 화면보다 위에 뜬다 */
+    menu: function () {
+      var b = document.getElementById('optsToggle'); if (!active || !b) return;
+      if (!b.__ftk) { b.__ftk = 1;   // 시트의 «자막» 을 고르면 얼굴 화면 자막(CC)도 같이 — 한 번만 건다
+        [].forEach.call(document.querySelectorAll('.opt[data-sub]'), function (o) {
+          o.addEventListener('click', function () { if (active) window.FtkCall.setCc(o.getAttribute('data-sub')); }); }); }
+      b.click();
+    },
+    text: lastTeacherText,
+    parts: function () { return said.slice(); },
+    audio: function () { return window.MangoiTTS && MangoiTTS.getAudioEl ? MangoiTTS.getAudioEl() : null; },
+    tap: onFaceTap,
+    waitTap: function () { return needTap; },   // 첫 마이크를 «눌러서» 여는 중 — 상태 글자가 «쉬는 중» 대신 «눌러 말해요»
+    close: exit,
+    finish: function () { exit(); if (window.AiSpeakingProgress) window.AiSpeakingProgress.finish(); },
+    replay: replay,
+    /* .5X — 이 화면에서만 «아주 느리게»(저장 안 함). 끄거나 나가면 원래 속도로 */
+    slow: function (on) {
+      if (typeof applyRate !== 'function' || typeof RATE_STEPS_AF === 'undefined') return;
+      if (on && slowFrom == null) { slowFrom = currentRate; applyRate(RATE_STEPS_AF[0], false); }
+      else if (!on && slowFrom != null) { applyRate(slowFrom, false); slowFrom = null; }
+    },
+    /* 자동으로 바꾸는 순간 쉬고 있으면(안내가 없을 때) 바로 듣는다 */
+    hands: function (auto) { if (auto && active && state === 'pause' && !noteEl.textContent) { silentRuns = 0; listen(); } },
+    turns: function () { return document.querySelectorAll('#chat .msg.user').length; },
+    /* 🖥 넓은 화면 오른쪽 대화 기록 — 화면 말풍선 그대로(흘러나오는 중인 대답 미리보기 포함) */
+    log: function () {
+      return [].map.call(document.querySelectorAll('#chat .msg.user, #chat .ai-row .ai-text, #chat .stm-preview'), function (n) {
+        return { me: n.classList.contains('user'), text: String(n.textContent || '').trim() };
+      });
+    },
+    /* ⌨️ 넓은 화면 글쓰기 칸 — 고른 대답(pickChip)과 같은 길. 글로 쓴 턴은 «말하기» 보너스를 세지 않는다 */
+    type: function (txt) { if (!active || state === 'think') return false; stopAll(); send(txt, ++turnSeq, true); return true; }
+  };
   arm();
+  /* 🚪 열자마자 얼굴 대화(2026-11-09 사장님 「휴대폰 열면 바로 나오게」) — 폰·태블릿은 얼굴 전면, 넓은 창은 얼굴 + 오른쪽 대화 기록(ftk-call.js).
+     대화 기록을 다 불러온 뒤 연다(window.__aiFriendHistory) — 그래야 «처음 인사» 와 «이어서 듣기» 가 바로 갈린다.
+     ⛔ 다른 화면 안(iframe)에서는 안 연다 — 마이크가 저절로 열린다.
+     ⛔ ?practice=(더빙 연습)는 입력칸에 문장을 넣어 두는 흐름이라 안 연다. ✕ 로 나가면 ▶ 로 다시 들어온다. */
+  (function autoOpen() {
+    var top = true; try { top = window.top === window; } catch (e) { top = false; }
+    if (!top || /[?&]practice=/.test(location.search)) return;
+    /* 기록을 불러오는 동안 학생이 먼저 손을 댔으면(🎤·글쓰기·고르기) 끼어들지 않는다 — enter() 가 그 녹음·대답을 끊는다 */
+    var touched = false, mark = function () { touched = true; };
+    document.addEventListener('pointerdown', mark, true); document.addEventListener('keydown', mark, true);
+    var go = function () {
+      document.removeEventListener('pointerdown', mark, true); document.removeEventListener('keydown', mark, true);
+      if (active || touched) return;
+      try { enter(true); } catch (e) {}
+    };
+    Promise.resolve(window.__aiFriendHistory).catch(function () {}).then(function () {
+      if (!document.hidden) return go();
+      var vis = function () { if (document.hidden) return; document.removeEventListener('visibilitychange', vis); go(); };
+      document.addEventListener('visibilitychange', vis);   // 숨은 탭에서 열렸으면 보일 때 연다
+    });
+  })();
 
   window.MangoiFaceTalk = { enter: enter, exit: exit, isActive: function () { return active; } };
 })();

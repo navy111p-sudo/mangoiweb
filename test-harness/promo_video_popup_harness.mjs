@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // 🎬 홍보영상 팝업 가드 (2026-08-25)
 //   실행: node test-harness/promo_video_popup_harness.mjs
 //
@@ -29,7 +30,7 @@ const promoBare = strip(promo);
 const setup = rd('../cloudflare-deploy/public/js/adm-promo-setup.js');
 const setupBare = strip(setup);
 const admin = rd('../cloudflare-deploy/public/admin.html');
-const api = rd('../cloudflare-deploy/src/api-admin.ts');
+const api = readAdminModuleGraph(adminModuleFile => rd("../cloudflare-deploy/src/" + adminModuleFile));
 
 console.log('\n════════ 🎬 홍보영상 팝업 가드 ════════');
 

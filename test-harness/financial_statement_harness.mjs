@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 재무제표(손익·재무상태·현금흐름·시산) — 2026-10-09
 //  ① 자료가 온전하지 않은 기간(진행 중·연동 전)은 서버가 coverage 를 싣고 화면·PDF 가 «참고값» 경고를 그린다
 //  ② 서버 notes(재무상태표 «완전한 표가 아님» · 시산표 차대 일치 등)가 화면·PDF 에 실제로 나온다
@@ -5,7 +6,7 @@
 //  ④ 월 선택칸이 HTML 고정값(2026-04)에 머물지 않고 «지난달» 로 시작한다
 // 함수를 소스에서 중괄호 짝으로 오려 내 실제로 돌린다.
 import { readFileSync } from 'node:fs';
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const SRV = readFileSync(root + 'cloudflare-deploy/src/accounting-reports.ts', 'utf8');
 const CLI = readFileSync(root + 'cloudflare-deploy/public/js/adm-core.js', 'utf8');
 let pass = 0, fail = 0;

@@ -14,6 +14,7 @@
     shopping:{file:'warmup-shopping',ko:'시장',en:'Market'},library:{file:'library',ko:'도서관',en:'Library'},
     playground:{file:'playground',ko:'놀이터',en:'Playground'},garden:{file:'warmup-gardening',ko:'정원',en:'Garden'},
     airport:{file:'airport',ko:'공항',en:'Airport'},train:{file:'train',ko:'기차 여행',en:'Train trip'},
+    runway:{file:'hf-runway',ko:'경비행기 활주로',en:'Airplane runway'},raft:{file:'hf-raft',ko:'바다 위 뗏목',en:'Ocean raft'},
     beach:{file:'beach',ko:'해변',en:'Beach'},space:{file:'space',ko:'우주',en:'Space'},
     castle:{file:'castle',ko:'성',en:'Castle'},camping:{file:'camping',ko:'캠핑',en:'Camping'},
     aquarium:{file:'aquarium',ko:'수족관',en:'Aquarium'},soccer:{file:'soccer',ko:'축구장',en:'Soccer field'}
@@ -85,6 +86,7 @@
   select(detail,'wfRate','듣기 속도','Listening speed',[1,2,3,4,5].map(function(n){return[String(n),RATE_NAMES[n],RATE_NAMES_EN[n]];}),function(v){setRate(v);});
   select(detail,'wfSubtitles','자막','Subtitles',[['on','보이기','Show'],['blur','가리기','Blur'],['off','끄기 (탭해서 확인)','Hide (tap to reveal)']],function(v){setSubMode(v,true);});
   select(detail,'wfCorrection','교정 방식','Correction style',CMODE_CATALOG.map(function(m){return[m.id,m.ko,m.en];}),function(v){setCorrMode(v);});
+  select(detail,'wfCorrectionTiming','피드백 타이밍','Feedback timing',[['','기존 정책 유지','Keep existing policy'],['immediate','바로 교정','Correct immediately'],['key-mistakes','주요 실수 최대 3회','Up to 3 key corrections'],['after-lesson','연습 후 모아서 보기','Review after practice']],function(v){try{AiSpeakSettings.chooseTiming(localStorage,v);}catch(e){};});
   detail.appendChild(text(element('p','wfCorrectionNote'),'중국어 교정은 기존 수업 정책을 따릅니다. 이 영어 교정 선택은 바꾸지 않아요.','Chinese correction follows the existing lesson policy. This English correction choice stays unchanged.'));
   select(detail,'wfHints','도움 방식','Hint style',[['steps','뜻을 본 뒤 예시','Meaning, then examples'],['example','대답 예시 먼저','Answer ideas first']],function(v){prefs.hints=v;save();});
   select(detail,'wfTranslation','번역','Translation',[['manual','모를 때 눌러 보기','Tap when needed'],['show','새 문장의 뜻 펼치기','Expand new sentence meaning']],function(v){prefs.translation=v;save();});
@@ -202,6 +204,8 @@
     if(/castle|fantasy|princess|성곽|공주|城堡/.test(topic))return['castle'];
     if(/food|cook|bread|bakery|cafe|café|restaurant|order|음식|요리|주문|빵|咖啡|餐|做饭/.test(topic))return['bakery','restaurant'];
     if(/shop|market|buy|쇼핑|장보|买|商店/.test(topic))return['shopping'];
+    if(/\brunway\b|\bairstrip\b|활주로|跑道/.test(topic))return['runway'];
+    if(/\braft\b|뗏목|木筏/.test(topic))return['raft'];
     if(/travel|trip|holiday|train|airport|flight|여행|휴가|기차|비행|旅行|机场|飞机/.test(topic))return['airport','train','beach'];
     if(/school|study|book|read|학교|공부|독서|学校|图书/.test(topic))return young?['library','playground']:['library'];
     if(/soccer|football|축구|足球/.test(topic))return['soccer'];
@@ -237,6 +241,8 @@
     $('wfCorrection').value=_wuCorrMode||''; // Do not turn the institution default into a personal selection.
     if(!_wuCorrMode && !$('wfCorrection').querySelector('option[value=""]')){var o=text(element('option'),'기존 학원 기본값','Existing institution default');o.value='';o.disabled=true;$('wfCorrection').prepend(o);$('wfCorrection').value='';}
     $('wfCorrection').disabled=isZh();
+    $('wfCorrectionTiming').disabled=isZh();
+    try{$('wfCorrectionTiming').value=AiSpeakSettings.read(localStorage).timing;}catch(e){}
     $('wfCorrectionNote').hidden=!isZh();
     $('wfHints').value=prefs.hints;$('wfTranslation').value=prefs.translation;
   }

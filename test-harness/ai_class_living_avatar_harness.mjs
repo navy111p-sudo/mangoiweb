@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 // 🎓 A.i 선생님(/ai-class.html) 얼굴 = 공용 아바타(js/mango-avatar.js) — 2026-10-18
 //   사장님 「A.i 선생님도 A.i 말하기·A.i 친구의 Emma 와 똑같이 — 입모양과 영어 단어 일치·눈 깜빡임·눈썹·머리 움직임」.
 //   ① 모듈 v14 — mouth()(화면이 정한 입), attach() 반환값, __mgAvatarBaseW — 를 «실제로 돌려» 봅니다(가짜 DOM).
@@ -7,7 +8,7 @@ import vm from 'node:vm';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ROOT = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.join(path.dirname(fileURLToPath(new URL(import.meta.url))), '..');
 const PUB = path.join(ROOT, 'cloudflare-deploy', 'public');
 const MOD = fs.readFileSync(process.env.AV_SRC || path.join(PUB, 'js', 'mango-avatar.js'), 'utf8');
 const HTML = fs.readFileSync(process.env.PAGE_SRC || path.join(PUB, 'ai-class.html'), 'utf8');

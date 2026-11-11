@@ -6,6 +6,7 @@
 
 
   <meta charset="utf-8" />
+<script src="/js/ai-login-gate.js?v=3"></script>
 <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -276,6 +277,7 @@
     .snd-toggle.off { background: rgba(148,163,184,0.12); color: #94a3b8; border-color: rgba(148,163,184,0.3); }
 
     /* 🚀 다음 활동으로 이동 (MangoFlow) — 채팅 화면을 계속 차지하지 않게 헤더의 작은 아이콘 버튼으로 */
+    #friendReviewBtn[hidden] { display:none; }
     .next-flow-btn { background: rgba(56,189,248,0.15); color: #38bdf8;
       border: 1px solid rgba(56,189,248,0.35); width: 34px; height: 34px;
       border-radius: 9px; font-size: 15px; cursor: pointer; flex-shrink: 0;
@@ -300,6 +302,8 @@
           영영 안 보이는 사고가 난다(CLAUDE.md 함정). filter / display 만 쓴다.
        ⚠️ 가리는 것은 **AI 답변만**이다. 학생이 자기가 쓴 말은 늘 보여야 한다. */
     .ai-text { display: inline; }
+    .chat[data-fs="s"] .msg { zoom: .85; }
+    .chat[data-fs="l"] .msg { zoom: 1.2; }
     .sub-veil { display: none; color: var(--text2); font-size: 13px; font-weight: 700; cursor: pointer; }
     .chat[data-sub="blur"] .ai-row:not(.sub-shown) .ai-text,
     .chat[data-sub="blur"] .ai-row:not(.sub-shown) .tip-chip { filter: blur(6px); cursor: pointer; user-select: none; }
@@ -351,7 +355,7 @@
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
 <script src="/js/avatar-visemes.js?v=5" defer></script>
-<script src="/js/mango-avatar.js?v=42" defer></script>
+<script src="/js/mango-avatar.js?v=46" defer></script>
 <script defer src="/js/tts-short-text.js?v=1"></script><!-- 🔊 기기 목소리도 짧은 영어 낱말을 «Study.» 모양으로(서버와 같은 규칙) -->
 
 <style>
@@ -390,8 +394,14 @@
     </div>
     <button class="snd-toggle" id="sndToggle" onclick="toggleSound()" aria-label="소리 켜기/끄기" data-ko-aria="소리 켜기/끄기" data-en-aria="Sound on/off" title="소리 듣기 켜기/끄기">🔊</button>
     <button class="next-flow-btn" onclick="window.MangoFlow&&MangoFlow.open('aifriend')" aria-label="다음으로 이동" data-ko-aria="다음으로 이동" data-en-aria="Go to next activity" title="다음으로 이동 (수업·말하기 연습·게임·나가기)" data-ko-title="다음으로 이동 (수업·말하기 연습·게임·나가기)" data-en-title="Go next (Class·Speaking·Games·Exit)">🚀</button>
+    <button type="button" class="next-flow-btn" id="friendReviewBtn" hidden onclick="openFriendReview()"><span data-ko="교정 복습" data-en="Review corrections">교정 복습</span></button>
     <button class="clear-btn" onclick="clearChat()">🗑 <span data-ko="대화 초기화" data-en="Clear">대화 초기화</span></button>
   </div>
+  <dialog id="friendReview" aria-labelledby="friendReviewTitle">
+    <h2 id="friendReviewTitle" data-ko="복습 표현" data-en="Expressions to review">복습 표현</h2>
+    <ul id="friendReviewList"></ul>
+    <form method="dialog"><button data-ko="닫기" data-en="Close">닫기</button></form>
+  </dialog>
   <div class="opts">
     <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
     <!-- 🪜 여덟 칸 (2026-08-31 사장님 결정). 숫자가 눈금이고 CEFR 은 그 위에 얹은 라벨이다 —
@@ -438,6 +448,11 @@
     <button class="opt active" data-sub="on" data-ko="보이기" data-en="Show">보이기</button>
     <button class="opt" data-sub="blur" data-ko="가리기 (탭하면 보임)" data-en="Hide (tap to peek)">가리기 (탭하면 보임)</button>
     <button class="opt" data-sub="off" data-ko="완전 끄기" data-en="Off">완전 끄기</button>
+    <!-- 🔠 글자 크기 3단계 (2026-11-09) — 말풍선 글자만. 값은 localStorage 에 기억한다 -->
+    <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px">🔠 <span data-ko="글자:" data-en="Text:">글자:</span></span>
+    <button class="opt" data-fs="s" data-ko="작게" data-en="Small">작게</button>
+    <button class="opt active" data-fs="m" data-ko="보통" data-en="Normal">보통</button>
+    <button class="opt" data-fs="l" data-ko="크게" data-en="Large">크게</button>
   </div>
   <!-- 🎚️ 교정 방식 안내 (2026-11-01 사장님 요청) — 자유대화 > 균형 > 집중교정 순으로 응대가 느려질 수 있다 -->
   <p class="opt-hint" style="font-size:12px;color:var(--text2);margin:4px 0 8px"><span data-ko="자유대화>균형>집중교정 순으로 아바타의 응대가 느릴 수 있습니다." data-en="Avatar responses may be slower in the order of Free talk > Balanced > Focused correction.">자유대화>균형>집중교정 순으로 아바타의 응대가 느릴 수 있습니다.</span></p>
@@ -447,7 +462,7 @@
     <span class="hud-chip hud-lv" id="lvChip">🥭 <span id="lvName">Lv.1 새싹 망고</span>
       <span class="xp-track"><span class="xp-fill" id="xpFill"></span></span></span>
     <span class="hud-chip hud-streak" id="streakChip" title="연속 대화 일수">🔥 <span id="streakN">0</span><span data-ko="일 연속" data-en="-day streak">일 연속</span></span>
-    <span class="hud-chip hud-pts" id="ptsChip" title="오늘 받은 포인트">⭐ <span data-ko="오늘 받은 포인트" data-en="Points today">오늘 받은 포인트</span> <span id="ptsN">—</span></span>
+    <span class="hud-chip hud-pts" id="ptsChip" title="오늘 받은 포인트" role="button" tabindex="0" style="cursor:pointer" onclick="ptsGuide()" onkeydown="if(event.key==='Enter')ptsGuide()">⭐ <span data-ko="오늘 받은 포인트" data-en="Points today">오늘 받은 포인트</span> <span id="ptsN">—</span></span>
     <span class="hud-chip hud-wod" id="wodChip" onclick="hearWod()" title="눌러서 발음 듣기 — 대화에 쓰면 +5P!">
       <span class="wod-lab"><span data-ko="오늘의 단어" data-en="Word of the day">오늘의 단어</span></span>
       <span class="wod-en" id="wodEn">—</span> <span class="wod-ko" id="wodKo"></span> <span id="wodEmoji"></span>
@@ -526,7 +541,7 @@
   </div>
 
   <script src="/js/speech-preferences.js?v=3"></script>
-  <script src="/js/speech-rate-request.js?v=1"></script>
+  <script src="/js/speech-rate-request.js?v=2"></script>
   <script>
     // 전체 사이트 로그인된 사용자(mango_user) + 서명 토큰 자동 사용
     // 서버가 uid 를 그대로 믿지 않으므로(타인 대화 열람/삭제 방지 = IDOR 차단)
@@ -859,6 +874,17 @@
     });
     applySub(currentSub);
 
+    /* 🔠 글자 크기 3단계 (2026-11-09) — 모르는 값·저장 실패는 «보통» */
+    function applyFs(v) {
+      if (!['s','m','l'].includes(v)) v = 'm';
+      try { localStorage.setItem('mangoi_aifriend_fs', v); } catch(e){}
+      const chat = document.getElementById('chat');
+      if (chat) chat.dataset.fs = v;
+      document.querySelectorAll('.opt[data-fs]').forEach(x => x.classList.toggle('active', x.dataset.fs === v));
+    }
+    document.querySelectorAll('.opt[data-fs]').forEach(b => { b.onclick = () => applyFs(b.dataset.fs); });
+    applyFs((function(){ try { return localStorage.getItem('mangoi_aifriend_fs'); } catch(e){ return 'm'; } })());
+
     /* ══ 뜻 보기 — 누른 문장만, 그때 번역한다 ══
        미리 전부 번역해 두면 학생이 보지도 않을 문장까지 비용이 든다. 온디맨드로 부르고,
        서버(/api/translate)가 KV 에 캐시하므로 같은 문장은 두 번째부터 공짜다.
@@ -970,6 +996,11 @@
       if (g.chatCapped === 'daily') title += en ? ' Chat points: 10 times a day — all used today.' : ' 대화 포인트는 하루 10번까지 — 오늘은 다 받았어요.';
       else if (g.chatCapped === 'total') title += en ? ' Daily point limit reached for today.' : ' 오늘 하루 포인트 한도에 닿았어요.';
       return { text: '+' + n + 'P', title: title };
+    }
+    /* 🎁 포인트 사용처 안내 (2026-11-09) — 문구는 ai-guide.html «포인트는 어디에 쓰나요?» 와 같은 사실 */
+    function ptsGuide() {
+      alert(isEn() ? '1 point = 1 won.\nFrom 3,000P you can exchange points for gift coupons at the Point Shop on the home screen.'
+                   : '1포인트 = 1원이에요.\n3,000P부터 홈 화면의 포인트상점에서 기프티콘으로 바꿀 수 있어요.');
     }
     function updateHUD() {
       const g = gamState;
@@ -1139,8 +1170,7 @@
       friendPanelFold(!(bar && bar.classList.contains('panel-folded')));
     }
     function friendAiAsksQuestion(content) {
-      const t = String(content || '').replace(/[\s\p{Extended_Pictographic}]+$/u, '');
-      return /\?$/.test(t);
+      return /\?$/.test(aiTextTail(content));
     }
     function appendMsg(role, content, hasFix) {
       if (role === 'ai') _lastAiText = String(content || '');
@@ -1227,13 +1257,30 @@
       el.textContent = isEn() ? en : ko;
     }
     /* 🎯 발음 교정 도우미 (2026-11-01) */
-    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was']);
+    /* 기능어(대명사·전치사·접속사·조동사)는 발음 짚을 낱말이 아니다 — «…dogs too?» 는 dogs, «…say it with me?» 는 없음 */
+    const PRON_STOP = new Set(['you','your','the','are','is','it','this','that','what','how','why','who','where','when','did','do','does','can','will','and','for','with','not','yes','ok','okay','say','see','like','have','has','got','about','from','into','just','really','was',
+      'me','my','we','us','our','he','she','him','her','his','its','they','them','their','there','an','am','be','were','would','could','should','to','of','in','on','at','or','so','if','but','too','again','any','some',
+      'want','try','something','anything','everything','today','tonight','now','often','lately','someday','together','also','ever','yet','very','much','more','most','along','far','been']);
+    /* 끝에 붙은 이모지(😊 ☀️ 👍🏻 🇰🇷 👨‍👩‍👧 1️⃣)·공백을 뗀다 — AI 친구는 질문 뒤에 이모지를 붙인다(2026-11-09 실측: 질문으로 끝나는 답의 약 30%) */
+    function aiTextTail(content) {
+      /* 끝에 붙은 «(💡 …)» 팁(화면·TTS 에서도 떼는 것)도 먼저 뗀다 · 보이지 않는 글자(U+200B·U+2060·U+00AD·태그 문자)도 함께 */
+      return String(content || '').replace(/\s*\(💡[^()]*\)\s*$/u, '')
+        .replace(/(?:[\s\u200B\u200D\u2060\u00AD\uFE0E\uFE0F\u{E0020}-\u{E007F}\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}]|[#*0-9]\uFE0F?\u20E3)+$/u, '');
+    }
     function pronTargetFromAi(text) {
-      const t = String(text || '').trim();
-      if (!/\?\s*$/.test(t)) return '';
-      const words = t.replace(/\?\s*$/, '').match(/[A-Za-z]{2,20}/g) || [];
+      const t = aiTextTail(text);
+      if (!/\?$/.test(t)) return '';
+      /* 마지막 질문 문장의 마지막 쉼표 뒤만 본다 — 앞 문장·따옴표 속 예문(«You can say… "…" Can you say it with me?»)·인사 속 학생 이름·AI 가 받아 적은 낯선 낱말로 넘어가지 않게 */
+      /* 끝 따옴표를 먼저 뗀다 — «Can you say "banana"?» 는 banana. «…dogs, too?» 처럼 꼬리말만 남으면 그 앞 마디를 본다 */
+      const clauses = t.slice(0, -1).replace(/["“”'‘’]+\s*$/u, '').split(/[.!?;:"“”]/).pop().split(',');
+      let part = clauses.pop();
+      if (clauses.length && /^\s*(too|either|right|ok|okay)\s*$/i.test(part)) part = clauses.pop();
+      /* \p{L} 로 낱말을 통째로 잡는다 — café·Zürich·don’t 가 caf·rich·don 조각이 되지 않게(조각은 아래에서 건너뜀) */
+      const words = part.match(/\p{L}[\p{L}'’-]*/gu) || [];
       for (let i = words.length - 1; i >= 0; i--) {
-        const w = words[i].toLowerCase();
+        const raw = words[i], w = raw.toLowerCase();
+        /* K-pop·don't·TV·EXO·café 는 Azure 기준 낱말로 못 믿는다 — 건너뜀 */
+        if (!/^[a-z]{2,20}$/.test(w) || (raw === raw.toUpperCase())) continue;
         if (!PRON_STOP.has(w)) return w;
       }
       return '';
@@ -1276,10 +1323,14 @@
     function sayThrice(word, n) {
       const gen = _stmGen;
       return new Promise(function (resolve) {
-        let i = 0;
+        let i = 0, tick = 0;
+        /* ⚠️ 안전망 — 다른 소리(다시 듣기 등)가 끊으면 끝 신호가 영영 안 와 자동 모드가 멈춥니다(stmSpeak 와 같은 이유). 그때는 남은 횟수를 버리고 큐를 풉니다. */
+        const end = function () { i = n + 1; resolve(); };
         const next = function () {
-          if (gen !== _stmGen || !isSoundOn() || i++ >= n) return resolve();
-          try { speakText(word, null, null, next); } catch (e) { resolve(); }
+          const my = ++tick;
+          if (gen !== _stmGen || !isSoundOn() || i++ >= n) return end();
+          setTimeout(function () { if (my === tick) end(); }, 20000);
+          try { speakText(word, null, null, next); } catch (e) { end(); }
         };
         next();
       });
@@ -1297,13 +1348,14 @@
       w.textContent = String(pf.word);
       card.appendChild(w);
       const again = document.createElement('button');
-      again.type = 'button'; again.className = 'fix-speak';
+      again.type = 'button'; again.className = 'fix-speak fix-btn';
       _fixLabel(again, '🔊 다시 듣기', '🔊 Listen again');
-      again.onclick = function () { sayThrice(pf.word, pf.say_times || 3); };
+      const replay = () => sayThrice(pf.word, pf.say_times || 3);
+      again.onclick = replay;
       card.appendChild(again);
       chat.appendChild(card);
       chat.scrollTop = chat.scrollHeight;
-      if (autoSpeak !== false) sayThrice(pf.word, pf.say_times || 3);
+      if (autoSpeak !== false) replay();
     }
     function showFixCard(fix, offerRepeat) {
       fixCardClear();
@@ -1324,8 +1376,9 @@
         const v = document.createElement('span'); v.className = cls; v.textContent = val;
         row.appendChild(l); row.appendChild(v); return row;
       };
+      const correctedText = String(fix.now);
       card.appendChild(mk('내가 말한 것', 'You said', String(fix.was), 'fix-was'));
-      card.appendChild(mk('이렇게', 'Better', String(fix.now), 'fix-now'));
+      card.appendChild(mk('이렇게', 'Better', correctedText, 'fix-now'));
 
       if (fix.why_ko) {
         const w = document.createElement('div'); w.className = 'fix-why';
@@ -1337,7 +1390,7 @@
       const listen = document.createElement('button');
       listen.type = 'button'; listen.className = 'fix-btn';
       _fixLabel(listen, '🔊 들어보기', '🔊 Listen');
-      listen.onclick = function(){ try { speakText(String(fix.now), listen, null); } catch(e){} };
+      listen.onclick = function(){ try { speakText(correctedText, listen, null); } catch(e){} };
       acts.appendChild(listen);
 
       /* 🎤 따라 말하기 — 되말해 주기만 하면 아이는 흘려 듣는다. 이 한 바퀴가 «수다» 를
@@ -1346,7 +1399,7 @@
         const say = document.createElement('button');
         say.type = 'button'; say.className = 'fix-btn';
         _fixLabel(say, '🎤 따라 말해 보기', '🎤 Say it with me');
-        say.onclick = function(){ fixSpeakThenMic(say, String(fix.now)); };
+        say.onclick = function(){ fixSpeakThenMic(say, correctedText); };
         acts.appendChild(say);
       }
       card.appendChild(acts);
@@ -1364,14 +1417,17 @@
         if (opened) return; opened = true;
         btn.disabled = false;
         _repeatTarget = { text: text, at: Date.now() };
-        try { if (!_recognizing) toggleMic(); } catch(e){}
+        try { if (!_whisperOn) toggleMic(); } catch(e){}
       };
       btn.disabled = true;
       try { speakText(text, btn, null); } catch(e){ openMic(); return; }
       const t0 = Date.now();
       const tick = setInterval(function(){
-        if (!btn.classList.contains('playing') && Date.now() - t0 > 350) { clearInterval(tick); openMic(); }
-        else if (Date.now() - t0 > 15000) { clearInterval(tick); openMic(); }
+        const elapsed = Date.now() - t0;
+        if ((!btn.classList.contains('playing') && elapsed > 350) || elapsed > 15000) {
+          clearInterval(tick);
+          openMic();
+        }
       }, 200);
     }
 
@@ -1390,10 +1446,13 @@
     var _stmSpoke = false;           // 이 턴에 스트리밍으로 읽은 것이 있나
     var _stmRow = null;              // 미리보기 말풍선 (done 에서 정본으로 갈아끼웁니다)
 
-    function stmReset() {
-      _stmGen++; _stmChain = Promise.resolve(); _stmSpoke = false;
+    function stmClearPreview() {
       if (_stmRow && _stmRow.parentNode) _stmRow.parentNode.removeChild(_stmRow);
       _stmRow = null;
+    }
+    function stmReset() {
+      _stmGen++; _stmChain = Promise.resolve(); _stmSpoke = false;
+      stmClearPreview();
     }
     /* ⏹ B (2026-09-11) — «AI 가 말하는 중에 학생이 말을 걸면 멈춘다».
        ⛔ MangoiTTS.stop() «만» 부르면 안 됩니다 — A-1 의 문장 큐가 다음 문장을 이어서
@@ -1442,11 +1501,13 @@
       var chat2 = document.getElementById('chat');
       if (chat2) chat2.scrollTop = chat2.scrollHeight;
     }
-    /** SSE 를 읽어 문장을 흘리고, done 이벤트의 객체를 돌려줍니다. */
-    async function stmRead(r, holdSpeech) {
+    /** SSE 를 읽어 문장을 흘리고, done 이벤트의 객체를 돌려줍니다.
+        ⚡ onFinal(ev) — 서버가 저장·포인트 «전» 에 보내는 final 이벤트(정본 답)를 받는 순간 한 번 부릅니다(2026-11-06).
+           옛 서버는 final 을 안 보내므로 그때는 예전처럼 done 에서만 그립니다. */
+    async function stmRead(r, holdSpeech, onFinal) {
       var rd = r.body && r.body.getReader ? r.body.getReader() : null;
       if (!rd) return { ok: false, error: 'stream_unsupported' };
-      var dec = new TextDecoder(), buf = '', out = null;
+      var dec = new TextDecoder(), buf = '', out = null, gotFinal = false;
       for (;;) {
         var step = await rd.read();
         if (step.done) break;
@@ -1459,11 +1520,33 @@
           try { ev = JSON.parse(line.slice(5)); } catch(e){ continue; }
           if (!ev) continue;
           if (ev.done) { out = ev; continue; }
-          if (ev.t && !holdSpeech) { stmShow(ev.t); stmSpeak(ev.t); }
+          if (ev.final) { gotFinal = true; if (typeof onFinal === 'function') { try { onFinal(ev); } catch(e){ console.error('[AI Friend] final render failed:', e); } } continue; }
+          /* ⛔ final 뒤의 문장은 받지 않는다 — 정본을 이미 그리고 읽는 중이다(늦게 풀린 미리듣기가 같은 말을 또 읽지 않게). */
+          if (ev.t && !holdSpeech && !gotFinal) { stmShow(ev.t); stmSpeak(ev.t); }
         }
       }
       return out || { ok: false, error: 'stream_incomplete' };
     }
+
+    /* 👄 입모양 분석 엔진(Rhubarb) — 이 화면은 «켠다» (2026-11-09 사장님 「입모양 분석은 다시 켜줘」).
+       Lip-sync analysis is ON again on this page (owner, 2026-11-09).
+       📜 2026-11-06 「휴대폰 A.i 말하기 3카드 모두 더 빨리」 때 껐다가(분석이 끝날 때까지 재생 전 최대 0.25초 대기 ·
+          첫 마이크 때 약 28.7MB 모델 다운로드) 되돌렸다. 그 대가는 그대로다 — 상한은 mango-avatar.js CUE_WAIT_MS(250ms).
+       ⚠️ 웜업 warmup.html 의 _visemeWrap 은 «끈 채» 다(2026-11-05 「입모양 일치하지 않아도 좋으니 최대한 빨리」 — 별개 지시).
+       🔧 끄고 비교: 주소에 ?visemes=off (그때는 prepare 가 곧바로 null → 입은 소리 크기로 움직이고, boot 는 아무 일도 안 함). */
+    var _afVisHold = (function(){
+      try { return /[?&]visemes=off\b/.test(location.search); } catch(e){ return false; }
+    })();
+    function _afVisemeWrap() {
+      var V = window.AvatarVisemes;
+      if (!V || V.__friendHold || typeof V.prepare !== 'function' || typeof V.boot !== 'function') return;
+      var p = V.prepare, b = V.boot;
+      V.prepare = function(){ return _afVisHold ? Promise.resolve(null) : p.apply(V, arguments); };
+      V.boot = function(){ if (!_afVisHold) return b.apply(V, arguments); };
+      V.__friendHold = true;
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _afVisemeWrap); else _afVisemeWrap();
+    window.addEventListener('load', _afVisemeWrap);
 
     function speakText(text, btn, row, onDone) {
       if (!friendRatePreference.loaded) {
@@ -1528,13 +1611,13 @@
        AI 음성코치에서 이미 검증된 방식이라 정확도가 높고, 세션마다 브라우저가 제멋대로 끊던
        문제도 없다(MediaRecorder는 멈추기 전까지 안 끊김). 실시간 자막은 사라지고 "녹음→전사"
        로 UX가 바뀌지만(사장님 승인), 그만큼 정답률이 오른다. */
-    let _recognizing = false, _pendingVoice = false;
+    let _whisperOn = false, _friendMicSeq = 0, _pendingVoice = false;
     let _lastRecBlob = null, _lastAiText = '';   // 🎯 발음 교정용 — 방금 녹음 파일 / AI 마지막 말
 
     function updateMicUI() {
       const b = document.getElementById('micBtn'); if (!b) return;
-      b.classList.toggle('recording', _recognizing);
-      b.textContent = _recognizing ? '⏹' : '🎤';
+      b.classList.toggle('recording', _whisperOn);
+      b.textContent = _whisperOn ? '⏹' : '🎤';
     }
     /* 🎤 마이크 상태·오류를 화면에 알려준다 — 그동안 ai-friend 는 아무 안내가 없어서
        권한이 꺼져 있거나 소리가 안 들려도 학생은 "마이크가 안 된다"고만 느꼈다. */
@@ -1556,38 +1639,65 @@
     }
 
     /* 🎤 녹음 → 서버 Whisper 전사(mangoi-voice-input.js). 모든 환경에서 이 방식 하나만 쓴다. */
-    let _whisperOn = false, _friendMicSeq = 0;
     function cancelFriendMic() {
       if (!_whisperOn) return;
       _friendMicSeq++;
       if (window.MangoiVoice) MangoiVoice.cancel();
-      _whisperOn = false; _recognizing = false; updateMicUI(); micHint(null);
+      _whisperOn = false; updateMicUI(); micHint(null);
     }
     // Shared by the inline mic and face conversation. Peaks are UI hints, never speech evidence.
+    /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리」) «미리 받아쓰기» — 웜업과 같은 정본 js/mangoi-voice-early.js.
+       말이 멎고 0.35초면 지금까지 녹음분을 먼저 받아 적어 두고, 녹음이 끝났을 때 그 사이 더 말하지 않았으면 그 글자를 그대로 쓴다
+       (끝난 뒤 «올리고 받아 적기» 약 1초를 건너뜀). ⛔ 여기서는 «미리 받기만» 한다(accept 없음) — 녹음을 일찍 끊는 «끝난 말» 판정은
+       웜업 화면 안(micUnfinished)에만 있고 베끼지 않는다. 그래서 녹음이 끝나는 시점(침묵 1.5초·2.5초·⏹)은 예전 그대로다.
+       ⛔ 애플 WebKit(아이폰·사파리·iOS 인앱)·webm/ogg 가 아닌 녹음은 그 모듈이 스스로 빼고 예전대로 한 번에 올린다.
+       말소리 검사는 그대로다 — 다만 «미리 받은 조각» 은 그 조각 자기 소리로 잰다(녹음이 끝나기 전이라 전체 파일이 아직 없다).
+       조각이 검사·받아쓰기에 실패하면 조용히 버린다(화면에 «안 들렸어요» 를 띄우지 않음) → 녹음이 끝나면 예전처럼 전체를 올려 그때 판정한다. */
     async function friendRecordVoice(opts) {
       const current = opts.isCurrent || (() => true);
-      let blob = null, check = null;
-      const verify = () => check || (check = Promise.resolve().then(() =>
-        window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(blob) : null
-      ).catch(() => null));
+      let blob = null;
+      const checks = new Map();   // 소리 파일마다 한 번만 잰다(조각·전체가 서로 다른 파일)
+      const voiced = new Set();   // 말소리가 확인된 «조각» 에서 받아 적은 글자 — 전체 파일은 그 조각을 품으므로 다시 잴 필요가 없다
+      const verifyBlob = b => {
+        if (!b) return Promise.resolve(null);
+        if (!checks.has(b)) checks.set(b, Promise.resolve().then(() =>
+          window.MangoiVoiceCheck ? MangoiVoiceCheck.blobHasVoice(b, true) : null
+        ).catch(() => null));
+        return checks.get(b);
+      };
+      const verify = () => verifyBlob(blob);
       const reject = () => { if (current() && opts.onState) opts.onState('error', { reason: 'no_audio' }); };
-      const said = await MangoiVoice.record({
+      const base = {
         ...opts,
         onAudio: b => { blob = b; if (opts.onAudio) opts.onAudio(b); },
         transcribe: async fd => {
-          const hasVoice = await verify();
-          if (!current()) return { ok: true, text: '' };
-          if (hasVoice !== true) { reject(); return { ok: true, text: '', dropped: 'no_audio' }; }
+          /* 녹음이 끝나기 «전» 에 불리면 미리 받기 조각이다 — 공용 모듈은 끝날 때 onAudio 를 먼저 부른 뒤 받아쓰기를 부른다. */
+          const snap = !blob;
+          const hasVoice = await verifyBlob(snap ? (fd && fd.get ? fd.get('audio') : null) : blob);
+          if (!current()) return snap ? null : { ok: true, text: '' };
+          if (hasVoice !== true) {
+            if (snap) return null;   // 조각은 조용히 버린다 — 끝에서 전체로 다시 판정
+            reject(); return { ok: true, text: '', dropped: 'no_audio' };
+          }
           fd.append('strict', '1');
           const r = await fetch('/api/voice/transcribe', { method: 'POST', body: fd });
           const d = r.ok ? await r.json() : null;
+          if (snap) {
+            const t = d && d.ok ? String(d.text || '').trim() : '';
+            if (!t) return null;     // 빈손 조각도 버린다 — 끝에서 전체로(그때 «안 들렸어요» 판정)
+            voiced.add(t);
+            return d;
+          }
           if (current() && d && d.ok && !String(d.text || '').trim()) reject();
           return d;
         }
-      });
+      };
+      let recOpts = base;
+      try { if (window.MangoiVoiceEarly) recOpts = MangoiVoiceEarly.wrap(base, {}); } catch (e) { recOpts = base; }
+      const said = await MangoiVoice.record(recOpts);
       if (!current()) return '';
       // Check the submission boundary too, including recorder overrides and late cancellation.
-      if (said) {
+      if (said && !voiced.has(said)) {
         const hasVoice = await verify();
         if (!current()) return '';
         if (hasVoice !== true) { reject(); return ''; }
@@ -1603,11 +1713,12 @@
       }
       if (_whisperOn) { MangoiVoice.stop(); return; }     // ⏹ — 지금까지 녹음분으로 전사
       /* ⚡ (2026-10-20) 입모양 분석기를 «지금» 켜 둔다 — 듣고·전사하고·AI 가 답을 만드는 동안 함께 준비된다.
-         예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다. */
+         예전에는 첫 대답을 «재생하려는 순간» 에야 켜서(모델 37.8MB) 첫 대답 입모양이 늦었다. 이미 켜져 있으면 아무 일도 안 한다.
+         👄 (2026-11-09) 다시 켰다 — «?visemes=off» 일 때만 _afVisemeWrap 이 boot 를 막는다(위 speakText 앞 주석). */
       try { window.AvatarVisemes && AvatarVisemes.boot && AvatarVisemes.boot(); } catch(e){}
       const micSeq = ++_friendMicSeq;
       let voiceError = '';
-      _whisperOn = true; _recognizing = true; updateMicUI();
+      _whisperOn = true; updateMicUI();
       stopSpeakingNow();   // ⏹ 말을 걸었으니 AI 낭독을 멈춥니다(큐까지 함께 — B)
       let said = '', recBlob = null;   // 🎤 녹음 파일 — 판정이 놓친 작은 목소리를 다시 잰다(voice-has-speech.js)
       try { said = await friendRecordVoice({
@@ -1636,7 +1747,7 @@
         }
       }); } catch(e) { voiceError = 'server'; }
       if (micSeq !== _friendMicSeq) return;
-      _whisperOn = false; _recognizing = false; updateMicUI();
+      _whisperOn = false; updateMicUI();
       _lastRecBlob = said ? recBlob : null;   // 🎯 발음 교정에 쓸 녹음(음성으로 보낸 턴만)
       if (said) {
         micHint(null);
@@ -1967,6 +2078,8 @@
       const msg = (input.value || '').trim();
       if (!msg || document.getElementById('sendBtn').disabled) return;
       document.getElementById('sendBtn').disabled = true;
+      let turnTiming = '';
+      try { turnTiming = window.AiSpeakSettings && AiSpeakSettings.read(localStorage).timing || ''; } catch(e) {}
       const turnCorr = currentCorr;   // Keep this request's mode stable while it is pending.
       const autoTurn = window.FriendAutoTalk ? FriendAutoTalk.begin() : 0;
       let autoReplyOK = false;
@@ -2007,75 +2120,109 @@
       appendTyping();
       /* 🎯 집중교정 + 음성 턴이면 기준 낱말 발음을 WAV 로 함께 보낸다(서버가 Azure 로 판정). */
       let pronBody = null;
-      if (wasVoice && currentCorr === 'focused' && _lastRecBlob) {
+      if (wasVoice && currentCorr === 'focused' && (!turnTiming || turnTiming === 'immediate') && _lastRecBlob) {
         const tgt = pronTargetFromAi(_lastAiText);
         if (tgt) pronBody = await pronPayload(_lastRecBlob, tgt);
       }
       _lastRecBlob = null;
       try {
+        const progressMeta = window.AiSpeakingProgress ? await window.AiSpeakingProgress.beforeTurn() : {};
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
           // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
           //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
           //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
-          body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+          body: JSON.stringify({ ...progressMeta, uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
                                  friend: personNow(),
+                                 correction_timing: turnTiming || undefined,
                                  correction_mode: turnCorr,   // 🎚️ 교정 방식 (서버 기본값 = 집중교정)
+                                 practice_session: window.SESSION_ID,
+                                 request_id: progressMeta.progress_turn || (window.AiSpeakingSession ? AiSpeakingSession.requestId() : undefined),
                                  pron: pronBody,                 // 🎯 발음 교정용 WAV + 기준 낱말(없으면 null)
                                  topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text',
                                  sub: currentSub,     // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
                                  stream: 1 })         // 📡 A-1 — 문장이 끝날 때마다 먼저 읽습니다
         });
         let d;
+        /* ⚡ (2026-11-06 사장님 「휴대폰 A.i 말하기 3카드 모두 아바타가 더 빨리」) 답을 «그리고 읽는» 것과
+           «포인트·발음 카드» 를 나눴다 — 서버가 저장·포인트 «전» 에 final 이벤트로 정본 답을 먼저 보내면
+           그 순간 showReply 로 그리고 읽고, 뒤에 오는 done 에서는 showRest(포인트·발음)만 한다.
+           옛 서버(final 없음)·JSON 경로는 done 하나로 둘 다 한다 — 그리는 순서·내용은 예전과 같다.
+           ⛔ 두 번 그리지 않는다 — final 을 그렸으면(fin) done 의 reply 는 다시 안 그린다(같은 함수로 만든 같은 답). */
+        let fin = null;
+        let replyGen = null;
+        const showReply = function (d) {   // ⚠️ 이름이 d 인 이유: 하니스가 이 블록을 오려 «d» 로 돌린다(바깥 d 와 같은 «답 묶음»)
+          removeTyping();
+          /* 미리보기 말풍선을 치웁니다 — 아래에서 정본(appendMsg)이 다시 그립니다. */
+          stmClearPreview();
+          /* 🚨 AI 가 답을 못 만든 턴 (2026-09-09 사장님 「이해못하고 이상한 주제로 질문해」).
+             서버가 ai_unavailable 로 밝혀 줍니다. 그때 오는 reply 는 «학생이 무슨 말을 했든 똑같은»
+             고정 문구라, 그대로 그리면 Lily 가 딴소리를 한 것처럼 보입니다(실측: 공룡 얘기 중에
+             「오늘 뭐 먹었어?」). ⛔ 소리로 읽지 않고 교정 카드도 안 붙입니다 — 둘 다 «AI 가 한 말»
+             이라는 전제 위에 있습니다. ✅ 대신 무슨 일이 났는지 사람 말로 적습니다. */
+          if (d && d.ok && d.ai_unavailable) {
+            // ⚠️ 맨이름 getLang 은 없을 때 ReferenceError — 이 파일의 정본 헬퍼를 씁니다.
+            appendNotice(isEn()
+              ? '⚠️ I could not think of a reply just now. Please send it again in a moment.'
+              : '⚠️ 지금은 답을 만들지 못했어요. 잠시 뒤 다시 보내 주세요.');
+            return 'notice';
+          } else if (d && d.ok && d.reply) {
+            autoReplyOK = true;
+            appendMsg('ai', d.reply, !!(d.fix && d.fix.was && d.fix.now));
+            /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
+               ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
+            showFixCard(d.fix, d.repeat);
+            if (d.review_fix && d.review_fix.now) {
+              friendReviewFixes.add(d.review_fix.now);
+              if (friendReviewFixes.size > 3) friendReviewFixes.delete(friendReviewFixes.values().next().value);
+              document.getElementById('friendReviewBtn').hidden = false;
+            }
+            /* 🔊 새 답변 자동 재생 — 마지막 스피커 버튼에 재생 표시.
+               📡 (A-1) 스트리밍으로 이미 읽었으면 다시 읽지 않습니다. 단 서버가 재시도를 돌려
+                  답이 바뀌었으면(replaced) 읽던 것을 멈추고 정본을 읽습니다. */
+            // The final focused reply contains the verified correction exactly three times.
+            // Never play a speculative question before that reply.
+            if (turnCorr === 'focused' || !_stmSpoke || d.replaced) {
+              // Capture the speech generation inside stmSpeak only after any reset (PR #1916).
+              if (_stmSpoke) { stmReset(); try { window.MangoiTTS && MangoiTTS.stop(); } catch(e){} }
+              const rows = document.querySelectorAll('.ai-row');
+              const lastRow = rows.length ? rows[rows.length - 1] : null;
+              const btns = document.querySelectorAll('.replay-btn');
+              stmSpeak(lastRow && lastRow._speakBody ? lastRow._speakBody : d.reply, btns.length ? btns[btns.length - 1] : null, lastRow);
+            }
+            // Keep the rendered reply's generation: stopping before done also cancels its pronunciation.
+            replyGen = _stmGen;
+            return 'reply';
+          }
+          return '';
+        };
+        /* 포인트·발음 카드 — 답을 그린 «뒤» 에 온다(done). 발음 3번 듣기는 답 낭독 큐 «뒤» 에 잇는다. */
+        const showRest = function (kind, d) {
+          if(kind==='reply'&&d&&d.ok&&!d.ai_unavailable&&window.AiSpeakingSession)AiSpeakingSession.record(d.progress,wuProgressContext());
+          if (kind === 'reply') { if (d.pron_fix) showPronFix(d.pron_fix, false); }   // 🎯 기준 낱말을 틀리게 발음 → 3번 들려주기
+          applyGam(d.gam, wasVoice);
+          if (kind !== 'reply') return;
+          _stmChain = _stmChain.then(function () {
+            if (replyGen === _stmGen && isSoundOn() && d.pron_fix) return sayThrice(d.pron_fix.word, d.pron_fix.say_times || 3);
+          });
+        };
         /* 📡 서버가 스트리밍으로 답하면 문장을 흘려 받습니다. 옛 서버(JSON)면 ct 가 달라
            저절로 아래 옛 경로로 갑니다 — 화면을 안 고쳐도 되는 방향입니다. */
         const _ct = r.headers.get('Content-Type') || '';
         if (_ct.indexOf('text/event-stream') >= 0) {
-          try { d = await stmRead(r, turnCorr === 'focused'); }
+          try { d = await stmRead(r, turnCorr === 'focused', function (f) { if (fin) return; const k = showReply(f); if (k) fin = { kind: k }; }); }
           catch(se){ console.error('[AI Friend] stream read failed:', se); d = { ok:false, error:'stream_failed' }; }
         } else {
           try { d = await r.json(); } catch(je){ d = { ok:false, error: 'invalid_json_response', status: r.status }; }
         }
         removeTyping();
-        /* 미리보기 말풍선을 치웁니다 — 아래에서 정본(appendMsg)이 다시 그립니다. */
-        if (_stmRow && _stmRow.parentNode) { _stmRow.parentNode.removeChild(_stmRow); }
-        _stmRow = null;
-        /* 🚨 AI 가 답을 못 만든 턴 (2026-09-09 사장님 「이해못하고 이상한 주제로 질문해」).
-           서버가 ai_unavailable 로 밝혀 줍니다. 그때 오는 reply 는 «학생이 무슨 말을 했든 똑같은»
-           고정 문구라, 그대로 그리면 Lily 가 딴소리를 한 것처럼 보입니다(실측: 공룡 얘기 중에
-           「오늘 뭐 먹었어?」). ⛔ 소리로 읽지 않고 교정 카드도 안 붙입니다 — 둘 다 «AI 가 한 말»
-           이라는 전제 위에 있습니다. ✅ 대신 무슨 일이 났는지 사람 말로 적습니다. */
-        if (d && d.ok && d.ai_unavailable) {
-          // ⚠️ 맨이름 getLang 은 없을 때 ReferenceError — 이 파일의 정본 헬퍼를 씁니다.
-          appendNotice(isEn()
-            ? '⚠️ I could not think of a reply just now. Please send it again in a moment.'
-            : '⚠️ 지금은 답을 만들지 못했어요. 잠시 뒤 다시 보내 주세요.');
-          applyGam(d.gam, wasVoice);
-        } else if (d && d.ok && d.reply) {
-          autoReplyOK = true;
-          appendMsg('ai', d.reply, !!(d.fix && d.fix.was && d.fix.now));
-          /* ✏️ 서버가 «검증해서» 준 교정만 그린다(없으면 아무것도 안 그림).
-             ⚠️ appendMsg 뒤에 부른다 — 카드는 그 답변 «아래» 에 붙어야 한다. */
-          showFixCard(d.fix, d.repeat);
-          if (d.pron_fix) showPronFix(d.pron_fix, false);   // 🎯 기준 낱말을 틀리게 발음 → 3번 들려주기
-          applyGam(d.gam, wasVoice);
-          /* 🔊 새 답변 자동 재생 — 마지막 스피커 버튼에 재생 표시.
-             📡 (A-1) 스트리밍으로 이미 읽었으면 다시 읽지 않습니다. 단 서버가 재시도를 돌려
-                답이 바뀌었으면(replaced) 읽던 것을 멈추고 정본을 읽습니다. */
-          // The final focused reply contains the verified correction exactly three times.
-          // Never play a speculative question before that reply.
-          if (turnCorr === 'focused' || !_stmSpoke || d.replaced) {
-            // Capture the speech generation inside stmSpeak only after any reset (PR #1916).
-            if (_stmSpoke) { stmReset(); try { window.MangoiTTS && MangoiTTS.stop(); } catch(e){} }
-            const rows = document.querySelectorAll('.ai-row');
-            const lastRow = rows.length ? rows[rows.length - 1] : null;
-            const btns = document.querySelectorAll('.replay-btn');
-            stmSpeak(lastRow && lastRow._speakBody ? lastRow._speakBody : d.reply, btns.length ? btns[btns.length - 1] : null, lastRow);
-          }
-          const replyGen = _stmGen;
-          _stmChain = _stmChain.then(function () {
-            if (replyGen === _stmGen && isSoundOn() && d.pron_fix) return sayThrice(d.pron_fix.word, d.pron_fix.say_times || 3);
-          });
+        /* 미리보기 말풍선은 오류 갈래에서도 치운다(예전과 같은 자리) — showReply 를 안 지나는 갈래가 있다. */
+        stmClearPreview();
+        if (fin) {
+          /* 답은 이미 그리고 읽는 중 — done 이 정상이면 포인트·발음만. done 이 깨져도(저장 중 오류·끊김) 답은 이미 학생에게 갔다. */
+          if (d && d.ok) showRest(fin.kind, d);
+        } else if (d && d.ok && (d.ai_unavailable || d.reply)) {
+          showRest(showReply(d), d);
         } else {
           console.error('[AI Friend] server error:', d, 'status:', r.status);
           const errMsg = d && d.error ? d.error : ('HTTP ' + r.status);
@@ -2274,16 +2421,39 @@
         chat.parentNode.insertBefore(box, chat);
       } catch (e) {}
     }
+    function wuProgressContext(){return [window.SESSION_ID,authCache&&authCache.uid,currentLevel,currentTopic&&currentTopic.id].join('|');}
+    const friendReviewFixes = new Set();
+    function openFriendReview() {
+      if (window.FriendAutoTalk) FriendAutoTalk.pause();
+      stopSpeakingNow();
+      const list = document.getElementById('friendReviewList');
+      list.replaceChildren();
+      for (const expression of friendReviewFixes) {
+        const item = document.createElement('li');
+        item.textContent = expression;
+        list.appendChild(item);
+      }
+      document.getElementById('friendReview').showModal();
+    }
     async function clearChat() {
       if (!confirm(isEn() ? 'Clear all messages?' : '대화 내용을 모두 지울까요?')) return;
       if (window.FriendAutoTalk) FriendAutoTalk.pause();
       stopSpeakingNow();
+      if (window.AiSpeakingProgress) window.AiSpeakingProgress.reset();   // 기다리던 «끝내기» 를 먼저 버린다 — 아래 await 사이에 지울 대화를 마감하지 않게 / drop a queued finish before awaiting
       const auth = await getAuth();
       if (auth) {
-        try { await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) }); } catch(e){}
+        try {
+          const response = await fetch('/api/ai/chat-clear', { method:'POST', headers:{'Content-Type':'application/json', 'Authorization': 'Bearer ' + auth.token}, body: JSON.stringify({ uid: auth.uid }) });
+          const data = await response.json();
+          if(!response.ok || data.ok !== true) throw new Error('clear_failed');
+        } catch(e){ alert(isEn() ? 'Could not clear your history. Please try again.' : '대화 기록을 지우지 못했어요. 다시 시도해 주세요.'); return; }
       }
+      if (window.AiSpeakingProgress) window.AiSpeakingProgress.reset();
       if (window.wodPark) window.wodPark();         // 🛟 위와 같은 이유 — 지우기 직전에 피신
       document.getElementById('chat').innerHTML = '';
+      if(window.AiSpeakingSession)window.SESSION_ID=crypto.randomUUID();
+      friendReviewFixes.clear();
+      document.getElementById('friendReviewBtn').hidden = true;
       setTopic(null);                                // 🗺 대화를 지우면 주제도 처음부터
       renderEmpty();
     }
@@ -2300,7 +2470,7 @@
       const es = document.querySelector('.empty-state');
       if (es && es.dataset.lang && es.dataset.lang !== (isEn() ? 'en' : 'ko')) renderEmpty();
     });
-    loadHistory().then(function () {
+    (window.__aiFriendHistory = loadHistory()).then(function () {   // 얼굴 대화 자동 열기가 기다린다(aifriend-facetalk.js)
       function mountDubbingPractice() {
         if (!window.MangoiDubPractice) return;
         MangoiDubPractice.mountFriend({
@@ -2426,17 +2596,23 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js?v=8"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
-<script defer src="/js/mangoi-voice-input.js?v=6"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
-<script defer src="/js/voice-has-speech.js?v=1"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
-<script defer src="/js/aifriend-auto-talk.js?v=1"></script>
-<script defer src="/js/aifriend-facetalk.js?v=6"></script><!-- 😊 얼굴 대화도 공용 friendRecordVoice로 무음·잡음 차단 -->
+<script defer src="/js/game-tts.js?v=9"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
+<script defer src="/js/mangoi-voice-input.js?v=9"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
+<script defer src="/js/mangoi-voice-early.js?v=2"></script><!-- ⚡ 말이 멎으면 먼저 받아 적기(웜업과 같은 정본) / early transcription (2026-11-06) -->
+<script defer src="/js/voice-has-speech.js?v=2"></script><!-- 🎤 작은 목소리 구제(녹음 파일 말소리 판정) -->
+<script defer src="/js/aifriend-auto-talk.js?v=3"></script>
+<script defer src="/js/ftk-call.js?v=7"></script><!-- 📞 얼굴 대화를 영상통화 화면처럼(2026-11-08) -->
+<script defer src="/js/aifriend-facetalk.js?v=15"></script><!-- 😊 얼굴 대화도 공용 friendRecordVoice로 무음·잡음 차단 -->
 <script defer src="/js/ai-diff.js?v=2"></script><!-- 💡 A.i말하기와 A.i친구하기 차이 안내창 (2026-09-26) -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js?v=20261101"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 <script src="/js/repeat-score.js?v=1" defer></script><!-- 🎤 «따라 말해 보기» 채점 (2026-10-18) -->
-<script src="/js/ai-speaking-settings.js?v=1" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
+<link rel="stylesheet" href="/css/ai-speaking-progress.css?v=6">
+<script defer src="/js/ai-speaking-progress-view.js?v=12"></script>
+<script defer src="/js/ai-speaking-progress.js?v=13"></script>
+<script src="/js/ai-speaking-settings.js?v=4" defer></script><!-- 🔁 교정 정도를 입구(AI 말하기)와 한 설정으로 저장 — 교정 버튼이 씀 (2026-11-04) -->
+<script src="/js/ai-speaking-session.js?v=10" defer></script>
 <script defer src="/js/flow.js?v=23"></script><!-- 🚀 다음으로 이동(MangoFlow) -->
 
 <!-- ══════════════════════════════════════════════════════════════

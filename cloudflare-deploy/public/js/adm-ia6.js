@@ -452,6 +452,68 @@
            ⛔ 되살리지 말 것. 지도로 가는 길은 맨 위 「메뉴 지도」 하나면 충분하다
               (그 배선은 openMenuMap() — 읽어 주고 나서 연다). */
       ]
+    },
+    {
+      /* 🗂 (2026-11-11 사장님) 「기존 LMS」 — 옛 카페24 LMS 에는 있었지만 mangoi.ai 에는 아직 없는
+         메뉴를 한곳에 몰아 둔 묶음. 전부 /admin/legacy-lms.html?m=<키> 한 화면으로 가고,
+         그 화면의 MENUS 표가 키의 정본이다(키를 바꾸면 양쪽을 함께).
+         지금은 옛 LMS 모양의 «틀» 만 있고 데이터는 연결 전 — 사장님이 보면서 하나씩 고친다.
+         본사 전용(hideFrom) — 정산·조직 자료라 강사·지사·대리점에게는 감춘다. */
+      key: 'legacy', ko: '기존 LMS', en: 'Legacy LMS',
+      ico: '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/>',
+      items: [
+        { ko: '영업본부 관리', en: 'Sales HQ', href: '/admin/legacy-lms.html?m=sales-hq',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 영업본부별 대표지사·지사·대리점·학생 수 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '강사그룹', en: 'Teacher groups', href: '/admin/legacy-lms.html?m=teacher-group',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 강사를 묶어 관리하는 그룹 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '교육센터', en: 'Education centers', href: '/admin/legacy-lms.html?m=edu-center',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 강사 교육센터 목록 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '출신지역관리', en: 'Teacher origins', href: '/admin/legacy-lms.html?m=origin-region',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 강사 출신지역과 수업료 배수 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '탈락률', en: 'Dropout rate', href: '/admin/legacy-lms.html?m=dropout',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 대리점별 신규·연장·종료·탈락률 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '출결현황 달력', en: 'Attendance calendar', href: '/admin/legacy-lms.html?m=attend-cal',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 학생별 한 달 출결을 달력으로 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '월별평가서', en: 'Monthly reports', href: '/admin/legacy-lms.html?m=monthly-eval',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 월별 평가서 목록 · 전체 인쇄 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '레벨테스트 신청', en: 'Level test: applied', href: '/admin/legacy-lms.html?m=lt-apply',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 레벨테스트 신청 목록 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '레벨테스트 배정', en: 'Level test: assigned', href: '/admin/legacy-lms.html?m=lt-assign',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 레벨테스트 강사 배정 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '레벨테스트 완료', en: 'Level test: done', href: '/admin/legacy-lms.html?m=lt-done',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 레벨테스트 완료 · 결과 레벨 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '레벨테스트 결석', en: 'Level test: absent', href: '/admin/legacy-lms.html?m=lt-absent',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 레벨테스트 미응시 학생 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '종료일 변경 로그', en: 'End-date log', href: '/admin/legacy-lms.html?m=end-date-log',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 수강 종료일을 바꾼 기록 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '출결학생명단', en: 'Attendance roster', href: '/admin/legacy-lms.html?m=attend-roster',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 날짜별 출결 학생 명단 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '수업현황', en: 'Classes by teacher', href: '/admin/legacy-lms.html?m=class-status',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 강사 × 날짜별 수업 수 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '교재그룹', en: 'Textbook groups', href: '/admin/legacy-lms.html?m=textbook-group',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 교재를 묶는 그룹 · 강사 노출 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: 'SLP 정산', en: 'SLP settlement', href: '/admin/legacy-lms.html?m=slp-settle',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 SLP 결제의 본사·지사·대리점 배분 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+        { ko: '학당지원금', en: 'School subsidy', href: '/admin/legacy-lms.html?m=school-subsidy',
+          hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
+          tip: '🗂 대리점별 학당지원금 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' }
+      ]
     }
   ];
 
@@ -1216,7 +1278,17 @@
             window.__ph125OpenedUntil > Date.now()) return;
         /* 📅 (2026-10-07) 직접 누르면 바로 그 화면으로 — 위 GROUPS 의 go 주석 참고. */
         var go = sub.getAttribute('data-ia6-go');
-        if (go) { location.href = go; return; }
+        /* 🪟 (2026-11-05 사장님) 이동이 아니라 «새 창» 으로 — 관리자 화면은 그대로 남는다.
+           ⚠️ 기능 문자열에 noopener 를 넣지 말 것 — 그러면 반환값이 늘 null 이라 아래 폴백이
+              «언제나» 돌아 이 화면까지 이동한다(CLAUDE.md 2장 window.open 함정). 대신 opener 를 끊는다.
+           카톡·문자앱 인앱 브라우저는 새 창을 못 열어 null — 그때만 예전처럼 같은 창에서 연다. */
+        if (go) {
+          var w = null;
+          try { w = window.open(go, '_blank'); } catch (err) { w = null; }
+          if (w) { try { w.opener = null; } catch (err) { /* 무시 */ } }
+          else location.href = go;
+          return;
+        }
         select(sub.getAttribute('data-ia6-item'));
         return;
       }

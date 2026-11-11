@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { adminSrcFromFile as readAdminSourceFromFile } from './_srcbundle.mjs';
 /* ⏸ 연기보강 (src/end-makeup.ts) — 2026-10-02 사장님 제안
    「월수금 수업에서 금요일을 연기하면 수업 끝(11/1 월) 다음 수업일(11/3 수)에 «연기보강 (10월 2일 연기)»」
    정본을 실제로 돌리고(순수 함수 + 진짜 SQLite), 서버·화면 배선을 본다. */
@@ -55,7 +56,7 @@ const r = db.prepare(`SELECT class_type, notes FROM class_schedules WHERE id=?`)
 ok('표시: class_type=makeup + 메모에 이름', r.class_type === 'makeup' && r.notes === '연기보강 (10월 1일 연기)', r);
 
 console.log('③ 서버 배선');
-const api = readFileSync(join(ROOT, 'cloudflare-deploy/src/api-admin.ts'), 'utf8');
+const api = readAdminSourceFromFile(join(ROOT, 'cloudflare-deploy/src/api-admin.ts'));
 const i0 = api.indexOf("if (method === 'POST' && path === '/api/admin/schedule-requests') {");
 const post = api.slice(i0, api.indexOf("if (method === 'GET' && path === '/api/admin/schedule-requests')", i0));
 ok('(전제) 요청 접수 라우트를 찾았다', i0 > 0 && post.length > 100);

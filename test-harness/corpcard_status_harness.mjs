@@ -1,3 +1,4 @@
+import { adminSrcUsing as readAdminModuleGraph } from './_srcbundle.mjs';
 // corpcard_status_harness.mjs — 💳 법인카드 연동 «상태를 사실대로 말한다» 가드 (2026-08-13)
 //
 //   [무엇이 있었나] 라이브 D1 실측:
@@ -32,7 +33,7 @@ function check(name, cond, extra = '') {
 console.log('════════ 💳 법인카드 연동 상태 가드 ════════');
 
 const sync = read('src/corpcard-sync.ts');
-const admin = read('src/api-admin.ts');
+const admin = readAdminModuleGraph(adminModuleFile => read("src/" + adminModuleFile));
 const index = read('src/index.ts');
 const mango = read('src/api-mango.ts');
 const core = read('public/js/adm-core.js');

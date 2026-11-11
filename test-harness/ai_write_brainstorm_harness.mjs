@@ -49,7 +49,7 @@ const HANGUL = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
 console.log('✍️🧠 AI 영작 브레인스토밍 하니스 · ' + new Date().toISOString());
 
 const HTML = read('cloudflare-deploy/public/ai-write.html');
-const API = read('cloudflare-deploy/src/api-ai.ts');
+const API = read('cloudflare-deploy/src/api-ai-writing.ts');
 check('ai-write.html · api-ai.ts 를 읽었다', HTML.length > 0 && API.length > 0);
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -201,10 +201,10 @@ if (outline) {
 console.log('\n[A-2] 🖼 그림·🎲 글감 목록 ↔ 실물 파일');
 {
   const scenes = [...(HTML.match(/const PIC_SCENES = \[[\s\S]*?\n    \];/) || [''])[0]
-    .matchAll(/\{ img:'([a-z-]+)',\s*bg:'(#[0-9a-f]{6})',\s*ko:'([^']*)',\s*en:'([^']*)',\s*starter:'([^']*)'/g)]
+    .matchAll(/\{ img:'([a-z-]+)',(?:\s*cat:'[a-z]+',\s*ic:'[^']*',)?\s*bg:'(#[0-9a-f]{6})',\s*ko:'([^']*)',\s*en:'([^']*)',\s*starter:'([^']*)'/g)]
     .map(m => ({ img: m[1], bg: m[2], ko: m[3], en: m[4], starter: m[5] }));
   const topics = [...(HTML.match(/const TOPICS = \[[\s\S]*?\n    \];/) || [''])[0]
-    .matchAll(/\{ ko: '([^']*)', en: '([^']*)', starter: '([^']*)' \}/g)]
+    .matchAll(/\{ (?:cat:'[a-z]+', )?ko: '([^']*)', en: '([^']*)', starter: '([^']*)' \}/g)]
     .map(m => ({ ko: m[1], en: m[2], starter: m[3] }));
 
   // 2026-08-31 사장님 지시로 각각 20개씩 늘렸다. 아래로 다시 줄이면 그때 판단이 사라진다.
@@ -278,7 +278,7 @@ check('🔗 예전 동작(시작 문장 한 줄)은 «질문 없이 바로 쓰�
 check('🔗 «지금 주제» 표시줄이 어디서 온 주제인지 말한다',
   /go-cur-src/.test(HTML) && /goClearTheme/.test(HTML));
 check('🔗 오늘의 글감도 EN 에서 영어로 보인다 (TOPICS 에 en · 목록 항목이 data-en 을 단다 · 🌐 에 목록을 다시 그린다)',
-  /\{ ko: '🍕 내가 좋아하는 음식', en: '/.test(HTML) && /if \(key === 'topic'\) return TOPICS\.map\(\(t, i\) => \(\{ v: 'topic:' \+ i, ko: t\.ko, en: t\.en/.test(HTML)
+  /ko: '🍕 내가 좋아하는 음식', en: '/.test(HTML) && /if \(key === 'topic'\) return TOPICS\.map\(\(t, i\) => \(\{ v: 'topic:' \+ i,(?: cat: t\.cat,)? ko: t\.ko, en: t\.en/.test(HTML)
   && /o\.setAttribute\('data-en', e\.en\)/.test(HTML) && /mangoi:lang-changed[\s\S]{0,200}awBuildPicker\(\)/.test(HTML));
 check('문장 나누기에 lookbehind 를 쓰지 않는다 (구형 사파리)', !/\(\?<=/.test(HTML));
 

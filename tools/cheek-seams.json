@@ -1,0 +1,14 @@
+{
+  "about": "tools/heal-cheek-seams.py — Lily's cheek line beside the nose (portrait px, 640x800). Polygons cover the diagonal arc from under each nose wing down past the mouth corner that the mouth patch left behind. They stay off the nose outline, the eye rect and every mouth pose's lips. Nothing outside the polygons changes before encode.",
+  "sourceRev": "0ae7d15098842e3807dc31edb598be8f2b8be993",
+  "params": {"hfSigma": 1.0, "hfClip": 3.0, "iters": 4000, "frameQuality": 89},
+  "actors": {
+    "lily": {
+      "rect": [250, 294, 144, 122],
+      "roi": [
+        [[262,299],[292,299],[297,305],[297,314],[292,324],[288,334],[283,341],[274,344],[264,348],[254,352],[250,346],[250,328],[254,312]],
+        [[360,301],[372,304],[384,312],[396,320],[406,328],[409,338],[406,348],[398,350],[388,344],[378,338],[369,332],[362,322],[359,312]]
+      ]
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 /** Execute shipped health dashboard and bundled Worker offline. No live fetches or storage. */
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -153,7 +154,7 @@ check('dangerous probes and false deployment label are absent from dashboard',()
 
 // Full Worker router + real auth/scope code with instrumented fake D1 and inert bindings.
 const require=createRequire(new URL('cloudflare-deploy/package.json',root));
-const compiled=require('esbuild').buildSync({entryPoints:[new URL('cloudflare-deploy/src/index.ts',root).pathname],bundle:true,write:false,format:'esm',platform:'node',logLevel:'silent'}).outputFiles[0].text;
+const compiled=require('esbuild').buildSync({entryPoints:[fileURLToPath(new URL('cloudflare-deploy/src/index.ts',root))],bundle:true,write:false,format:'esm',platform:'node',logLevel:'silent'}).outputFiles[0].text;
 const savedFetch=globalThis.fetch;
 globalThis.fetch=async()=>{throw new Error('External network forbidden');};
 try {
