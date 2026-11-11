@@ -314,7 +314,7 @@
   function evqLoad(go) {
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=3';
+    sc.src = '/js/eval-quick-view.js?v=4';
     sc.onload = go;
     sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
     document.head.appendChild(sc);
@@ -767,25 +767,91 @@
     try { role = (window.__ADM_ME && window.__ADM_ME.role) ? String(window.__ADM_ME.role) : ''; } catch (e) {}
     return ['teacher', 'franchise', 'branch', 'agency'].indexOf(role) < 0;
   }
+  /* ☑ (2026-11-11 매니저 «Select All» 제안) 여러 학생에게 같은 안내를 한 번에 — 옛 LMS 「MESSAGE SEND」 대응.
+     강사 휴가·사고 때 한 명씩 📩 를 누르던 일을 없앤다. 서버는 그대로(class_notice 를 학생마다 한 번씩).
+     선택은 «학생+수업 시각» 으로 기억 — 다시 그려도 남고, 날짜를 바꾸면 자연히 풀린다. */
+  var _tcSel = {};
+  // 🔒 보내는 중 표시는 «창 밖» 에 둔다 — 창을 닫았다 다시 열어도 앞 묶음이 끝나기 전엔 새로 못 보낸다(같은 문자 두 번 방지).
+  var _tcMsgBusy = false;
+  function tcSelKey(s) { return String(s.student_uid) + '|' + String(s.start_ts || s.start_time || ''); }
+  // ⏸ «다른 날로 옮긴» 줄은 빼다 — 원래 시각으로 안내가 나가 거짓이 된다(📩 칩과 같은 조건 · 정본은 이 한 줄).
+  function tcMsgable(s) { return !!(s && s.student_uid && !s.moved_away); }
+  /* 고른 줄 → 받을 학생. 표에 «보이는» 줄만, 같은 학생 두 수업이면 한 번만(첫 줄 시각). */
+  function tcMsgTargets(rows, sel) {
+    var seen = {}, out = [];
+    rows.forEach(function (s) {
+      if (!tcMsgable(s) || !sel[tcSelKey(s)] || seen[s.student_uid]) return;
+      seen[s.student_uid] = 1;
+      out.push({ uid: String(s.student_uid), name: s.student_name || String(s.student_uid), teacher: s.teacher_name || '', time: s.start_time || '' });
+    });
+    return out;
+  }
+  // {name}·{teacher}·{time} → 그 학생 값. 값이 없으면 뒤 빈칸까지 지운다(«오늘  수업» 이 안 되게).
+  function tcFillMsg(tpl, t) {
+    return String(tpl).replace(/\{(name|teacher|time)\}( ?)/g, function (_, k, sp) { return t[k] ? t[k] + sp : ''; });
+  }
+  /* 한 명씩 «차례로» — 문자 업체에 한꺼번에 몰지 않고, 한 명이 실패해도 나머지는 계속. 판정은 서버 응답 그대로. */
+  function tcSendMsgs(targets, msg, push, sms, onStep) {
+    var res = [], i = 0;
+    function next() {
+      if (i >= targets.length) return Promise.resolve(res);
+      var t = targets[i++];
+      if (onStep) onStep(i, targets.length);
+      return fetch('/api/admin/retention/care', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: t.uid, action_type: 'class_notice', message: tcFillMsg(msg, t), push: push, sms: sms, title: T('망고아이 수업 안내', 'Mangoi class notice') })
+      }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; }); })
+        .then(function (x) {
+          var j = x.j || {};
+          if (x.r.ok && j.ok === true && j.status === 'sent') res.push({ t: t, ok: true, icon: '✅', why: j.detail || T('보냈습니다', 'Sent') });
+          else if (x.r.ok && j.ok === true) res.push({ t: t, ok: false, icon: '⚠️', why: T('아무 데도 닿지 않았습니다: ', 'Not delivered: ') + (j.detail || '') });
+          else res.push({ t: t, ok: false, icon: '❌', why: (j.who_line ? j.who_line + ' ' : '') + (j.detail || j.message || j.error || x.r.status) });
+        }, function (e) { res.push({ t: t, ok: false, icon: '❌', why: T('통신 오류: ', 'Network error: ') + (e && e.message || e) }); })
+        .then(next);
+    }
+    return next();
+  }
+  /* 표 위 한 줄 — [📩 고른 학생에게 메시지 (N명)]. ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
+  function tcSelBarHtml() {
+    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 2px 8px">'
+      + '<span id="tc-bulk-msg" role="button" tabindex="0" style="cursor:pointer;display:inline-block;white-space:nowrap;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:800;'
+      + 'background:#ecfdf3;color:#067647;border:1px solid #a6e9c5">📩 ' + T('고른 학생에게 메시지', 'Message selected') + ' (<b id="tc-sel-n">0</b>' + T('명', '') + ')</span>'
+      + '<span style="font-size:11.5px;color:#475467">' + T('☑ 왼쪽 칸에서 학생을 고르세요 · 맨 위 칸 = 전체 선택', '☑ Tick students on the left · top box = select all') + '</span></div>';
+  }
+  /* 체크 바뀔 때 — 표를 다시 그리지 않고 숫자와 «전체» 칸만 맞춘다(일부만 골랐으면 반쯤 표시). */
+  function tcSelSync(rows, box) {
+    var ne = $('tc-sel-n'); if (ne) ne.textContent = String(tcMsgTargets(rows, _tcSel).length);
+    var all = $('tc-sel-all'), cbs = box.querySelectorAll('.tc-sel'), on = 0;
+    for (var i = 0; i < cbs.length; i++) if (cbs[i].checked) on++;
+    if (all) { all.checked = cbs.length > 0 && on === cbs.length; all.indeterminate = on > 0 && on < cbs.length; }
+  }
   function tcMsgModalClose() { var m = document.getElementById('tc-msg-modal'); if (m) m.remove(); }
-  function tcOpenMsgModal(el) {
+  /* targets: [{uid,name,teacher,time}] — 📩 칩은 1명, ☑ 일괄은 여러 명. 1명이면 글을 미리 채워 예전과 똑같이 보인다. */
+  function tcOpenMsgModal(targets) {
     tcMsgModalClose();
-    var uid = el.getAttribute('data-uid') || '', name = el.getAttribute('data-name') || uid;
-    var tch = el.getAttribute('data-teacher') || '', tm = el.getAttribute('data-time') || '';
+    if (!targets || !targets.length) return;
+    var many = targets.length > 1, one = targets[0];
     var tpl = T(
-      '[망고아이] ' + name + ' 학생, 오늘' + (tm ? ' ' + tm : '') + ' 수업 안내입니다.\n'
-        + (tch ? tch + ' 선생님께 ' : '선생님께 ') + '갑작스러운 기술 문제가 생겨 잠시 지연되고 있습니다. 조금만 기다려 주세요. 불편을 드려 죄송합니다.',
-      '[Mangoi] Hi ' + name + ', about your class today' + (tm ? ' at ' + tm : '') + ':\n'
-        + 'Your teacher' + (tch ? ' (' + tch + ')' : '') + ' has a sudden technical problem, so the class is slightly delayed. Please wait a moment. We are sorry for the inconvenience.'
+      '[망고아이] {name} 학생, 오늘 {time} 수업 안내입니다.\n'
+        + '{teacher} 선생님께 갑작스러운 기술 문제가 생겨 잠시 지연되고 있습니다. 조금만 기다려 주세요. 불편을 드려 죄송합니다.',
+      '[Mangoi] Hi {name}, about your {time} class today:\n'
+        + 'Your teacher {teacher} has a sudden technical problem, so the class is slightly delayed. Please wait a moment. We are sorry for the inconvenience.'
     );
+    var who = many
+      ? '<div style="font-size:12.5px;color:#344054;margin-bottom:4px;font-weight:700">' + T('받는 학생 ' + targets.length + '명', targets.length + ' students') + '</div>'
+        + '<div id="tc-msg-who" style="font-size:12px;color:#475467;margin-bottom:8px;max-height:72px;overflow-y:auto;line-height:1.6">'
+        + targets.map(function (t) { return esc(t.name); }).join(', ') + '</div>'
+      : '<div style="font-size:12.5px;color:#475467;margin-bottom:8px">' + esc(one.name) + ' · <code>' + esc(one.uid) + '</code></div>';
     var box = document.createElement('div');
     box.id = 'tc-msg-modal';
     box.setAttribute('role', 'dialog');
     box.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100002;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
     box.innerHTML = '<div style="background:#ffffff;color:#101828;border-radius:12px;max-width:520px;width:100%;padding:18px;margin:auto;box-shadow:0 10px 30px rgba(0,0,0,.25)">'
-      + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">📩 ' + T('학생에게 안내 보내기', 'Send a notice to the student') + '</div>'
-      + '<div style="font-size:12.5px;color:#475467;margin-bottom:8px">' + esc(name) + ' · <code>' + esc(uid) + '</code></div>'
+      + '<div style="font-weight:800;font-size:15px;margin-bottom:6px">📩 ' + (many ? T('학생 ' + targets.length + '명에게 안내 보내기', 'Send a notice to ' + targets.length + ' students') : T('학생에게 안내 보내기', 'Send a notice to the student')) + '</div>'
+      + who
       + '<textarea id="tc-msg-text" rows="6" style="width:100%;box-sizing:border-box;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:13px"></textarea>'
+      + (many ? '<div style="font-size:11.5px;color:#1d4ed8;margin-top:4px">' + T('{name} · {time} · {teacher} 는 학생마다 자기 이름 · 수업 시각 · 강사로 바뀌어 나갑니다.',
+          '{name} · {time} · {teacher} are replaced with each student\'s own name, class time and teacher.') + '</div>' : '')
       + '<div style="display:flex;gap:14px;margin:8px 0;font-size:13px;color:#344054">'
       +   '<label><input type="checkbox" id="tc-msg-push" checked> ' + T('푸시', 'Push') + '</label>'
       +   '<label><input type="checkbox" id="tc-msg-sms" checked> ' + T('문자(SMS)', 'SMS') + '</label></div>'
@@ -797,29 +863,39 @@
       +   '<span role="button" tabindex="0" id="tc-msg-send" style="cursor:pointer;padding:7px 14px;border-radius:8px;background:#067647;color:#ffffff;font-weight:800">' + T('보내기', 'Send') + '</span>'
       + '</div></div>';
     document.body.appendChild(box);
-    document.getElementById('tc-msg-text').value = tpl;
+    document.getElementById('tc-msg-text').value = many ? tpl : tcFillMsg(tpl, one);
     box.addEventListener('click', function (e) { if (e.target === box) tcMsgModalClose(); });
     document.getElementById('tc-msg-cancel').addEventListener('click', tcMsgModalClose);
-    var busy = false;
-    document.getElementById('tc-msg-send').addEventListener('click', function () {
-      if (busy) return;
+    var sendBtn = document.getElementById('tc-msg-send');
+    sendBtn.addEventListener('click', function () {
       var out = document.getElementById('tc-msg-out');
+      if (_tcMsgBusy) { out.style.color = '#b42318'; out.textContent = T('앞서 보내던 안내가 아직 끝나지 않았습니다. 잠시 뒤 다시 눌러 주세요.', 'The previous send is still running. Please try again shortly.'); return; }
       var msg = String(document.getElementById('tc-msg-text').value || '').trim();
       var push = document.getElementById('tc-msg-push').checked, sms = document.getElementById('tc-msg-sms').checked;
       if (!msg) { out.style.color = '#b42318'; out.textContent = T('보낼 내용을 적어 주세요.', 'Please write a message.'); return; }
       if (!push && !sms) { out.style.color = '#b42318'; out.textContent = T('푸시나 문자 중 하나는 골라 주세요.', 'Pick push or SMS.'); return; }
-      busy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
-      fetch('/api/admin/retention/care', {
-        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: uid, action_type: 'class_notice', message: msg, push: push, sms: sms, title: T('망고아이 수업 안내', 'Mangoi class notice') })
-      }).then(function (r) { return r.json().then(function (j) { return { r: r, j: j }; }, function () { return { r: r, j: {} }; }); })
-        .then(function (x) {
-          busy = false;
-          var j = x.j || {};
-          if (x.r.ok && j.ok === true && j.status === 'sent') { out.style.color = '#067647'; out.textContent = '✅ ' + (j.detail || T('보냈습니다', 'Sent')); }
-          else if (x.r.ok && j.ok === true) { out.style.color = '#b42318'; out.textContent = '⚠️ ' + T('아무 데도 닿지 않았습니다: ', 'Not delivered: ') + (j.detail || ''); }
-          else { out.style.color = '#b42318'; out.textContent = '❌ ' + (j.who_line ? j.who_line + ' ' : '') + (j.detail || j.message || j.error || x.r.status); }
-        }, function (e) { busy = false; out.style.color = '#b42318'; out.textContent = '❌ ' + T('통신 오류: ', 'Network error: ') + (e && e.message || e); });
+      // 💸 여러 명은 돈이 나가는 문자라 한 번 더 묻는다(실수로 전체에게 나가지 않게).
+      if (targets.length > 1 && !confirm(T(targets.length + '명에게 보냅니다. 계속할까요?', 'Send to ' + targets.length + ' students?'))) return;
+      _tcMsgBusy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
+      tcSendMsgs(targets, msg, push, sms, function (i, n) {
+        if (n > 1) out.textContent = T('보내는 중… ' + i + ' / ' + n, 'Sending… ' + i + ' / ' + n);
+      }).then(function (res) {
+        _tcMsgBusy = false;
+        var bad = res.filter(function (r) { return !r.ok; });
+        if (res.length === 1) {
+          out.style.color = res[0].ok ? '#067647' : '#b42318';
+          out.textContent = res[0].icon + ' ' + res[0].why;
+        } else {
+          out.style.color = bad.length ? '#b42318' : '#067647';
+          out.innerHTML = '<b>' + esc(T('✅ ' + (res.length - bad.length) + '명 보냄' + (bad.length ? ' · ⚠️ ' + bad.length + '명 못 보냄' : ''),
+              '✅ ' + (res.length - bad.length) + ' sent' + (bad.length ? ' · ⚠️ ' + bad.length + ' not sent' : ''))) + '</b>'
+            + bad.map(function (r) { return '<div style="font-size:11.5px">' + r.icon + ' ' + esc(r.t.name) + ' — ' + esc(r.why) + '</div>'; }).join('');
+        }
+        // 🔁 다시 누르면 «못 보낸 학생만» — 받은 학생에게 같은 문자가 두 번 가지 않게. 다 갔으면 버튼을 숨긴다.
+        targets = bad.map(function (r) { return r.t; });
+        if (!targets.length) sendBtn.style.display = 'none';
+        else sendBtn.textContent = T('못 보낸 ' + targets.length + '명 다시 보내기', 'Retry ' + targets.length + ' not sent');
+      });
     });
   }
 
@@ -1161,6 +1237,7 @@
     /* 🏫 학원을 골랐으면 «그 학원 오늘 한눈에» 한 줄 — 연기할 대상(몇 건·어디서·강사 몇 명)을 먼저 읽게.
        ⚠️ 카페24 줄은 여기서 옮길 수 없다는 사실도 함께(버튼이 없는 이유). */
     var acLine = acSel ? academySummary(rows, acSel) : '';
+    var selCol = tcCanMessage();   // ☑ 고르는 칸은 📩 를 보낼 수 있는 사람에게만(서버도 본사 전용)
     /* 🎌 휴강일이면 목록 위에 한 줄 — 이름·건수는 서버가 센 값(판정을 화면이 다시 하지 않는다). */
     var holLine = _holiday
       ? '<div style="padding:6px 2px 4px;color:#475569;font-size:12px;font-weight:700;line-height:1.6">'
@@ -1174,8 +1251,11 @@
         ? '<div style="padding:6px 2px 8px;color:#6b7280;font-size:11.5px;line-height:1.6">' + esc(note) + '</div>'
         : '')
       + bookLine
+      + (selCol ? tcSelBarHtml() : '')
       + '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse">'
       + '<thead><tr>'
+      /* ☑ 전체 선택 — 맨 앞 칸. ⚠️ th 와 td 는 짝 — 같은 selCol 조건으로 둘 다 그린다. */
+      +   (selCol ? '<th style="width:28px;text-align:center"><input type="checkbox" id="tc-sel-all" aria-label="' + T('전체 선택', 'Select all') + '" title="' + T('보이는 학생 전체 선택', 'Select all students shown') + '"></th>' : '')
       +   tcTh('date', '날짜', 'Date')
       +   tcTh('time', '시간 (한국)', 'Time (KST)')
       +   tcTh('status', '상태', 'Status')
@@ -1323,7 +1403,7 @@
              ⛔ 강사·지사·대리점에는 안 그린다(서버도 403) — «눌러도 안 되는 버튼» 을 만들지 않는다.
              ⛔ <button> 대신 span[role=button] — 카드 안 전역 button 규칙이 파란 알약으로 덮는다. */
           // ⏸ «다른 날로 옮긴» 줄에는 안 붙인다 — 원래 시각(data-time)으로 안내가 나가 거짓이 된다. 새 날짜 줄에서 보내면 된다.
-          if (s.student_uid && tcCanMessage() && !s.moved_away) {
+          if (tcMsgable(s) && tcCanMessage()) {
             act += '<span class="tc-msg-pin" role="button" tabindex="0" data-uid="' + esc(s.student_uid) + '" '
               + 'data-name="' + esc(s.student_name || s.student_uid) + '" data-teacher="' + esc(s.teacher_name || '') + '" '
               + 'data-time="' + esc(s.start_time || '') + '" '
@@ -1402,6 +1482,9 @@
           }
           /* ✕ 취소 줄은 흐리게 — 지우지 않되 «열리는 수업» 과 한눈에 갈리게. 색은 클래스(css 끝 tc-row-cancelled). */
           return '<tr' + ((s.cancelled || s.moved_away) ? ' class="tc-row-cancelled"' : '') + '>'
+            + (selCol ? '<td style="text-align:center">' + (tcMsgable(s)
+                ? '<input type="checkbox" class="tc-sel" data-k="' + esc(tcSelKey(s)) + '"' + (_tcSel[tcSelKey(s)] ? ' checked' : '') + ' aria-label="' + esc(T('선택: ', 'Select: ') + (s.student_name || s.student_uid)) + '">'
+                : '') + '</td>' : '')
             + '<td style="white-space:nowrap;font-size:11.5px">' + esc(s.class_date || '') + '</td>'
             + '<td style="white-space:nowrap" title="KST">' + esc(kstRange(s)) + '</td>'
             + '<td class="tc-td-st">' + badge(s.status) + '</td>'
@@ -1501,13 +1584,40 @@
     var mss = box.querySelectorAll('.tc-msg-pin');
     for (var si2 = 0; si2 < mss.length; si2++) {
       (function (el) {
-        var open = function (ev) { if (ev) ev.preventDefault(); tcOpenMsgModal(el); };
+        var open = function (ev) {
+          if (ev) ev.preventDefault();
+          var uid = el.getAttribute('data-uid') || '';
+          tcOpenMsgModal([{ uid: uid, name: el.getAttribute('data-name') || uid, teacher: el.getAttribute('data-teacher') || '', time: el.getAttribute('data-time') || '' }]);
+        };
         el.addEventListener('click', open);
         el.addEventListener('keydown', function (ev) {
           if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') open(ev);
         });
       })(mss[si2]);
     }
+    /* ☑ 고르기·전체 선택·일괄 보내기 — 대상은 «지금 보이는 줄» 에서만 뽑는다(걸러 낸 줄로 몰래 새지 않게). */
+    var sels = box.querySelectorAll('.tc-sel');
+    var mark = function (el) { var k = el.getAttribute('data-k'); if (el.checked) _tcSel[k] = 1; else delete _tcSel[k]; };
+    for (var sx = 0; sx < sels.length; sx++) sels[sx].addEventListener('change', function () { mark(this); tcSelSync(rows, box); });
+    var sall = $('tc-sel-all');
+    if (sall) sall.addEventListener('change', function () {
+      for (var i = 0; i < sels.length; i++) { sels[i].checked = sall.checked; mark(sels[i]); }
+      tcSelSync(rows, box);
+    });
+    var bm = $('tc-bulk-msg');
+    if (bm) {
+      var bmOpen = function (ev) {
+        if (ev) ev.preventDefault();
+        var ts = tcMsgTargets(rows, _tcSel);
+        if (!ts.length) { alert(T('먼저 왼쪽 칸에서 학생을 골라 주세요.', 'Tick students on the left first.')); return; }
+        tcOpenMsgModal(ts);
+      };
+      bm.addEventListener('click', bmOpen);
+      bm.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') bmOpen(ev);
+      });
+    }
+    tcSelSync(rows, box);
     var uds = box.querySelectorAll('.tc-undo-pin');
     for (var ui = 0; ui < uds.length; ui++) {
       (function (el) {

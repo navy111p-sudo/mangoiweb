@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기존 LMS 메뉴 — 망고아이 관리자</title>
+<!-- 🗂 기존 LMS (2026-11-11 사장님 지시)
+     옛 카페24 LMS(mangoi.co.kr)에는 있었지만 mangoi.ai 에는 아직 없는 메뉴를 한곳에 모은 화면입니다.
+     사이드바 「시스템」 아래 「기존 LMS」 묶음이 ?m=<키> 로 이 화면을 엽니다(정본 목록은 아래 MENUS 하나).
+     ⚠️ 지금은 «옛 LMS 모양의 틀» 만 있고 데이터는 연결 전입니다 — 표에 값을 지어 넣지 마세요.
+        사장님이 하나씩 보면서 고칠 수 있게 메뉴마다 칸 이름·검색 조건만 옛 모양대로 둡니다.
+     🈶 이 화면에는 한자가 없어 mangoi-han.css 를 부르지 않는다(hanzi_font_harness). -->
+<style>
+  body { zoom:1.3; font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:#eef1f5; color:#1f2937; margin:0; font-size:13px; }
+  .top { background:#2f3b4c; color:#fff; padding:9px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .top a { color:#cbd5e1; text-decoration:none; font-size:12px; }
+  .top a:hover { color:#fff; }
+  .top .t { font-weight:bold; font-size:14px; }
+  .wrap { padding:14px 16px 30px; max-width:1500px; }
+  .crumb { font-size:12px; color:#64748b; margin-bottom:6px; }
+  h1 { font-size:17px; margin:0 0 10px; padding-left:9px; border-left:4px solid #2563eb; }
+  .menus { display:flex; flex-wrap:wrap; gap:5px; margin:0 0 12px; }
+  .menus a { font-size:11.5px; padding:4px 9px; border:1px solid #cbd5e1; border-radius:3px; background-color:#fff; color:#334155; text-decoration:none; }
+  .menus a:hover { background-color:#f1f5f9; }
+  .menus a.on { background-color:#2563eb; border-color:#2563eb; color:#fff; font-weight:bold; }
+  .menus .gl { font-size:11px; color:#64748b; padding:4px 2px 4px 6px; }
+  .notice { background-color:#fffbeb; border:1px solid #fcd34d; color:#92400e; padding:8px 12px; border-radius:4px; margin-bottom:12px; font-size:12.5px; line-height:1.55; }
+  .panel { background-color:#fff; border:1px solid #d6dbe3; margin-bottom:12px; }
+  table.search { width:100%; border-collapse:collapse; }
+  table.search th { width:110px; background-color:#f4f6f9; color:#334155; font-weight:bold; text-align:left; padding:7px 10px; border:1px solid #e2e6ec; font-size:12.5px; }
+  table.search { table-layout:fixed; }
+  table.search td { padding:6px 10px; border:1px solid #e2e6ec; }
+  table.search td select, table.search td input { max-width:100%; margin-bottom:3px; }
+  table.search td input[type=text] { width:240px; }
+  table.search select, table.search input { font-family:inherit; font-size:12.5px; padding:4px 6px; border:1px solid #c5ccd6; border-radius:2px; background:#fff; color:#1f2937; margin-right:4px; }
+  .sbtn { text-align:center; padding:9px; border-top:1px solid #e2e6ec; background-color:#fafbfc; }
+  .btn { font-family:inherit; font-size:12.5px; padding:5px 16px; border:1px solid #94a3b8; background:#fff; color:#1f2937; border-radius:2px; cursor:pointer; }
+  .btn.blue { background:#2563eb; border-color:#2563eb; color:#fff; font-weight:bold; }
+  .btn:disabled { opacity:.55; cursor:not-allowed; }
+  .listbar { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; font-size:12.5px; }
+  .listbar b { color:#2563eb; }
+  table.list { width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.list th { background-color:#e9edf3; color:#334155; border:1px solid #d6dbe3; padding:7px 6px; font-weight:bold; white-space:nowrap; }
+  table.list td { border:1px solid #e2e6ec; padding:6px; text-align:center; }
+  table.list td.empty { color:#64748b; padding:26px 10px; }
+  .pager { text-align:center; padding:10px; font-size:12px; color:#94a3b8; }
+  .pager span { display:inline-block; min-width:22px; padding:2px 6px; border:1px solid #d6dbe3; margin:0 2px; }
+  .pager span.on { background-color:#2563eb; color:#fff; border-color:#2563eb; }
+  .cal { width:100%; border-collapse:collapse; table-layout:fixed; }
+  .cal th { background-color:#e9edf3; border:1px solid #d6dbe3; padding:6px; font-size:12.5px; }
+  .cal th.sun, .cal td.sun .d { color:#b91c1c; }
+  .cal th.sat, .cal td.sat .d { color:#1d4ed8; }
+  .cal td { border:1px solid #e2e6ec; height:62px; vertical-align:top; padding:4px 6px; }
+  .cal td .d { font-weight:bold; font-size:12px; }
+  .cal td.out { background-color:#f8fafc; }
+  .cal td .x { font-size:11px; color:#94a3b8; margin-top:4px; }
+  .legend { font-size:11.5px; color:#64748b; padding:8px 10px; }
+  .legend i { font-style:normal; display:inline-block; padding:1px 7px; border-radius:2px; margin-right:6px; border:1px solid #cbd5e1; }
+  .scroll { overflow-x:auto; }
+  .err { padding:20px; color:#b91c1c; }
+  @media (max-width:700px) { .wrap { padding:10px; } table.search th { width:80px; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="t">🗂 기존 LMS</span>
+  <a href="/admin.html">← 관리자 홈</a>
+  <a href="#" id="back">← 뒤로</a>
+</div>
+<div class="wrap">
+  <div class="crumb" id="crumb">기존 LMS</div>
+  <h1 id="title">기존 LMS</h1>
+  <div class="menus" id="menus"></div>
+  <div class="notice" id="notice">🛠 <b>준비 중인 화면입니다.</b> 옛 LMS 화면 모양(검색 조건·표 칸)만 먼저 옮겨 두었고, <b>데이터는 아직 연결되지 않았습니다.</b> 칸 이름·순서를 보시고 고칠 점을 알려 주시면 하나씩 맞춰 가겠습니다.</div>
+  <div id="body"></div>
+</div>
+<script>
+(function () {
+  /* 📋 메뉴 목록의 정본 — 사이드바(adm-ia6.js 「기존 LMS」)의 ?m= 키와 짝입니다.
+     g = 옛 LMS 대메뉴, t = 화면 이름, s = 검색 조건, c = 표 칸, kind = 'list'(기본)·'cal'(달력)·'grid'(강사×날짜) */
+  var ORG = ['본사', '대표지사', '지사', '대리점'];
+  var MENUS = [
+    { k:'sales-hq', g:'가맹점관리', t:'영업본부 관리',
+      s:[['조직', ORG.slice(0,1)], ['상태', ['전체','운영','중지']], ['검색', 'text:영업본부명 · 아이디']],
+      c:['No','영업본부명','아이디','대표자','연락처','대표지사 수','지사 수','대리점 수','학생 수','상태','등록일','관리'] },
+    { k:'teacher-group', g:'강사관리', t:'강사그룹',
+      s:[['노출', ['전체','노출','숨김']], ['검색', 'text:그룹명']],
+      c:['No','그룹명','소속 강사 수','설명','노출','순서','등록일','관리'] },
+    { k:'edu-center', g:'강사관리', t:'교육센터',
+      s:[['상태', ['전체','운영','중지']], ['검색', 'text:교육센터명 · 담당자']],
+      c:['No','교육센터명','지역','담당자','연락처','소속 강사 수','상태','등록일','관리'] },
+    { k:'origin-region', g:'강사관리', t:'출신지역관리',
+      s:[['사용', ['전체','사용','미사용']]],
+      c:['No','출신지역','수업료 배수','소속 강사 수','순서','사용여부','관리'],
+      note:'옛 LMS 배수: 미국·캐나다 2 · 필리핀 1 · 남아공 1.5 · 중국 1 — 실제 수업료에 적용할지, 표시만 할지는 아직 정하지 않았습니다.' },
+    { k:'dropout', g:'학생관리', t:'탈락률',
+      s:[['조직', 'org'], ['기간', 'month2']],
+      c:['No','대표지사','지사','대리점','기초 학생 수','신규','연장','종료','탈락','탈락률(%)'] },
+    { k:'attend-cal', g:'학생관리', t:'출결현황 달력', kind:'cal',
+      s:[['조직', 'org'], ['학생', 'text:학생명 · 아이디'], ['월', 'month']] },
+    { k:'monthly-eval', g:'학생관리', t:'월별평가서',
+      s:[['조직', 'org'], ['년월', 'month'], ['검색', 'text:학생명 · 아이디']],
+      c:['선택','No','학생명','아이디','대리점','강사','수업 수','평가일','인쇄'], btn:'🖨 선택 전체 인쇄' },
+    { k:'lt-apply', g:'레벨테스트', t:'레벨테스트 신청',
+      s:[['조직', 'org'], ['신청일', 'date2'], ['검색', 'text:학생명 · 연락처']],
+      c:['No','신청일','학생명','학년','연락처','희망 일시','대리점','상태','관리'] },
+    { k:'lt-assign', g:'레벨테스트', t:'레벨테스트 배정',
+      s:[['조직', 'org'], ['테스트일', 'date2'], ['강사', 'text:강사명']],
+      c:['No','테스트 일시','학생명','학년','대리점','배정 강사','상태','관리'] },
+    { k:'lt-done', g:'레벨테스트', t:'레벨테스트 완료',
+      s:[['조직', 'org'], ['테스트일', 'date2'], ['검색', 'text:학생명']],
+      c:['No','테스트 일시','학생명','대리점','강사','결과 레벨','추천 교재','평가서','관리'] },
+    { k:'lt-absent', g:'레벨테스트', t:'레벨테스트 결석(미응시)',
+      s:[['조직', 'org'], ['테스트일', 'date2'], ['검색', 'text:학생명 · 연락처']],
+      c:['No','테스트 일시','학생명','연락처','대리점','강사','재배정','관리'],
+      note:'옛 LMS 사진이 「테스트완료」 화면과 같아 칸을 확인하지 못했습니다 — 결석 화면 사진을 다시 보내 주세요.' },
+    { k:'end-date-log', g:'수강신청관리', t:'종료일 변경 로그',
+      s:[['조직', 'org'], ['변경일', 'date2'], ['검색', 'text:학생명 · 아이디']],
+      c:['No','변경 일시','학생명','아이디','대리점','이전 종료일','변경 종료일','사유','처리자'] },
+    { k:'attend-roster', g:'수업관리', t:'출결학생명단',
+      s:[['조직', 'org'], ['날짜', 'date'], ['출결', ['전체','출석','결석','지각','연기']]],
+      c:['No','대리점','학생명','아이디','수업시간','강사','출결','입장 시각','비고'] },
+    { k:'class-status', g:'수업관리', t:'수업현황 (강사×날짜)', kind:'grid',
+      s:[['강사', 'text:강사명'], ['주간', 'week']] },
+    { k:'textbook-group', g:'콘텐츠', t:'교재그룹',
+      s:[['사용', ['전체','사용','미사용']], ['검색', 'text:그룹명']],
+      c:['No','교재그룹명','교재 수','강사 노출','순서','사용여부','등록일','관리'] },
+    { k:'slp-settle', g:'정산통계', t:'SLP 정산',
+      s:[['조직', 'org'], ['정산월', 'month']],
+      c:['No','대표지사','지사','대리점','결제 건수','결제 금액','본사 몫','지사 몫','대리점 몫','카드 수수료','정산 상태'],
+      note:'옛 LMS 배분: 44,000원 → 30,000 / 10,000 / 4,000 · 22,000원 → 15,000 / 5,000 / 2,000 · 카드 수수료 약 2.86% — 규칙 확정 전입니다.' },
+    { k:'school-subsidy', g:'정산통계', t:'학당지원금',
+      s:[['조직', 'org'], ['지원월', 'month']],
+      c:['No','지사','대리점','지원 대상 학생 수','지원금','지급일','상태','관리'] }
+  ];
+
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); };
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var now = new Date();
+  var ymd = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+  var ym = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+
+  function field(v) {
+    if (Object.prototype.toString.call(v) === '[object Array]') {
+      return '<select>' + v.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join('') + '</select>';
+    }
+    if (v === 'org') return ORG.map(function (o) { return '<select><option>' + esc(o) + ' 전체</option></select>'; }).join('')
+      + '<select><option>운영상태 전체</option><option>운영</option><option>중지</option></select>';
+    if (v === 'date') return '<input type="date" value="' + ymd + '">';
+    if (v === 'date2') return '<input type="date" value="' + ymd + '"> ~ <input type="date" value="' + ymd + '">';
+    if (v === 'month') return '<input type="month" value="' + ym + '">';
+    if (v === 'month2') return '<input type="month" value="' + ym + '"> ~ <input type="month" value="' + ym + '">';
+    if (v === 'week') return '<input type="date" value="' + ymd + '"> 부터 7일';
+    if (v.indexOf('text:') === 0) return '<input type="text" placeholder="' + esc(v.slice(5)) + '">';
+    return '';
+  }
+
+  function searchPanel(m) {
+    return '<div class="panel"><table class="search">'
+      + m.s.map(function (r) { return '<tr><th>' + esc(r[0]) + '</th><td>' + field(r[1]) + '</td></tr>'; }).join('')
+      + '</table><div class="sbtn"><button class="btn blue" disabled title="데이터 연결 전입니다">검색</button> '
+      + '<button class="btn" disabled title="데이터 연결 전입니다">초기화</button></div></div>';
+  }
+
+  var EMPTY = '데이터 연결 전 — 아직 보여 줄 자료가 없습니다';
+
+  function listPanel(m) {
+    return '<div class="panel"><div class="listbar"><span>총 <b>0</b>건</span><span>'
+      + (m.btn ? '<button class="btn" disabled title="데이터 연결 전입니다">' + esc(m.btn) + '</button> ' : '')
+      + '<button class="btn" disabled title="데이터 연결 전입니다">엑셀 다운로드</button></span></div>'
+      + '<div class="scroll"><table class="list"><thead><tr>'
+      + m.c.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody><tr><td class="empty" colspan="' + m.c.length + '">' + EMPTY + '</td></tr></tbody></table></div>'
+      + '<div class="pager"><span>‹</span><span class="on">1</span><span>›</span></div></div>';
+  }
+
+  function calPanel() {
+    var y = now.getFullYear(), mo = now.getMonth();
+    var first = new Date(y, mo, 1).getDay(), days = new Date(y, mo + 1, 0).getDate();
+    var cells = [], i;
+    for (i = 0; i < first; i++) cells.push('<td class="out"></td>');
+    for (i = 1; i <= days; i++) {
+      var dow = (first + i - 1) % 7;
+      cells.push('<td class="' + (dow === 0 ? 'sun' : dow === 6 ? 'sat' : '') + '"><div class="d">' + i + '</div><div class="x">—</div></td>');
+    }
+    while (cells.length % 7) cells.push('<td class="out"></td>');
+    var rows = '';
+    for (i = 0; i < cells.length; i += 7) rows += '<tr>' + cells.slice(i, i + 7).join('') + '</tr>';
+    var wk = ['일','월','화','수','목','금','토'];
+    return '<div class="panel"><div class="listbar"><span><b>' + y + '년 ' + (mo + 1) + '월</b> 출결</span><span>' + EMPTY + '</span></div>'
+      + '<table class="cal"><thead><tr>' + wk.map(function (w, j) { return '<th class="' + (j === 0 ? 'sun' : j === 6 ? 'sat' : '') + '">' + w + '</th>'; }).join('')
+      + '</tr></thead><tbody>' + rows + '</tbody></table>'
+      + '<div class="legend"><i>출석</i><i>결석</i><i>지각</i><i>연기</i><i>미설정</i> 옛 LMS 표시 — «미설정» 배지의 뜻은 아직 확인 전입니다.</div></div>';
+  }
+
+  function gridPanel() {
+    var heads = ['강사'];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      heads.push((d.getMonth() + 1) + '/' + d.getDate() + ' (' + '일월화수목금토'.charAt(d.getDay()) + ')');
+    }
+    heads.push('합계');
+    return '<div class="panel"><div class="listbar"><span>강사 × 날짜별 수업 수</span><span>총 <b>0</b>명</span></div>'
+      + '<div class="scroll"><table class="list"><thead><tr>' + heads.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody><tr><td class="empty" colspan="' + heads.length + '">' + EMPTY + '</td></tr></tbody></table></div></div>';
+  }
+
+  function render() {
+    var key = '';
+    try { key = new URLSearchParams(location.search).get('m') || ''; } catch (e) {}
+    var m = null;
+    for (var i = 0; i < MENUS.length; i++) if (MENUS[i].k === key) m = MENUS[i];
+    if (!m) m = MENUS[0];
+
+    var last = '', chips = '';
+    MENUS.forEach(function (x) {
+      if (x.g !== last) { chips += '<span class="gl">' + esc(x.g) + '</span>'; last = x.g; }
+      chips += '<a href="?m=' + encodeURIComponent(x.k) + '"' + (x === m ? ' class="on"' : '') + '>' + esc(x.t) + '</a>';
+    });
+    document.getElementById('menus').innerHTML = chips;
+    document.getElementById('crumb').textContent = '기존 LMS › ' + m.g + ' › ' + m.t;
+    document.getElementById('title').textContent = m.t;
+    document.title = m.t + ' — 기존 LMS — 망고아이 관리자';
+
+    var html = searchPanel(m);
+    if (m.note) html = '<div class="notice">📌 ' + esc(m.note) + '</div>' + html;
+    html += m.kind === 'cal' ? calPanel() : m.kind === 'grid' ? gridPanel() : listPanel(m);
+    document.getElementById('body').innerHTML = html;
+  }
+
+  document.getElementById('back').addEventListener('click', function (e) {
+    e.preventDefault();
+    if (history.length > 1) history.back(); else location.href = '/admin.html';
+  });
+  try { render(); } catch (e) { document.getElementById('body').innerHTML = '<div class="err">화면을 그리지 못했습니다: ' + esc(e && e.message) + '</div>'; }
+})();
+</script>
+</body>
+</html>

@@ -1209,6 +1209,55 @@ function pdRender(d){
     })
     .catch(() => {});
 
+// 🏅 배지 «받는 방법» 말풍선 — hover·키보드 포커스·탭(휴대폰) 모두. 화면 밖으로 안 나가게 위치를 잡는다.
+function pdWireBadgeTips(box, badges, en) {
+  let tip = document.getElementById('pd-bdg-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'pd-bdg-tip'; tip.setAttribute('role', 'tooltip');
+    tip.style.cssText = 'position:fixed;z-index:9999;max-width:240px;padding:10px 12px;border-radius:12px;background:#1f2937;color:#fff;font-size:13px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;display:none';
+    document.body.appendChild(tip);
+    // 스크롤하면 닫지 않고 카드를 따라간다(휴대폰에서 살짝 밀려도 사라지지 않게). 카드가 화면을 벗어나면 닫는다.
+    window.addEventListener('scroll', () => { if (tip.style.display === 'block' && tip.__place) tip.__place(); }, { passive: true });
+    document.addEventListener('click', (e) => { if (!e.target.closest || !e.target.closest('.pd-bdg')) tip.style.display = 'none'; });
+  }
+  let cur = null;
+  const show = (card) => {
+    const b = badges[Number(card.getAttribute('data-bi'))]; if (!b) return;
+    const how = (en ? (b.how_en || b.desc_en) : (b.how || b.desc)) || '';
+    const head = b.earned ? (en ? '✅ Earned' : '✅ 획득 완료') : (en ? '🔒 How to get it' : '🔒 받는 방법');
+    tip.innerHTML = '<div style="font-weight:800;margin-bottom:3px">' + esc(head) + '</div>' + esc(how);
+    tip.style.display = 'block'; cur = card;
+    tip.__place = () => place(card);
+    place(card);
+  };
+  const place = (card) => {
+    // 옛 자리에서 폭을 재면 화면 끝에 눌려 좁게 재지므로, 왼쪽 위로 옮긴 뒤 잰다
+    tip.style.left = '0px'; tip.style.top = '0px';
+    const r = card.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    if (r.bottom < 0 || r.top > vh) { hide(); return; }
+    const left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, vw - tw - 8));
+    let top = r.top - th - 8; if (top < 8) top = r.bottom + 8;
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  };
+  const hide = () => { tip.style.display = 'none'; cur = null; };
+  box.querySelectorAll('.pd-bdg').forEach((card) => {
+    // hover 는 진짜 마우스만 — 터치는 탭 뒤에 가짜 mouseleave 가 와서 바로 닫혀 버린다
+    card.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') show(card); });
+    card.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hide(); });
+    card.addEventListener('focus', () => show(card));
+    card.addEventListener('blur', hide);
+    // 휴대폰 탭은 pointerdown → focus/mouseenter(열림) → click 순이라, «누르기 직전에 열려 있었나» 로 닫기를 정한다
+    let wasOpen = false;
+    card.addEventListener('pointerdown', () => { wasOpen = (cur === card && tip.style.display === 'block'); });
+    card.addEventListener('click', () => { if (wasOpen) hide(); else show(card); wasOpen = false; });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (cur === card && tip.style.display === 'block') hide(); else show(card); }
+    });
+  });
+}
+
   // 🆕 배지 자동 검사 + 진열장 로드
   fetch('/api/badges/check', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid: _currentUid }) })
     .catch(()=>{})
@@ -1217,16 +1266,25 @@ function pdRender(d){
     if (!el) return;
     if (!bdata.ok) return;
     const badges = bdata.badges || [];
+    const bEn = !!(window.getLang && getLang() === 'en');
+    const bAll = bdata.earned_count >= bdata.total_count && bdata.total_count > 0;
     el.innerHTML = `
-      <div style="margin-bottom:10px;font-size:14px;color:var(--pd-muted)">획득 <b style="color:var(--pd-gold)">${bdata.earned_count}</b> / ${bdata.total_count}</div>
+      <div style="margin-bottom:10px;font-size:14px;color:var(--pd-muted)">${bEn?'Earned':'획득'} <b style="color:var(--pd-gold)">${bdata.earned_count}</b> / ${bdata.total_count}
+        <span style="margin-left:6px;font-size:12px">${bEn?'· Hover or tap a badge to see how to get it':'· 배지에 마우스를 올리거나 눌러 보면 받는 방법이 나와요'}</span></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
-        ${badges.map(b => `
-          <div style="background:${b.earned?'var(--pd-tint-strong)':'var(--pd-tint)'};border:1px solid ${b.earned?'var(--pd-line-strong)':'var(--pd-tint)'};border-radius:16px;padding:12px 8px;text-align:center;;transition:transform .15s" title="${esc(b.desc)}">
+        ${badges.map((b, i) => `
+          <div class="pd-bdg" data-bi="${i}" tabindex="0" role="button" aria-describedby="pd-bdg-tip" style="cursor:help;background:${b.earned?'var(--pd-tint-strong)':'var(--pd-tint)'};border:1px solid ${b.earned?'var(--pd-line-strong)':'var(--pd-tint)'};border-radius:16px;padding:12px 8px;text-align:center;transition:transform .15s">
             <div style="font-size:28px;line-height:1;${b.earned?'':'filter:grayscale(1);opacity:.55'}">${b.icon}</div>
-            <div style="font-weight:700;font-size:13px;color:${b.earned?'var(--pd-btn-ink)':'var(--pd-muted)'};margin-top:6px">${esc(b.name)}</div>
-            ${b.earned?`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">미획득</div>`}
+            <div style="font-weight:700;font-size:13px;color:${b.earned?'var(--pd-btn-ink)':'var(--pd-muted)'};margin-top:6px">${esc(bEn ? (b.name_en || b.name) : b.name)}</div>
+            ${b.earned?`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">${fmtDate(b.awarded_at)}</div>`:`<div style="font-size:11px;color:var(--pd-muted);margin-top:2px">${bEn?'Not yet':'미획득'}</div>`}
           </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;padding:12px 14px;border-radius:14px;border:1px dashed var(--pd-line-strong);background:var(--pd-tint);font-size:13px;line-height:1.5;color:var(--pd-ink)">
+        ${bAll
+          ? (bEn ? '🏆 <b>All badges collected!</b> Amazing work.' : '🏆 <b>배지를 모두 모았어요!</b> 정말 대단해요.')
+          : (bEn ? `🏆 <b>Collect all ${bdata.total_count} badges</b> — ${bdata.total_count - bdata.earned_count} to go!` : `🏆 <b>배지 ${bdata.total_count}개를 모두 모아 보세요</b> — 앞으로 ${bdata.total_count - bdata.earned_count}개 남았어요!`)}
       </div>`;
+    pdWireBadgeTips(el, badges, bEn);
   }).catch(()=>{}));
 
   // 🆕 AI 추천 학습 경로 (사용자가 버튼 누를 때 로드)
