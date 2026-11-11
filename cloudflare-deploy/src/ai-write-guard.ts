@@ -50,15 +50,17 @@ export async function checkWriteCorrectFailures(env: any): Promise<AiWriteGuardR
       try { return !!(await sendPlainSms(env, phone, text, { kind: 'ai-write' })).ok; } catch { return false; }
     };
 
+    /* 표시는 «실제로 보낸 뒤에만» 바꾼다 — 문자 업체 일시 장애·음소거로 못 보냈는데 «보냈음» 을 남기면
+       그 장애 내내 다시 안 알린다(Codex 리뷰 P2). 못 보냈으면 다음 15분에 다시 시도한다. */
     let smsSent = false;
     if (failures >= AW_FAIL_ALERT_MIN && !alerted) {
       smsSent = await send(`[망고아이] ⚠️ AI 영작 첨삭이 최근 1시간 ${failures}건 실패했습니다(성공 ${successes}건). ` +
         '학생들이 «다시 눌러 주세요» 안내를 보고 있습니다. Cloudflare Workers AI 상태를 확인해 주세요.');
-      try { await kv.put(AW_ALERT_KEY, '1'); } catch (e: any) { console.warn('[ai-write-guard] KV put 실패', e?.message); }
+      if (smsSent) { try { await kv.put(AW_ALERT_KEY, '1'); } catch (e: any) { console.warn('[ai-write-guard] KV put 실패', e?.message); } }
     } else if (failures === 0 && alerted) {
       smsSent = await send('[망고아이] ✅ AI 영작 첨삭이 정상으로 돌아왔습니다(최근 1시간 실패 0건).');
       // 지우기가 실패하면 «보냈음» 이 남아 다음 장애에 문자가 안 간다 — 로그는 남긴다
-      try { await kv.delete(AW_ALERT_KEY); } catch (e: any) { console.warn('[ai-write-guard] KV delete 실패', e?.message); }
+      if (smsSent) { try { await kv.delete(AW_ALERT_KEY); } catch (e: any) { console.warn('[ai-write-guard] KV delete 실패', e?.message); } }
     }
     return { state: failures >= AW_FAIL_ALERT_MIN ? 'failing' : 'ok', failures, successes, smsSent };
   } catch {

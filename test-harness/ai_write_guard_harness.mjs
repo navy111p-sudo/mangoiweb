@@ -32,8 +32,8 @@ function check(name, cond, extra) {
 
 // ── 정본 적재: 타입 제거 + solapi-client 대신 가짜 문자(보낸 것을 기록) ──
 const TMP = mkdtempSync(join(tmpdir(), 'awg-'));
-writeFileSync(join(TMP, 'fake-sms.mjs'), `export const SENT = []; export let MODE = { throws: false };
-export async function sendPlainSms(env, phone, text, opts) { if (MODE.throws) throw new Error('sms down'); SENT.push({ phone, text, kind: opts && opts.kind }); return { ok: true }; }`);
+writeFileSync(join(TMP, 'fake-sms.mjs'), `export const SENT = []; export let MODE = { throws: false, fail: false };
+export async function sendPlainSms(env, phone, text, opts) { if (MODE.throws) throw new Error('sms down'); if (MODE.fail) return { ok: false, error: 'network_error' }; SENT.push({ phone, text, kind: opts && opts.kind }); return { ok: true }; }`);
 const SMS = await import(pathToFileURL(join(TMP, 'fake-sms.mjs')).href);
 let seq = 0;
 async function load(src) {
@@ -88,6 +88,23 @@ async function sectionA(M, quiet = false) {
   await M.checkWriteCorrectFailures(fakeEnv({ rows: fails(2) }).env);
   await M.checkWriteCorrectFailures(fakeEnv({ rows: [] }).env);
   t('A6 2건 이하(알린 적 없음) · 0건(알린 적 없음)은 아무 문자 없음', SMS.SENT.length === 0);
+  // Codex 리뷰 P2: 첫 발송이 실패했는데 «보냈음» 을 남기면 그 장애 내내 다시 안 알린다
+  const a7 = fakeEnv({ rows: fails(4) });
+  SMS.MODE.fail = true;
+  const r7 = await M.checkWriteCorrectFailures(a7.env);
+  SMS.MODE.fail = false;
+  t('A7 문자 발송이 실패하면 «보냈음» 을 남기지 않는다', r7.smsSent === false && !a7.kvMap.has('aiwrite:alerted'));
+  await M.checkWriteCorrectFailures(a7.env);
+  t('A8 그래서 다음 15분에 다시 보내고, 그때 표시한다', SMS.SENT.length === 1 && a7.kvMap.get('aiwrite:alerted') === '1');
+  SMS.SENT.length = 0;
+  const a9 = fakeEnv({ rows: [], alerted: true });
+  SMS.MODE.fail = true;
+  await M.checkWriteCorrectFailures(a9.env);
+  SMS.MODE.fail = false;
+  t('A9 «정상» 문자가 실패하면 표시를 남겨 다음 15분에 다시 시도', a9.kvMap.has('aiwrite:alerted'));
+  await M.checkWriteCorrectFailures(a9.env);
+  t('A10 다시 시도해 보내면 표시를 지운다', SMS.SENT.length === 1 && /정상/.test(SMS.SENT[0].text) && !a9.kvMap.has('aiwrite:alerted'));
+  SMS.SENT.length = 0;
   return bad;
 }
 
@@ -142,6 +159,8 @@ const mutants = [
   ['«0건일 때만 정상» → «기준 미만이면 정상»(오락가락)', GUARD.replace('} else if (failures === 0 && alerted) {', '} else if (failures < AW_FAIL_ALERT_MIN && alerted) {')],
   ['기준을 1건으로', GUARD.replace('export const AW_FAIL_ALERT_MIN = 3;', 'export const AW_FAIL_ALERT_MIN = 1;')],
   ['정상 문자 뒤 표시를 안 지움', GUARD.replace("try { await kv.delete(AW_ALERT_KEY); }", 'try { }')],
+  ['못 보내도 «보냈음» 표시(Codex P2 의 옛 동작)', GUARD.replace("if (smsSent) { try { await kv.put(AW_ALERT_KEY, '1'); }", "{ try { await kv.put(AW_ALERT_KEY, '1'); }")],
+  ['«정상» 을 못 보내도 표시 지움', GUARD.replace("if (smsSent) { try { await kv.delete(AW_ALERT_KEY); }", "{ try { await kv.delete(AW_ALERT_KEY); }")],
 ];
 for (const [name, src] of mutants) {
   if (src === GUARD) { check(`E 변이 «${name}» 적용됨`, false, '치환 대상 못 찾음 — 정본이 바뀌었으면 하니스도 맞출 것'); continue; }
@@ -206,6 +225,9 @@ console.log('\nF. 끝에서 끝까지 (실제 첨삭 → 실제 기록 → 실�
     for (let i = 0; i < 3; i++) await E.handleWritingApi(new Request(url, { method: 'POST', body: JSON.stringify({ text: 'I go school yesterday.', level: 'A1', uid: '' }) }), url, env);
     await E.checkWriteCorrectFailures(env);
     check('F6 사장님이 «완전 침묵»(owner_alert_mute=all)이면 이 알림도 안 나간다', sent.length === 2);
+    kv.delete('owner_alert_mute');
+    await E.checkWriteCorrectFailures(env);
+    check('F7 침묵 중 막혔던 알림은 음소거를 풀면 다음 15분에 나간다(Codex P2)', sent.length === 3 && /3건/.test(sent[2].text));
   } finally { globalThis.fetch = realFetch; Date.now = realNow; console.warn = realWarn; console.error = realErr; raw.close(); }
 }
 
