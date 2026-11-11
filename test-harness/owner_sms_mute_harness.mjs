@@ -10,6 +10,7 @@
    [후속] 2026-10-28 사장님 「강사에게 연락이 안 닿을 때 사장님에게 문자」 —
      `teacher-missing` 을 더했습니다(teacher-missing-alert.ts 1곳 · 방마다 1회 · 강사에게 아무것도 안 닿았을 때만).
      ⚠️ 9/6 에 끈 「결석 위험」(absent)은 여전히 막혀 있어야 합니다(아래 «여전히 막힌다» 목록).
+   [후속] 2026-11-11 사장님 「AI 영작 실패 알림 만들어줘」 — `ai-write` 를 더했습니다(ai-write-guard.ts 1곳 · 상태가 바뀔 때만 · 숫자만).
 
    [이 하니스가 지키는 것]
      ① 판정이 «정본 한 곳» 에 있고 순수 함수다 (문자열이 아니라 실제로 돌린다)
@@ -18,7 +19,7 @@
      ④ 운영자 «아닌» 번호는 절대 막지 않는다(학부모·강사 문자가 사라지면 훨씬 나쁘다)
      ⑤ 막는 자리가 «보내는 정본»(sendPlainSms) 안이고, 실제 발송보다 «앞» 이다
      ⑥ 조용히 사라지지 않는다(로그) · 거짓 성공을 말하지 않는다(ok:false + muted)
-     ⑧ 예외는 «정해 둔 종류만»(uptime·room-split·teacher-missing) 이고, 그 예외를 실제로 받는 호출부도 그 파일들뿐이다
+     ⑧ 예외는 «정해 둔 종류만»(uptime·room-split·teacher-missing·ai-write) 이고, 그 예외를 실제로 받는 호출부도 그 파일들뿐이다
         ← «막는다» 만 검사하면 예외가 죽어도 초록이고, «보낸다» 만 검사하면
           결제·로그인이 몰래 예외를 받아도 초록이다. 둘을 **짝으로** 둔다.
    ══════════════════════════════════════════════════════════════════════ */
@@ -190,6 +191,8 @@ if (F) {
   check("'room-split' → 보낸다 (방 갈림 감시견)", F.ownerSmsBlocked(null, 'room-split') === false);
   check("'teacher-missing' → 보낸다 (강사 미입장·연락 안 됨, 2026-10-28)", F.ownerSmsBlocked(null, 'teacher-missing') === false);
   check("'teacher-missing' 도 KV 'all' 이면 막힌다 (완전 침묵은 예외까지)", F.ownerSmsBlocked('all', 'teacher-missing') === true);
+  check("'ai-write' → 보낸다 (AI 영작 첨삭 실패 몰림, 2026-11-11)", F.ownerSmsBlocked(null, 'ai-write') === false);
+  check("'ai-write' 도 KV 'all' 이면 막힌다", F.ownerSmsBlocked('all', 'ai-write') === true);
   check("'UPTIME' → 보낸다 (대소문자·공백 무시)",
     F.ownerSmsBlocked(null, ' UPTIME ') === false);
   /* ⛔ 목록을 «길이·순서» 로 못 박지 않는다 — 나중에 정당하게 늘 때 멀쩡한 수리가 빨간불이 된다.
@@ -216,7 +219,7 @@ if (F) {
     return out;
   }
   const files = allTs(SRC);
-  const EXEMPT_FILES = ['api-uptime.ts', 'room-split-guard.ts', 'teacher-missing-alert.ts'];
+  const EXEMPT_FILES = ['api-uptime.ts', 'room-split-guard.ts', 'teacher-missing-alert.ts', 'ai-write-guard.ts'];
   /* 🔴 따옴표 «한 종류» 만 보면 안 된다 — 함정 대조에서 실제로 뚫렸다:
         결제 알림에 `{ kind: "uptime" }`(쌍따옴표)를 달았더니 tsc 도 통과하고
         이 검사도 **65/65 초록**이었다. 이 PR 의 핵심 보장이 따옴표 하나로 사라졌다.
@@ -247,6 +250,8 @@ if (F) {
     tagged.some(([f, k]) => f === 'room-split-guard.ts' && k === 'room-split'));
   check('강사 미입장·연락 안 됨 알림이 예외를 받는다 (teacher-missing-alert.ts)',
     tagged.some(([f, k]) => f === 'teacher-missing-alert.ts' && k === 'teacher-missing'));
+  check('AI 영작 첨삭 실패 감시가 예외를 받는다 (ai-write-guard.ts)',
+    tagged.some(([f, k]) => f === 'ai-write-guard.ts' && k === 'ai-write'));
   const strayFile = [...byFile.keys()].filter(f => !EXEMPT_FILES.includes(f));
   check('결제·환불·로그인·상담 리드는 예외를 «안» 받는다' +
         (strayFile.length ? ` — 샌 파일: ${strayFile.join(', ')}` : ''), strayFile.length === 0);
