@@ -193,6 +193,23 @@ if (C) {
   ok(sorted(shortF, 1), '짧은 글부터 — 단어 수가 줄지 않고, 같으면 번호순');
   ok(sorted(longF, -1), '긴 글부터 — 단어 수가 늘지 않고, 같으면 번호순');
   ok(C.browse(P, 1, {}, { sort: 'zzz' }).every((p, i) => p === st1[i]), '모르는 정렬이면 번호순(짝)');
+  // 2026-11-11 정렬 더하기 — 번호 거꾸로 · 제목 ABC · 주제별 · 안 읽은 글 먼저 (정본 browse 를 실제로 돌림)
+  ok(['rev', 'title', 'topic', 'todo'].every((v) => C.SORTS.includes(v)), '새 정렬 넷이 SORTS 에 있다');
+  const revF = C.browse(P, 1, {}, { sort: 'rev' });
+  ok(revF.length === st1.length && revF.every((p, i) => p === st1[st1.length - 1 - i]), '번호 거꾸로 — 마지막 글이 맨 위');
+  const tk = (p) => p.title.en.replace(/^(the|a|an)\s+/i, '').toLowerCase();
+  const titleF = C.browse(P, 1, {}, { sort: 'title' });
+  ok(titleF.length === st1.length && titleF.every((p, i) => i === 0 || tk(titleF[i - 1]) <= tk(p)), '제목 ABC순 — 앞 관사(The·A) 빼고 알파벳 순');
+  ok(titleF.some((p, i) => p !== st1[i]), '제목 ABC순은 번호순과 실제로 다르다(짝 — 안 바뀌면 헛돎)');
+  const topicF = C.browse(P, 1, {}, { sort: 'topic' });
+  const runs = topicF.map((p) => p.topic.ko).filter((k, i, a) => i === 0 || a[i - 1] !== k);
+  ok(topicF.length === st1.length && new Set(runs).size === runs.length, '주제별 — 같은 주제가 한 덩어리로 모인다');
+  ok(runs.join() === C.topicsOf(P, 1).map((t) => t.key).join(), '주제별 — 주제 차례는 주제 드롭다운과 같다');
+  const todoF = C.browse(P, 1, pg, { sort: 'todo' });
+  const rank = { new: 0, doing: 1, done: 2 };
+  ok(todoF.length === st1.length && todoF.every((p, i) => i === 0 || rank[C.statusOf(pg[todoF[i - 1].id])] <= rank[C.statusOf(pg[p.id])]), '안 읽은 글 먼저 — 새 글 → 하는 중 → 완료');
+  ok(todoF[todoF.length - 1] === st1[0] && todoF[todoF.length - 2] === st1[1], '안 읽은 글 먼저 — 끝낸 글이 맨 아래, 하는 중이 그 위(짝)');
+  ok(C.browse(P, 1, pg, { sort: 'todo', status: 'new' }).every((p) => C.statusOf(pg[p.id]) === 'new'), '정렬과 상태 거르기가 함께 먹는다');
   ok(C.pickActive(P, 1, pg, st1[5].id) === st1[5], '고른 글이 그 단계에 있으면 그 글을 띄운다');
   const st3first = P.filter((p) => p.stage === 3)[0];
   const other = C.pickActive(P, 1, pg, st3first.id);

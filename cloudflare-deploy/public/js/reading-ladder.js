@@ -157,7 +157,7 @@
     },
     // 📋 고르기 화면(C안 · 2026-10-18) — 글 상태 · 거르기·정렬 · 상세에 띄울 글. 화면은 이 셋을 «부르기만» 한다.
     STATUSES: ['new', 'doing', 'done'],
-    SORTS: ['no', 'short', 'long'],
+    SORTS: ['no', 'rev', 'title', 'topic', 'todo', 'short', 'long'],
     statusOf: function (r) {
       if (RLCore.isDone(r)) return 'done';
       return r && (r.k || r.m || r.s) ? 'doing' : 'new';
@@ -169,11 +169,27 @@
       var base = passages.filter(function (p) { return p.stage === stage; });
       var list = RLCore.filterByTopic(base, opt.topic);
       if (RLCore.STATUSES.indexOf(opt.status) >= 0) list = list.filter(function (p) { return RLCore.statusOf((prog || {})[p.id]) === opt.status; });
-      var dir = opt.sort === 'short' ? 1 : opt.sort === 'long' ? -1 : 0;
-      if (!dir) return list;
-      return list.map(function (p) { return { p: p, w: RLCore.wordCount(p), i: base.indexOf(p) }; })
-        .sort(function (a, b) { return (a.w - b.w) * dir || a.i - b.i; })
+      var key = RLCore.sortKey(opt.sort, base, prog);
+      if (!key) return list;
+      return list.map(function (p) { return { p: p, k: key(p), i: base.indexOf(p) }; })
+        .sort(function (a, b) { return (a.k < b.k ? -1 : a.k > b.k ? 1 : 0) || a.i - b.i; })
         .map(function (x) { return x.p; });
+    },
+    // 정렬 열쇠(작을수록 위) — 번호순(no)·모르는 값은 null(원래 순서). 같은 열쇠면 원래 번호 순.
+    // 2026-11-11 사장님 «정렬 기능을 넣어줘» — 한 단계 글은 길이가 50~56단어로 비슷해 길이 정렬만으로는 거의 안 바뀌어 보였다.
+    sortKey: function (sort, base, prog) {
+      var STATUS_RANK = { 'new': 0, doing: 1, done: 2 };
+      if (sort === 'short') return function (p) { return RLCore.wordCount(p); };
+      if (sort === 'long') return function (p) { return -RLCore.wordCount(p); };
+      if (sort === 'rev') return function (p) { return -base.indexOf(p); };
+      if (sort === 'title') return function (p) { return String((p.title && p.title.en) || '').replace(/^(the|a|an)\s+/i, '').toLowerCase(); };
+      if (sort === 'topic') {
+        var order = {};
+        base.forEach(function (p) { var t = p.topic && p.topic.ko; if (t != null && !(t in order)) order[t] = Object.keys(order).length; });
+        return function (p) { var t = p.topic && p.topic.ko; return t in order ? order[t] : 1e9; };
+      }
+      if (sort === 'todo') return function (p) { return STATUS_RANK[RLCore.statusOf((prog || {})[p.id])]; };
+      return null;
     },
     // 상세에 띄울 글 — 고른 글(그 단계 글일 때만) → 하던 글 → 새 글 → 첫 글.
     pickActive: function (passages, stage, prog, selId) {
@@ -363,7 +379,9 @@
         var n = RLCore.browse(PASSAGES, cur, state.prog, { topic: filt.topic, status: v }).length;
         return ddOpt('data-act="filter" data-key="status" data-v="' + v + '"', filt.status === v, '<span>' + esc(v ? stLabel(v) : T('전체', 'All')) + '</span>', n);
       }));
-    var sortLab = { no: T('번호순', 'By number'), short: T('짧은 글부터', 'Shortest first'), long: T('긴 글부터', 'Longest first') };
+    var sortLab = { no: T('번호순', 'By number'), rev: T('번호 거꾸로', 'Number, reversed'), title: T('제목 ABC순', 'Title A–Z'),
+      topic: T('주제별로 모아', 'Group by topic'), todo: T('안 읽은 글 먼저', 'Unread first'),
+      short: T('짧은 글부터', 'Shortest first'), long: T('긴 글부터', 'Longest first') };
     var sortDd = dd(T('정렬', 'Sort'), '<span class="rl-dd-val">' + esc(sortLab[filt.sort] || sortLab.no) + '</span>',
       RLCore.SORTS.map(function (v) { return ddOpt('data-act="filter" data-key="sort" data-v="' + v + '"', filt.sort === v, '<span>' + esc(sortLab[v]) + '</span>'); }), 'rl-dd-sort');
     // 그림 동화책 4권(따로 만든 책) — 2단계에서만. 책은 각자 화면이라 고르면 바로 그 책으로 간다.
