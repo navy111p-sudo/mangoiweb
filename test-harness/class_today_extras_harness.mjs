@@ -273,7 +273,8 @@ ok('그 호출은 조건 없이 try 로 감싸여 있다(목록이 통째로 안
 const adm = readFileSync(join(PUB, 'js', 'adm-today-classes.js'), 'utf8');
 // 머리칸은 '<th>' 글자 또는 tcTh(...) 호출(2026-09-28 정렬 머리글) — 둘 다 «thead 안» 에서 센다.
 const thead = adm.slice(adm.indexOf("'<thead><tr>'"), adm.indexOf("'</tr></thead>"));
-const th = (thead.match(/'<th>'/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
+// (2026-11-11) 속성 달린 '<th style=…>'(☑ 전체 선택 칸)도 센다 — td 쪽과 같은 규칙('<td[ >]').
+const th = (thead.match(/'<th[ >]/g) || []).length + (thead.match(/\btcTh\(/g) || []).length;
 // ✕ (2026-11-03) 줄 여는 태그에 클래스가 붙을 수 있다(취소 줄 «tc-row-cancelled») — «return '<tr» 로 찾는다.
 const tr0 = adm.indexOf("return '<tr");
 const tb = adm.slice(tr0, adm.indexOf("'</tr>';", tr0));
