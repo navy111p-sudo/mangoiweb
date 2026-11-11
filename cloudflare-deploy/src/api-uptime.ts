@@ -9,6 +9,7 @@ import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { SITE_HOSTS } from './site-url';        // 🔗 사람에게 나가는 링크는 한 곳에서
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 import { checkRoomSplit } from './room-split-guard';   // 🚪 도메인이 다른 워커에 붙었는지(방 갈림)
+import { checkWriteCorrectFailures } from './ai-write-guard';   // ✍️ AI 영작 첨삭 실패가 몰리는지(2026-11-11)
 import type { MangoEnv } from './api-mango';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -72,7 +73,7 @@ async function dbAlive(env: MangoEnv): Promise<boolean> {
 export async function runSiteWatchdog(
   env: MangoEnv,
   opts?: { simulate?: 'up' | 'down' }
-): Promise<{ prev: string; cur: string; changed: boolean; smsSent: boolean; detail?: string; layer2?: any; roomSplit?: any }> {
+): Promise<{ prev: string; cur: string; changed: boolean; smsSent: boolean; detail?: string; layer2?: any; roomSplit?: any; aiWrite?: any }> {
   const kv: any = (env as any).SESSION_STATE;
 
   // 핵심 의존성(D1 데이터베이스)이 살아있는지 직접 확인.
@@ -124,7 +125,12 @@ export async function runSiteWatchdog(
      ⚠️ layer2 와 같이 .catch 로 감싼다 — 이게 던지면 감시견 전체가 멈춘다. */
   const roomSplit = await checkRoomSplit(env).catch(() => undefined);
 
-  return { prev, cur, changed: cur !== prev, smsSent, detail, layer2, roomSplit };
+  /* ✍️ AI 영작 첨삭 실패 감시 — 못 읽은 답은 학생에게 «다시 눌러 주세요» 로 솔직히 보이지만
+     ai_failure_log 만 쌓이면 아무도 모른다(2026-11-11 엘리더잼 사고: 8건이 몇 주간 조용했다).
+     ⚠️ 위와 같이 .catch — 이게 던지면 감시견 전체가 멈춘다. */
+  const aiWrite = await checkWriteCorrectFailures(env).catch(() => undefined);
+
+  return { prev, cur, changed: cur !== prev, smsSent, detail, layer2, roomSplit, aiWrite };
 }
 
 export async function handleUptimeApi(

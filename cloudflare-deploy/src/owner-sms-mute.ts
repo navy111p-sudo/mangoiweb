@@ -40,6 +40,10 @@
  *       · `teacher-missing` — 학생은 수업방에 들어왔는데 시작 +10분이 지나도 강사가 없고, 강사에게
  *                             보낸 알림(푸시·이메일·학생 화면의 노쇼 알림)이 **하나도 안 닿았을 때만** 한 통
  *                             (`teacher-missing-alert.ts` 의 `sendPlainSms` 1곳 · 방마다 1회)
+ *       · `ai-write` — AI 영작 첨삭이 최근 1시간 3건 이상 «AI 답을 못 읽어» 실패했을 때 한 통, 0건으로 돌아오면 한 통
+ *                    (`ai-write-guard.ts` 1곳 · 상태가 바뀔 때만 · 숫자만, 학생 글 없음)
+ *     [왜(ai-write)] 2026-11-11 엘리더잼 «수정본이 원문과 똑같고 75점» — 실패가 성공처럼 꾸며져 몇 주간 아무도 몰랐습니다.
+ *          사장님 「실패 알림 만들어줘」.
  *     [왜] 10/28 중국어 강선생님 수업에서 학생이 기다리는 동안 강사에게 닿는 길이 하나도 없었고(연락처 0),
  *          이 문자들이 꺼져 있어 아무도 몰랐습니다. 9/6 에 끈 「결석 위험」(학생이 늦게 오는 흔한 경우까지
  *          수업마다 오던 문자)과는 다릅니다 — 그쪽은 여전히 꺼져 있습니다.
@@ -59,10 +63,10 @@
 export const OWNER_MUTE_KV_KEY = 'owner_alert_mute';
 
 /**
- * 🔔 음소거 중에도 «그대로 나가는» 알림 종류 (2026-09-09 사장님 지시 · 2026-10-28 `teacher-missing` 추가).
+ * 🔔 음소거 중에도 «그대로 나가는» 알림 종류 (2026-09-09 사장님 지시 · 2026-10-28 `teacher-missing` · 2026-11-11 `ai-write` 추가).
  * ⛔ 목록을 넓히지 마세요 — 여기 이름을 더하는 것이 곧 「그 알림을 다시 켠다」입니다.
  */
-export const OWNER_ALWAYS_KINDS = ['uptime', 'room-split', 'teacher-missing'] as const;
+export const OWNER_ALWAYS_KINDS = ['uptime', 'room-split', 'teacher-missing', 'ai-write'] as const;
 /** ⛔ 타입을 따로 적지 마세요 — 목록에서 «파생» 시켜야 값과 타입이 어긋나지 않습니다. */
 export type OwnerSmsKind = typeof OWNER_ALWAYS_KINDS[number];
 
