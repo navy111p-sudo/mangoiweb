@@ -469,6 +469,7 @@ function vcqRxTick() {
                 if ((window.vcPeerConnections || {})[id] !== pc) return;
                 st.forEach(function (s) {
                     if (s.type !== 'inbound-rtp' || ((s.kind || s.mediaType) && (s.kind || s.mediaType) !== kind)) return;
+                    try { vcqOperationSample(id, pc, r, s); } catch (_) {}
                     var key = id + ':' + kind;
                     var prev = prevAll[key];
                     var sameMedia = prev && prev.pc === pc && prev.statId === s.id && prev.trackId === r.track.id;
@@ -715,10 +716,12 @@ function vcqRxStart() {
                    다음 수업으로 넘어간다(위 «나쁜 틱에서는 안 올린다» 때문에 «나쁨» 상태도 넘어간다). */
                 try { vcqSaveRttBase(); } catch (_) {}   // ② 다음 수업의 «낮게 시작» 근거(7일)
                 window.__vcNetSelf = null;
+                vcqOperationReset();
                 return;
             }
             try { vcqRxTick(); } catch (_) {}
             try { vcAaoTick(); } catch (_) {}
+            try { vcqOperationRender(); } catch (_) {}
         }, 4000);
     } catch (_) {}
 }
@@ -909,6 +912,7 @@ function vcLowQRemote(id, frameWidth, flowing) {
 function vcQualityAcc(loss, rtt) {
     var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], n: 0, rxv: [], rxa: [], rxc: [], rxl: [], txl: [], rxf: 0, p: [], pt: 0, pr: 0, turn: '', proto: '', sentAt: Date.now() });
     vcqRxStart();
+    window.__vcOperationSelf = { at: Date.now(), loss: loss, rtt: rtt };
     try { vcNetSelfWatch(loss, rtt); } catch (_) {}   // 🔔 내 회선이 나쁘면 나에게 알린다
     /* loss === -1 은 «영상 표본이 아예 없던 4초» 라는 뜻(위 머리말). 평균에 섞지 않고 센다. */
     if (loss === -1) Q.n = (Q.n || 0) + 1;
@@ -1375,3 +1379,112 @@ function vcAaoTick() {
         else { delete __vcAaoSince[id]; delete __vcAaoStill[id]; }   // 타일이 사라졌다 = 그 상대가 나갔다
     });
 }
+
+/* Operation Status: read-only diagnostics using the existing four-second samples.
+ * No new polling, media permissions, recovery commands, identifiers or uploads.
+ * Unknown/stale samples must never be presented as a healthy connection. */
+var vcqOperationSamples = Object.create(null);
+function vcqOperationNumber(n) { return typeof n === 'number' && isFinite(n) && n >= 0; }
+function vcqOperationSample(id, pc, receiver, stat) {
+    if (!document.body.classList.contains('vc-in-call')) return;
+    var kind = receiver.track.kind, key = id + ':' + kind, old = vcqOperationSamples[key];
+    var same = old && old.pc === pc && old.statId === stat.id && old.trackId === receiver.track.id;
+    var dt = same ? (stat.timestamp - old.timestamp) / 1000 : 0;
+    var received = stat.packetsReceived, lost = stat.packetsLost;
+    var dr = same ? received - old.received : -1, dl = same ? lost - old.lost : -1;
+    var bytes = same ? stat.bytesReceived - old.bytes : -1;
+    vcqOperationSamples[key] = {
+        pc: pc, statId: stat.id, trackId: receiver.track.id, at: Date.now(), kind: kind,
+        timestamp: stat.timestamp, received: received, lost: lost, bytes: stat.bytesReceived,
+        loss: dt > 0 && dr >= 0 && dl >= 0 && dr + dl > 0 ? 100 * dl / (dr + dl) : null,
+        bitrate: dt > 0 && bytes >= 0 ? bytes * 8 / dt / 1000 : null,
+        jitter: vcqOperationNumber(stat.jitter) ? stat.jitter * 1000 : null,
+        fps: vcqOperationNumber(stat.framesPerSecond) ? stat.framesPerSecond : null
+    };
+    vcqOperationRender();
+}
+function vcqOperationEn() {
+    try { return typeof _vcBgLockEn === 'function' ? _vcBgLockEn() : localStorage.getItem('mangoi_lang') === 'en'; }
+    catch (_) { return false; }
+}
+function vcqOperationText(ko, en) { return vcqOperationEn() ? en : ko; }
+function vcqOperationValue(value, unit) {
+    return vcqOperationNumber(value) ? (Math.round(value * 10) / 10) + unit : '—';
+}
+function vcqOperationReset() {
+    vcqOperationSamples = Object.create(null);
+    window.__vcOperationSelf = null;
+    var dialog = document.getElementById('vc-operation-dialog');
+    if (dialog && dialog.open) dialog.close();
+}
+function vcqOperationRender() {
+    var dialog = document.getElementById('vc-operation-dialog');
+    if (!dialog || !dialog.open) return;
+    if (!document.body.classList.contains('vc-in-call')) { vcqOperationReset(); return; }
+    var box = document.getElementById('vc-operation-data');
+    box.textContent = '';
+    function line(label, value) {
+        var p = document.createElement('p'), b = document.createElement('strong');
+        b.textContent = label + ': '; p.appendChild(b); p.appendChild(document.createTextNode(value)); box.appendChild(p);
+    }
+    var now = Date.now(), pcs = window.vcPeerConnections || {}, ids = Object.keys(pcs);
+    Object.keys(vcqOperationSamples).forEach(function (key) {
+        var sample = vcqOperationSamples[key];
+        if (!ids.some(function (id) { return (id + ':' + sample.kind) === key && pcs[id] === sample.pc; })) delete vcqOperationSamples[key];
+    });
+    document.getElementById('vc-operation-title').textContent = vcqOperationText('운영 상태 · 네트워크 진단', 'Operation Status · Network diagnostics');
+    document.getElementById('vc-operation-close').textContent = vcqOperationText('닫기', 'Close');
+    line(vcqOperationText('안내', 'About'), vcqOperationText('내 기기에서 측정한 수업 연결 상태입니다. 약 4초마다 갱신되며 —는 측정값이 없다는 뜻입니다.', 'Class connection measured on this device. Updates about every 4 seconds; — means unavailable.'));
+    var self = window.__vcOperationSelf, freshSelf = self && now - self.at < 12000 && ids.length;
+    line(vcqOperationText('보내는 영상 손실 / 왕복 지연', 'Outgoing video loss / round-trip time'),
+        vcqOperationValue(freshSelf ? self.loss : null, '%') + ' / ' + vcqOperationValue(freshSelf && self.rtt > 0 ? self.rtt : null, ' ms'));
+    if (!ids.length) line(vcqOperationText('연결', 'Connection'), vcqOperationText('상대 연결을 기다리는 중이거나 이 연결 방식의 통계를 사용할 수 없습니다.', 'Waiting for a peer, or statistics are unavailable for this connection mode.'));
+    ids.forEach(function (id, i) {
+        var pc = pcs[id]; if (!pc) return;
+        var state = pc.connectionState || pc.iceConnectionState || 'unknown';
+        line(vcqOperationText('연결 ', 'Connection ') + (i + 1), state);
+        ['audio', 'video'].forEach(function (kind) {
+            var sample = vcqOperationSamples[id + ':' + kind];
+            var fresh = sample && sample.pc === pc && now - sample.at < 12000;
+            var media = kind === 'audio' ? vcqOperationText('수신 음성', 'Incoming audio') : vcqOperationText('수신 영상', 'Incoming video');
+            if (!fresh) { line(media, vcqOperationText('측정 대기 / 최신 표본 없음', 'Waiting / no recent sample')); return; }
+            line(media, vcqOperationText('손실 ', 'Loss ') + vcqOperationValue(sample.loss, '%') +
+                ' · ' + vcqOperationText('지터 ', 'Jitter ') + vcqOperationValue(sample.jitter, ' ms') +
+                ' · ' + vcqOperationValue(sample.bitrate, ' kbps') + (kind === 'video' ? ' · ' + vcqOperationValue(sample.fps, ' fps') : ''));
+            if (sample.loss >= 5 || sample.jitter >= 50) line(vcqOperationText('확인할 사항', 'Check'), vcqOperationText('연결 품질 저하가 감지됐습니다. Wi-Fi 신호와 다른 다운로드를 확인하세요. 이 수치만으로 어느 쪽 회선 문제인지 단정할 수 없습니다.', 'Reduced connection quality detected. Check Wi-Fi signal and other downloads. These measurements alone cannot identify which side is responsible.'));
+        });
+        if (state === 'failed' || state === 'disconnected') line(vcqOperationText('안내', 'Guidance'), vcqOperationText('연결이 끊겼습니다. 인터넷 연결을 확인하고 기존 자동 재연결을 기다려 주세요.', 'Connection interrupted. Check your internet connection and allow automatic reconnection to work.'));
+    });
+    if (freshSelf && self.rtt >= 400) line(vcqOperationText('지연 안내', 'Delay'), vcqOperationText('왕복 지연이 높습니다. 다른 업로드나 다운로드를 잠시 멈춰 보세요.', 'Round-trip delay is high. Try pausing other uploads or downloads.'));
+}
+function vcqOperationMount() {
+    var host = document.getElementById('vc-operation-controls');
+    if (!host || document.getElementById('vc-operation-open')) return;
+    var button = document.createElement('button');
+    button.id = 'vc-operation-open'; button.type = 'button';
+    button.setAttribute('data-ko', '운영 상태'); button.setAttribute('data-en', 'Operation Status');
+    button.textContent = vcqOperationText('운영 상태', 'Operation Status');
+    button.setAttribute('aria-haspopup', 'dialog');
+    var dialog = document.createElement('dialog'); dialog.id = 'vc-operation-dialog';
+    dialog.setAttribute('aria-labelledby', 'vc-operation-title');
+    var title = document.createElement('h2'); title.id = 'vc-operation-title';
+    var data = document.createElement('div'); data.id = 'vc-operation-data';
+    var close = document.createElement('button'); close.type = 'button'; close.id = 'vc-operation-close';
+    close.addEventListener('click', function () { dialog.close(); });
+    dialog.appendChild(title); dialog.appendChild(data); dialog.appendChild(close);
+    document.body.appendChild(dialog); host.appendChild(button);
+    button.addEventListener('click', function () {
+        if (!document.body.classList.contains('vc-in-call')) return;
+        dialog.showModal(); vcqOperationRender(); close.focus();
+    });
+    dialog.addEventListener('close', function () { button.focus(); });
+    var style = document.createElement('style');
+    style.textContent = '#vc-operation-open{border:1px solid #64748b;border-radius:8px;padding:5px 12px;background:#e2e8f0;color:#0f172a;cursor:pointer}' +
+        '#vc-operation-dialog{box-sizing:border-box;width:560px;max-width:calc(100vw - 24px);max-height:80vh;overflow:auto;border:1px solid #64748b;border-radius:14px;padding:20px;background:#f8fafc;color:#0f172a;font:14px/1.6 system-ui}' +
+        '#vc-operation-dialog::backdrop{background:rgba(0,0,0,.55)}#vc-operation-dialog h2{font-size:18px;margin:0 0 12px}' +
+        '#vc-operation-dialog p{margin:8px 0;overflow-wrap:anywhere}#vc-operation-close{padding:8px 20px;cursor:pointer}';
+    document.body.appendChild(style);
+}
+window.vcqOperationMount = vcqOperationMount;
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', vcqOperationMount);
+else vcqOperationMount();

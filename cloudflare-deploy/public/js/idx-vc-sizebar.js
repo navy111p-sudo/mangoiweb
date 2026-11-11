@@ -166,6 +166,25 @@
     var bar = $(BAR);
     if (!bar) return;
     armPaneDrag();
+    // Keep the existing controls and their role checks/handlers; give them their own
+    // wrapping row instead of the overflowing textbook tabs beneath the video pane.
+    var content = $('vc-content-pane');
+    if (content && !$('vc-operation-controls')) {
+      var controls = document.createElement('div');
+      controls.id = 'vc-operation-controls';
+      content.insertBefore(controls, content.firstChild);
+      ['vc-studentctl-label', 'vc-miclock-btn', 'vc-drawlock-btn', 'vc-focuslock-btn'].forEach(function (id) {
+        var el = $(id); if (el) controls.appendChild(el);
+      });
+      var style = document.createElement('style');
+      style.textContent = 'body.vc-in-call #vc-operation-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:0 0 auto;max-width:100%;box-sizing:border-box;padding:6px;background:#172334;position:relative;z-index:61}' +
+        '#vc-operation-controls button{max-width:100%;white-space:normal!important;min-height:32px;overflow-wrap:anywhere}' +
+        '#vc-operation-controls #vc-studentctl-label{margin-left:0!important;border-left:0!important}' +
+        'body:not(.vc-in-call) #vc-operation-controls{display:none}' +
+        'body.vc-theme-light #vc-operation-controls{background:#edf2f7}';
+      document.body.appendChild(style);
+      if (typeof window.vcqOperationMount === 'function') window.vcqOperationMount();
+    }
 
     var more = $(MORE), menu = $(MENU);
     if (more && !more.__vsb2) {
