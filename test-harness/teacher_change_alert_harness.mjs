@@ -5,11 +5,12 @@
      알림이 오나? 30분 안이면 유급, 그 전이면 무급」 — 알림은 관리자 카톡으로만 갔고, 강사는 달력을 열어야 알았다.
 
    [이 하니스가 지키는 것] — 정본을 «실제로 돌린다»(node 타입 제거 + 진짜 SQLite)
-     A. 문구(classChangeAlertText) — 취소/연기/옮김 · 몇 분 전 · Paid/Unpaid/부분 · EN+KO
+     A. 문구(classChangeAlertText) — 취소/연기/옮김 · 몇 분 전 · «30분 이내» 표시 · EN+KO ·
+        ⛔ 알림에 Paid/Unpaid 없음(2026-11-11 사장님 «시간만 표시» — 급여와 어긋나지 않게)
      B. 보내기(alertTeacherOfClassChange) — 24시간 안·시작 30분 뒤까지만 · 강사 본인 변경 제외 ·
-        연기 Paid/Unpaid 는 급여와 같은 근거(요청 fee_type + 규칙) · 같은 자리면 안 보냄 · DB 가 죽어도 안 던짐
+        같은 자리면 안 보냄 · DB 가 죽어도 안 던짐
      C. 배선 — writeClassAudit 를 진짜로 불러 푸시 큐에 한 줄이 생긴다 · 이동 엔진의 훅 블록을 오려 내 실행
-     D. 급여 식과 같은 답 — admin-lesson-fees.ts 의 postponePct/earlyPostponePct 식을 오려 내 같은 입력으로 대조
+     D. 강사 화면 Paid/Unpaid 식 = 급여 식 — admin-lesson-fees.ts 의 postponePct/earlyPostponePct 식을 오려 내 같은 입력으로 대조
      E. 강사 화면 — payPctText·sboxHtml 를 오려 내 실행(«Paid» 가 상자에 실제로 들어간다 · 없으면 지어내지 않는다)
    ══════════════════════════════════════════════════════════════════════ */
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -48,7 +49,7 @@ function blockFrom(src, openIdx) {
 console.log('\n🔔 수업 취소·연기·변경 → 강사 푸시 + Paid/Unpaid\n');
 
 // ═══════════════ A~C. 정본을 실제로 돌린다 ═══════════════
-const FILES = ['teacher-change-alert.ts', 'postpone-pay.ts', 'teacher-push.ts', 'web-push.ts', 'd1-chunk.ts', 'class-audit.ts'];
+const FILES = ['teacher-change-alert.ts', 'postpone-pay.ts', 'session-ledger.ts', 'teacher-push.ts', 'web-push.ts', 'd1-chunk.ts', 'class-audit.ts'];
 const tmp = mkdtempSync(join(tmpdir(), 'tca-'));
 const fix = (s) => s.replace(/from '\.\/([\w-]+)'/g, "from './$1.ts'");
 for (const f of FILES) writeFileSync(join(tmp, f), fix(rd(f)));
@@ -73,11 +74,10 @@ const runner = `
 
   // A. 문구
   out.A_cancel = classChangeAlertText({ kind: 'cancel', student: 'Minji', date: '2026-11-11', time: '19:20', minutesBefore: 20 });
-  out.A_postPaid = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '19:20', minutesBefore: 20, payPct: 100 });
-  out.A_postUnpaid = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '21:00', minutesBefore: 120, payPct: 0 });
-  out.A_postHalf = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '21:00', minutesBefore: 125, payPct: 50 });
-  out.A_postNone = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '21:00', minutesBefore: 120, payPct: null });
-  out.A_cancelPay = classChangeAlertText({ kind: 'cancel', student: 'Minji', date: '2026-11-11', time: '21:00', minutesBefore: 5, payPct: 100 });
+  out.A_post20 = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '19:20', minutesBefore: 20 });
+  out.A_post30 = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '19:30', minutesBefore: 30 });
+  out.A_post31 = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '19:31', minutesBefore: 31 });
+  out.A_post125 = classChangeAlertText({ kind: 'postpone', student: 'Minji', date: '2026-11-11', time: '21:05', minutesBefore: 125 });
   out.A_move = classChangeAlertText({ kind: 'move', student: 'Minji', date: '2026-11-11', time: '19:20', minutesBefore: 20, toDate: '2026-11-12', toTime: '15:00' });
   out.A_late = classChangeAlertText({ kind: 'cancel', student: 'Minji', date: '2026-11-11', time: '18:50', minutesBefore: -10 });
 
@@ -126,14 +126,6 @@ const runner = `
     [{ schedule_id: 1, orig_date: '2026-11-11', fee_type: 'paid' }], { ...base, action: 'postpone' });
   await go('B_postFree', [{ id: 1, scheduled_date: '2026-11-11', start_time: '21:00', status: 'postponed' }],
     [{ schedule_id: 1, orig_date: '2026-11-11', fee_type: 'free' }], { ...base, action: 'postpone', lesson_time: '21:00' });
-  await go('B_postFreeEarlyOff', [{ id: 1, scheduled_date: '2026-11-11', start_time: '21:00', status: 'postponed' }],
-    [{ schedule_id: 1, orig_date: '2026-11-11', fee_type: 'free' }], { ...base, action: 'postpone', lesson_time: '21:00' }, { earlyOff: true });
-  // 같은 날 요청이 둘 — «마지막 승인» 을 쓴다(급여와 같음) · 거절된 요청은 안 본다
-  await go('B_postLatest', [{ id: 1, scheduled_date: '2026-11-11', start_time: '21:00', status: 'postponed' }],
-    [{ schedule_id: 1, orig_date: '2026-11-11', fee_type: 'paid', created_at: 1 }, { schedule_id: 1, orig_date: '2026-11-11', fee_type: 'free', created_at: 2 },
-     { schedule_id: 1, orig_date: '2026-11-11', fee_type: 'paid', created_at: 3, status: 'rejected' }], { ...base, action: 'postpone', lesson_time: '21:00' });
-  await go('B_postNoRules', [{ id: 1, scheduled_date: '2026-11-11', start_time: '21:00', status: 'postponed' }],
-    [{ schedule_id: 1, orig_date: '2026-11-11', fee_type: 'free' }], { ...base, action: 'postpone', lesson_time: '21:00' }, { noRules: true });
   await go('B_move', [{ id: 1, scheduled_date: '2026-11-12', start_time: '15:00', status: 'active' }], [], { ...base, action: 'postpone' });
   await go('B_sameSlot', [{ id: 1, scheduled_date: '2026-11-11', start_time: '19:20', status: 'active' }], [], { ...base, action: 'reschedule' });
   await go('B_notChange', [{ id: 1, scheduled_date: '2026-11-11', start_time: '19:20', status: 'active' }], [], { ...base, action: 'end' });
@@ -216,12 +208,11 @@ const has = (m, s) => !!m && (m.title + '\n' + m.en + '\n' + m.ko).includes(s);
 console.log('\n[A] 문구');
 check('취소 — 학생·시각·«cancelled»·«취소» (EN/KO)', has(o.A_cancel, 'Minji') && has(o.A_cancel, '11/11 19:20') && has(o.A_cancel, 'cancelled') && has(o.A_cancel, '취소'));
 check('취소 — «20 min before class» / «수업 20분 전»', has(o.A_cancel, '20 min before class') && has(o.A_cancel, '수업 20분 전'));
-check('연기 100% → «Paid» / «지급»', has(o.A_postPaid, 'Pay: Paid') && has(o.A_postPaid, '수업료: 지급'));
-check('연기 0% → «Unpaid» / «미지급»', has(o.A_postUnpaid, 'Pay: Unpaid') && has(o.A_postUnpaid, '수업료: 미지급'));
-check('연기 50% → «Paid 50%»', has(o.A_postHalf, 'Paid 50%') && has(o.A_postHalf, '50% 지급'));
-check('2시간 5분 전 → «2 h 5 min» / «2시간 5분»', has(o.A_postHalf, '2 h 5 min') && has(o.A_postHalf, '2시간 5분'));
-check('짝: 지급률 모름 → 수업료 글자 없음(지어내지 않음)', !!o.A_postNone && !has(o.A_postNone, 'Pay:') && !has(o.A_postNone, '수업료'));
-check('짝: 취소에는 지급률을 줘도 수업료 글자 없음(정책 미정)', !!o.A_cancelPay && !has(o.A_cancelPay, 'Pay:') && !has(o.A_cancelPay, '수업료'));
+check('20분 전 → «within 30 min» / «30분 이내»', has(o.A_post20, '20 min before class — within 30 min') && has(o.A_post20, '수업 20분 전 변경 · 30분 이내'));
+check('경계: 정확히 30분 전 → «30분 이내»(fee_type paid 와 같은 경계)', has(o.A_post30, 'within 30 min') && has(o.A_post30, '30분 이내'));
+check('짝: 31분 전 → «30분 이내» 없음', !!o.A_post31 && !has(o.A_post31, 'within 30') && !has(o.A_post31, '30분 이내'));
+check('2시간 5분 전 → «2 h 5 min» / «2시간 5분» · 30분 이내 없음', has(o.A_post125, '2 h 5 min') && has(o.A_post125, '2시간 5분') && !has(o.A_post125, '30분 이내'));
+check('⛔ 알림 문구에 Paid/Unpaid·수업료 없음(사장님 «시간만 표시»)', ['A_cancel', 'A_post20', 'A_post125', 'A_move', 'A_late'].every(k => o[k] && !/Paid|Unpaid|Pay:|수업료/.test(o[k].title + o[k].en + o[k].ko)));
 check('옮김 → «moved to 11/12 15:00» / «11/12 15:00(으)로»', has(o.A_move, 'moved to 11/12 15:00') && has(o.A_move, '11/12 15:00(으)로'));
 check('시작 뒤 변경 → «after the class started»', has(o.A_late, 'after the class started') && has(o.A_late, '수업 시작 뒤'));
 
@@ -235,12 +226,9 @@ check('짝: 정확히 24시간 뒤 → 보냄', o.B_edge24?.why === 'sent' && q1
 check('시작 40분 뒤 → 안 보냄', o.B_pastStart?.why === 'out_of_window' && q1('B_pastStart').length === 0);
 check('짝: 시작 20분 뒤 → 보냄', o.B_justStarted?.why === 'sent' && q1('B_justStarted').length === 1);
 check('매주 반복 줄 전체 취소(날짜 없음) → 안 보냄', o.B_weeklyAll?.why === 'no_time');
-check('연기 · 요청 fee=paid → «Paid»', q1('B_postPaid')[0]?.body.includes('Pay: Paid') && q1('B_postPaid')[0]?.title.includes('postponed'));
-check('연기 · 요청 fee=free · 사전 연기 규칙 켜짐(0%) → «Unpaid»', q1('B_postFree')[0]?.body.includes('Pay: Unpaid'));
-check('연기 · fee=free · 사전 연기 규칙 꺼짐 → «Paid»(급여도 기본 지급률)', q1('B_postFreeEarlyOff')[0]?.body.includes('Pay: Paid'));
-check('연기 · 같은 날 요청 둘 → 마지막 승인(free) 기준 «Unpaid»', q1('B_postLatest')[0]?.body.includes('Pay: Unpaid'));
-check('연기 · 규칙 표를 못 읽음 → 수업료 글자 없이 연기만 보냄', o.B_postNoRules?.why === 'sent' && !q1('B_postNoRules')[0]?.body.includes('Pay:'));
-check('다른 날로 옮김 → «moved to 11/12 15:00» · 수업료 글자 없음', q1('B_move')[0]?.body.includes('moved to 11/12 15:00') && !q1('B_move')[0]?.body.includes('Pay:'));
+check('연기(20분 전) → «postponed» · «within 30 min» · 수업료 글자 없음', !!q1('B_postPaid')[0] && q1('B_postPaid')[0].title.includes('postponed') && q1('B_postPaid')[0].body.includes('within 30 min') && !/Paid|Unpaid|수업료/.test(q1('B_postPaid')[0].body));
+check('짝: 연기(2시간 전) → «30분 이내» 없음', !!q1('B_postFree')[0] && !q1('B_postFree')[0].body.includes('30분 이내'));
+check('다른 날로 옮김 → «moved to 11/12 15:00»', q1('B_move')[0]?.body.includes('moved to 11/12 15:00'));
 check('같은 날·같은 시각(강사만 바뀜 등) → 안 보냄', o.B_sameSlot?.why === 'no_visible_change' && q1('B_sameSlot').length === 0);
 check('종료(end) 등 변경 아닌 이력 → 안 보냄', o.B_notChange?.why === 'not_change');
 check('연결 계정 없는 강사 → 이유만 돌려줌', o.B_noAccount?.why === 'no_linked_account');
@@ -260,7 +248,7 @@ check('짝: 강사만 바뀜 → 0번', Array.isArray(cm.teacherOnly) && cm.teac
 check('짝: 강사 본인 이동 → 0번', Array.isArray(cm.byTeacher) && cm.byTeacher.length === 0);
 check('짝: 되돌리기·복구(guarded) → 0번', Array.isArray(cm.guarded) && cm.guarded.length === 0);
 
-console.log('\n[D] 급여 식과 같은 답');
+console.log('\n[D] 강사 화면 Paid/Unpaid 식 = 급여 식');
 check('급여 정본에서 식을 오려 냈다', (o.D?.declLen || 0) > 100);
 check(`규칙·fee 조합 ${o.D?.n || 0}개 전부 급여와 같은 지급률`, o.D && o.D.n >= 100 && o.D.bad === 0);
 

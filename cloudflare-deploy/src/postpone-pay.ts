@@ -1,4 +1,5 @@
-/* 💰 연기 수업 지급률(%) — 강사 알림·강사 화면의 «Paid / Unpaid» 표시용 (2026-11-11 필리핀 매니저 maimai 요청)
+/* 💰 연기 수업 지급률(%) — 강사 화면 «오늘의 수업» 연기 줄의 «Paid / Unpaid» 표시용 (2026-11-11 필리핀 매니저 maimai 요청)
+   (강사 «알림» 에는 싣지 않는다 — 사장님 결정 «시간만 표시», teacher-change-alert.ts 머리말)
    ⚠️ 급여 정본은 admin-lesson-fees.ts 의 postponePct·earlyPostponePct 이고, 이 함수는 «같은 식» 이다.
       한쪽을 바꾸면 둘 다 — teacher_change_alert_harness 가 두 식을 같은 입력으로 돌려 대조한다.
    import 0 — 강사 화면 API(api-teacher.ts)도 부른다. */
