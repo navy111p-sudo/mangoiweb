@@ -15,6 +15,7 @@ import { getScope, canEditOrg } from './scope';
 import { writeClassAudit } from './class-audit';
 import { runScheduleSplit } from './schedule-split';
 import { getAdminActor, isOrgScopedRole } from './auth-admin';
+import { inboxDenied, listInbox, ackInbox } from './notice-inbox';
 import { mergeDirectByIds } from './enroll-direct-merge';
 import { teacherMoveDenyReason, moveFieldConflict } from './class-teacher-move';
 import { ensureRoomOverrideTable, validateOverrideInput, teacherOwnsSchedule, kstYmd } from './class-room-override';
@@ -630,6 +631,25 @@ export async function handleAdminSchedulingApi(request: Request, url: URL, env: 
     }
 
 
+
+    // 🔔 (2026-11-11) GET/POST /api/admin/no-shows/inbox — 관리자·매니저 화면 «알림 종»(강사 미입장 + 확인).
+    //   정본 src/notice-inbox.ts. 이 경로를 쓴 이유: /api/admin/no-shows 접두사가 라우팅·위임에 이미 있어
+    //   공동 금지구역(src/index.ts)을 안 건드린다. 지사·대리점은 index.ts 스코프 관문이 이미 403.
+    if (path === '/api/admin/no-shows/inbox' && (method === 'GET' || method === 'POST')) {
+      const actor = await getAdminActor(request, env as any);
+      const deny = inboxDenied(actor);
+      if (deny === 401) return json({ ok: false, error: 'unauthorized' }, 401);
+      if (deny === 403) return json(actor.isTeacher ? forbiddenTeacherBody(actor, '강사 권한으로는 볼 수 없는 정보입니다.', 'This information is not available with a teacher account.') : { ok: false, error: 'forbidden' }, 403);
+      try {
+        if (method === 'GET') return json(await listInbox(env.DB, Date.now()));
+        const b: any = await request.json().catch(() => ({}));
+        const ack = await ackInbox(env.DB, b.id, actor.name || actor.username, Date.now());
+        return ack ? json({ ok: true, ack }) : json({ ok: false, error: 'not_found' }, 404);
+      } catch (e: any) {
+        console.warn('[notice-inbox]', e?.message || e);
+        return json({ ok: false, error: 'inbox_failed' }, 500);
+      }
+    }
 
     // 🥭 Phase RM — GET /api/admin/no-shows — 노쇼(수업 미입장) 리포트
     //   class_no_show(2단계 노쇼 감지 기록) 조회 + 요약. 관리자 전용(index.ts isAdminPath 미들웨어 자동 인증).

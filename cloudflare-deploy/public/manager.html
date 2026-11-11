@@ -5438,6 +5438,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-panel.js?v=4';document.body.appendChild(s);}).catch(function(){});}catch(e){}})();
 </script>
 <script>
+/* 🔔 알림 종(2026-11-11 필리핀 매니저 건의) — 이 화면은 «외부 요청 최소화» 설계라, 서버가 «볼 수 있다» 고
+   답할 때만(본사·내부직원) 종 파일을 싣는다. 지사·대리점은 403 → 파일을 안 받는다. 정본 /js/notice-bell.js */
+(function(){try{fetch('/api/admin/no-shows/inbox',{credentials:'include',cache:'no-store'})
+.then(function(r){return r.ok?r.json():null}).then(function(d){if(!d||d.ok!==true)return;window.__noticeBellFirst=d;
+var s=document.createElement('script');s.defer=true;s.src='/js/notice-bell.js?v=1';document.body.appendChild(s);}).catch(function(){});}catch(e){}})();
+</script>
+<script>
 /* 📝 (2026-09-30 매니저 제보) 평가 전문 보기 — 「오늘 수업」의 지난/오늘 평가 옆 «📄 전문 보기».
    공용 창 js/eval-quick-view.js 를 «처음 누를 때» 만 불러온다 — 첫 화면 외부 리소스 0개 계약은 그대로.
    admin.html(js/adm-today-classes.js)·teacher.html 과 같은 창을 쓴다. 판정을 여기 복제하지 말 것. */
