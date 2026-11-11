@@ -17,8 +17,11 @@ Validation:
 - Browser fixture prepared in test-harness/manual/vc-operation-browser.cjs; Chromium launch failed with socket() Operation not permitted. No visual verification claimed.
 - Full fast suite started; cache-version gate fails as expected until the authorized version bump, and sparse checkout lacks some unrelated assets. Full gate is not green.
 
-Pending protected-file authorization, per CLAUDE.md 4-1-1:
-- cloudflare-deploy/public/index.html: idx-vc-qlog.js?v=22 -> v=23; idx-vc-sizebar.js?v=3 -> v=4.
-- After authorization, update only these references, run asset version recording, rerun gates and browser checks. Do not merge this draft before all gates pass.
+Follow-up (2026-11-12 KST), after owner requested continuation:
+- Scoped HTML cache references and the asset manifest were updated.
+- Added GitHub browser verification because local Chromium cannot create its socket.
+- Fixed diagnostics mounting in a document-free statistics harness; added the repository-required Git checkout cache step to the new workflow.
+- Rechecked existing quality (232), sizebar (38), fast recovery (117), reconnect (37), teacher controls (39), camera drag (15), statistics and TypeScript successfully before the follow-up fixes.
+- Full CI and browser verification remain required before merge. No claim of completed production deployment.
 
-No production deployment or database changes were performed. Rollback, if authorized later, is a PR reverting this change with new asset versions; no stored data migration is involved.
+Rollback, if authorized later, is a PR reverting the feature with fresh asset versions; no stored data migration is involved.

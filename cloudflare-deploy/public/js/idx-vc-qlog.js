@@ -1486,5 +1486,7 @@ function vcqOperationMount() {
     document.body.appendChild(style);
 }
 window.vcqOperationMount = vcqOperationMount;
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', vcqOperationMount);
-else vcqOperationMount();
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', vcqOperationMount);
+    else vcqOperationMount();
+}
