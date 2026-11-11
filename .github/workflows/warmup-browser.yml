@@ -55,7 +55,8 @@ jobs:
       - name: Install isolated browser test dependencies
         run: |
           npm install --prefix "$RUNNER_TEMP/warmup-pw" playwright@1.58.2
-          "$RUNNER_TEMP/warmup-pw/node_modules/.bin/playwright" install --with-deps chromium
+          # no --with-deps: apt mirror stalls 10+ min; runner image already has the libs (#2276) / apt 미러가 멈춰 10분+ 지연, 러너에 라이브러리 이미 있음
+          "$RUNNER_TEMP/warmup-pw/node_modules/.bin/playwright" install chromium
           mkdir -p "$RUNNER_TEMP/warmup-browser/installed/chrome-linux"
           PW_ROOT="$RUNNER_TEMP/warmup-pw" node -e 'const {chromium}=require(process.env.PW_ROOT+"/node_modules/playwright");require("fs").symlinkSync(chromium.executablePath(),process.env.RUNNER_TEMP+"/warmup-browser/installed/chrome-linux/chrome");'
       - name: Avatar cue clock, speed and cancellation (18 browser cases)

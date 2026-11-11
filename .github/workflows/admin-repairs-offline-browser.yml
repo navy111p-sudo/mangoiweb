@@ -44,7 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           npm install --prefix "$PW_DIR" --ignore-scripts --package-lock=false --no-audit --no-fund --registry=https://registry.npmjs.org playwright-core@1.63.0
-          node "$PW_DIR/node_modules/playwright-core/cli.js" install --with-deps chromium
+          # no --with-deps: apt mirror stalls 10+ min; runner image already has the libs (#2276) / apt 미러가 멈춰 10분+ 지연, 러너에 라이브러리 이미 있음
+          node "$PW_DIR/node_modules/playwright-core/cli.js" install chromium
       - name: Run shipped UI in a loopback-only network namespace
         env:
           PW_DIR: ${{ runner.temp }}/admin-offline-pw

@@ -40,7 +40,8 @@ jobs:
       - name: Install browser tools outside checkout
         run: |
           npm install --prefix "$RUNNER_TEMP/lesson-browser" --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.56.1
-          node "$RUNNER_TEMP/lesson-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          # no --with-deps: apt mirror stalls 10+ min; runner image already has the libs (#2276) / apt 미러가 멈춰 10분+ 지연, 러너에 라이브러리 이미 있음
+          node "$RUNNER_TEMP/lesson-browser/node_modules/playwright/cli.js" install chromium
       - name: PC and mobile browser checks
         env:
           PW_DIR: ${{ runner.temp }}/lesson-browser
