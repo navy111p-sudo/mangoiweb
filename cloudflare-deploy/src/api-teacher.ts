@@ -38,7 +38,7 @@ import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holi
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
-import { loadTeacherStudentHistory, validHistoryDate, markWritableLessons } from './teacher-student-history';
+import { loadTeacherStudentHistory, validHistoryDate, markWritableLessons, isMyLesson } from './teacher-student-history';
 import { loadTeacherNameOf } from './student-schedule-summary';
 import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
@@ -495,19 +495,18 @@ export async function handleTeacherApi(
         || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
       return json({ ok: false, error: 'bad_history_request' }, 400);
     }
-    /* ✎ (2026-11-11) «my lesson» for the calendar's Write-feedback button (rules: markWritableLessons).
+    /* ✎ (2026-11-11) «my lesson» for the calendar's Write-feedback button (rules: markWritableLessons · isMyLesson).
        Reservation lessons: the name finally shown for that day (after substitutes · teacher changes) equals the name of one
        of MY linked teacher ids — exact, never a substring. Old-LMS lessons: the cafe24 teacher number equals mine (0–1 number,
-       the same judge as the LMS list). Unknown → not mine (no button). Managers are not linked → no button. */
+       the same judge as the LMS list). Unknown → not mine (no button). A manager gets buttons only on lessons that are
+       their own by this same rule (a manager who also teaches) — never on other teachers' lessons. */
     const withWritable = async (hist: any) => {
       try {
         const nameOf = await loadTeacherNameOf(env);
         const myNames = new Set(linkedTeacherIds.map((id: any) => String(nameOf(id) || '').trim().toUpperCase()).filter(Boolean));
         const hasLms = (hist.items || []).some((it: any) => it.lms_teacher_uid);
         const lmsTid = hasLms ? ((await resolveCafe24TeacherIds(env.DB, actor.name).catch(() => []))[0] || '') : '';
-        return markWritableLessons(hist, (it: any) => it.teacher_source === 'lms'
-          ? !!lmsTid && String(it.lms_teacher_uid || '') === String(lmsTid)
-          : !!it.teacher_name && myNames.has(String(it.teacher_name).trim().toUpperCase()), Date.now());
+        return markWritableLessons(hist, (it: any) => isMyLesson(it, myNames, lmsTid), Date.now());
       } catch { return markWritableLessons(hist, () => false, Date.now()); }   // history still shows, just no button
     };
     if (isLmsHistory) {

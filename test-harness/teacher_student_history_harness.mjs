@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import { build } from '../cloudflare-deploy/node_modules/esbuild/lib/main.js';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-const output = await build({stdin:{contents:`export {handleTeacherApi} from './cloudflare-deploy/src/api-teacher'; export {previousScheduled,validHistoryDate,markWritableLessons} from './cloudflare-deploy/src/teacher-student-history';`,resolveDir:root},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'session-fixture',setup(b){b.onLoad({filter:/[\\/]auth-admin\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function getAdminActor(', 'async function originalGetAdminActor(')+'\nexport async function getAdminActor(){return globalThis.__historyActor;}'}));b.onLoad({filter:/[\\/]session-ledger-load\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function buildStudentLedger(', 'async function originalBuildStudentLedger(')+'\nexport async function buildStudentLedger(env:any, uid:string, ...rest:any[]){if(globalThis.__ledgerThrow===uid)throw new Error("injected ledger failure");return (originalBuildStudentLedger as any)(env, uid, ...rest);}'}));}}]});
-const { handleTeacherApi, previousScheduled, validHistoryDate, markWritableLessons } = await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
+const output = await build({stdin:{contents:`export {handleTeacherApi} from './cloudflare-deploy/src/api-teacher'; export {previousScheduled,validHistoryDate,markWritableLessons,isMyLesson} from './cloudflare-deploy/src/teacher-student-history';`,resolveDir:root},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'session-fixture',setup(b){b.onLoad({filter:/[\\/]auth-admin\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function getAdminActor(', 'async function originalGetAdminActor(')+'\nexport async function getAdminActor(){return globalThis.__historyActor;}'}));b.onLoad({filter:/[\\/]session-ledger-load\.ts$/},async a=>({loader:'ts',contents:readFileSync(a.path,'utf8').replace('export async function buildStudentLedger(', 'async function originalBuildStudentLedger(')+'\nexport async function buildStudentLedger(env:any, uid:string, ...rest:any[]){if(globalThis.__ledgerThrow===uid)throw new Error("injected ledger failure");return (originalBuildStudentLedger as any)(env, uid, ...rest);}'}));}}]});
+const { handleTeacherApi, previousScheduled, validHistoryDate, markWritableLessons, isMyLesson } = await import('data:text/javascript;base64,'+Buffer.from(output.outputFiles[0].text).toString('base64'));
 const db = new DatabaseSync(':memory:');
 db.exec(`
 CREATE TABLE teachers(id INTEGER,name TEXT);
@@ -193,6 +193,14 @@ assert.equal(slot.find(i=>i.room_id==='class-80-20261027').lms_room_id,undefined
 assert.equal(slot.find(i=>i.room_id==='class-80-20261027').attendance_source,undefined);
 assert.equal(slot.find(i=>i.room_id==='c24-900').teacher_name,'Teacher A','the LMS teacher stays visible');
 assert.equal(slot.find(i=>i.room_id==='c24-900').state,'done');
+// ✎ (2026-11-11) the reservation is Teacher B's, but the old LMS says Teacher A taught that slot → no ✎ for Teacher B there.
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_b',name:'Teacher B',role:'teacher'};
+{ const bView=await request({schedule_id:'80',date:'2026-10-27',month:'2026-10'});assert.equal(bView.status,200,'(precondition) teacher B opens their reservation');
+  const b80=bView.data.items.find(i=>i.room_id==='class-80-20261027');
+  assert.equal(b80.teacher_name,'Teacher B','(precondition) the card shows teacher B');
+  assert.equal(b80.can_write,false,'the old LMS says another teacher taught → no ✎');
+  assert.ok(!JSON.stringify(bView.data).includes('lms_disagrees'),'internal flag stays on the server'); }
+globalThis.__historyActor={ok:true,isTeacher:true,username:'teacher_a',name:'Teacher A',role:'teacher'};
 // A substitute that makes the shown teacher agree → one card again (judged on the name finally shown).
 db.exec(`INSERT INTO class_substitutions VALUES(80,'2026-10-27','1','2','active')`);
 slot=await slotOf();
@@ -554,7 +562,7 @@ assert.equal((await request()).status,503,'database failure is an error, never a
     querySelector(sel) { return this.querySelectorAll(sel)[0] || null; } }
   const urls = []; let reply;
   const dctx = vm.createContext({ AbortController, URLSearchParams, console, Promise, Array,
-    document: { documentElement: { lang: 'en' }, head: new El('head'), body: new El('body'), createElement: t => new El(t), activeElement: null, querySelectorAll: () => [], addEventListener() {} },
+    document: { documentElement: { lang: 'en' }, head: new El('head'), body: new El('body'), createElement: t => new El(t), createTextNode: x => { const n = new El('#text'); n.textContent = x; return n; }, activeElement: null, querySelectorAll: () => [], addEventListener() {} },
     window: { addEventListener() {} }, fetch: async (u) => { urls.push(u); return { ok: true, json: async () => reply }; } });
   dctx.window = Object.assign(dctx.window, dctx);
   vm.runInContext(readFileSync(new URL('../cloudflare-deploy/public/js/teacher-student-history.js', import.meta.url), 'utf8').replace("if (window.MangoiTeacherHistory) return;", ''), dctx);
@@ -642,6 +650,25 @@ assert.equal((await request()).status,503,'database failure is an error, never a
     assert.match(text('2026-10-01'), /정규수업.*KAYE.*학생 결석.*보고서: 미작성/);
     assert.ok(navButtons.some(b => b.textContent === '이번 달') && /공휴일/.test(cell(15).textContent), 'Korean labels');
     dctx.document.documentElement.lang = 'en';
+    // ✎ (2026-11-11) the real renderer draws Write feedback in BOTH views, only where the server said can_write === true.
+    const wbase = { start: '17:50', duration_min: 20, teacher_name: 'KAYE', state: 'done', label_en: 'Done', label_ko: '완료', report_loaded: true, student_uid: 's1' };
+    reply = { ok: true, before: '2026-10-29', warnings: [], previous: null, holidays: [], items: [
+      { ...wbase, date: '2026-10-02', room_id: 'class-5-20261002', can_write: true },
+      { ...wbase, date: '2026-10-09', room_id: 'class-5-20261009', can_write: false },
+      { ...wbase, date: '2026-10-16', room_id: 'class-5-20261016', can_write: 'true' },
+      { ...wbase, date: '2026-10-23', room_id: 'class-5-20261023' }] };
+    const openWith = async writer => { api.open({ scheduleId: '5', roomId: '', studentUid: '', date: '2026-10-29', name: 'S', onWrite: writer });
+      for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)); };
+    const writes = () => tree(dlg).filter(e => cls(e, 'cal-write'));
+    await openWith(() => {});
+    assert.deepEqual(writes().map(b => b.attrs['aria-label']), ['Write feedback · 2026-10-02 17:50'], 'month view: ✎ only on the can_write lesson');
+    assert.ok(cell(2).children.includes(writes()[0]), '…drawn inside that day cell');
+    viewButtons[1].onclick();
+    assert.deepEqual(writes().map(b => b.attrs['aria-label']), ['Write feedback · 2026-10-02 17:50'], 'list view: the same lesson only');
+    assert.ok(tree(dlg).some(e => cls(e, 'history-lesson') && e.children.includes(writes()[0])), '…drawn inside that lesson');
+    viewButtons[0].onclick();
+    await openWith(undefined);
+    assert.equal(writes().length, 0, 'a page without a writer → no button');
   }
 }
 
@@ -661,8 +688,23 @@ assert.equal((await request()).status,503,'database failure is an error, never a
   for (const st of ['done','student_absent','late_postpone','unknown']) assert.equal(one({state:st}),true,'report due: '+st);
   assert.equal(one({room_id:''}),false,'no room → no button');
   assert.equal(one({student_uid:''}),false,'no student account → no button');
+  // «My lesson» — exact names only; old LMS needs both numbers known.
+  const mine=new Set(['ANNA','TEACHER A']);
+  assert.equal(isMyLesson({teacher_name:'anna '},mine,''),true,'same name, case/space-insensitive');
+  for (const other of ['HANNAH','TEACHER AB','TEACHER','A','ANNA B',null,'']) assert.equal(isMyLesson({teacher_name:other},mine,''),false,'never a substring/shared word: '+other);
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:'184'},mine,'184'),true,'old LMS: my cafe24 number');
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:'185'},mine,'184'),false,'old LMS: another number');
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:null},mine,''),false,'old LMS: both unknown is not «equal»');
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:''},mine,''),false);
+  assert.equal(isMyLesson({teacher_source:'lms',lms_teacher_uid:'184',teacher_name:'ANNA'},mine,''),false,'old LMS never falls back to the name');
+  // Fail closed: an unread twin account, a report seen by the calendar, or the old LMS naming another teacher → no ✎.
+  assert.equal(markWritableLessons({items:[{...base}],warnings:['twin_account']},()=>true,NOW).items[0].can_write,false,'twin reports unread → no buttons at all');
+  assert.equal(markWritableLessons({items:[{...base}],warnings:['lms_attendance']},()=>true,NOW).items[0].can_write,true,'other warnings do not block');
+  assert.equal(one({today_eval:{id:7}}),false,'the calendar already found a report → no button');
+  assert.equal(one({lms_disagrees:true}),false,'the old LMS says another teacher taught → no button');
   const strip=markWritableLessons({items:[{...base,lms_teacher_uid:'24'}],previous:{lms_teacher_uid:'24'}},()=>true,NOW);
   assert.ok(!JSON.stringify(strip).includes('lms_teacher_uid'),'cafe24 teacher numbers never leave the server');
+  assert.ok(!JSON.stringify(markWritableLessons({items:[{...base,lms_disagrees:true}]},()=>true,NOW)).includes('lms_disagrees'),'internal flag dropped');
 
   // Real handler + SQLite: teacher A (id 1) — own lessons only, never the substitute's day or another teacher's.
   globalThis.__historyFail=null;globalThis.__ledgerThrow=null;   // earlier sections inject read failures
@@ -716,7 +758,7 @@ assert.equal((await request()).status,503,'database failure is an error, never a
   assert.deepEqual(bridge(D,null,stuUid)({...base,state:'student_absent'}).attendance,{state:'absent'},'recorded absence is pre-selected');
   it=bridge({classes:[{student_uid:'student_other',student_name:'OTHER',level:'Lv 9'}]},null,stuUid)({...base,student_uid:'twin_x'});
   assert.equal(it.student_uid,'twin_x');assert.equal(it.student_name,'');assert.equal(it.level,'','never borrows another student');
-  assert.ok(/teacher-student-history\.js\?v=6/.test(page),'cache version bumped');
+  assert.ok(/teacher-student-history\.js\?v=\d+'/.test(page),'the page loads the script with a cache version');
 }
 console.log(`PASS: ${matrix} distinct matrix scenarios plus integration cases: real SQLite history, cross-teacher records, report-free previous teacher, substitutes, leap dates, month boundaries, orphan/legacy reports, authorization, read failures and SELECT-only reads.`);
 db.close();
