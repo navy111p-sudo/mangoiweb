@@ -128,6 +128,8 @@ export async function historyLmsLessons(db: D1Database, uid: string, from: strin
     return { date: evaluationKstDate(r.date)!, start: start > 0 ? hhmm(start) : null,
       duration_min: start > 0 && endMs > start ? Math.max(1, Math.round((endMs - start) / 60000)) : null,
       schedule_id: null, room_id: String(r.room_id), teacher_name: nameOf(r.teacher_uid),
+      // Internal only — markWritableLessons judges «my lesson» by it, then removes it before the response.
+      lms_teacher_uid: String(r.teacher_uid || '').trim() || null,
       teacher_source: 'lms', teacher_changed: false, state: 'done', label_en: 'Attended (old LMS)', label_ko: '출석 (옛 LMS)' };
   };
   // joined_at stays beside the lesson: slot de-duplication compares exact timestamps, never rounded times.
@@ -210,6 +212,25 @@ export async function historyTwinOf(db: D1Database, uid: string): Promise<{ twin
     .map(r => confirmedTwinName(r.n, account)).filter(Boolean));
   const mine = names(uid), theirs = names(twin);
   return { twin: mine.size === 1 && theirs.size === 1 && [...mine][0] === [...theirs][0] ? twin : null, unread: false };
+}
+
+/* ✎ (2026-11-11 teacher request «add and write feedback at summary / calendar») — can this teacher write the report here?
+   The server decides; the calendar only draws the button. A lesson is writable when ALL hold:
+     · it is MY lesson (isMine — the route knows who is logged in; a substitute owns only their own day)
+     · a report was due (same states as the calendar's «Report: not written» line) and none is written
+     · the report check itself worked (report_loaded !== false — «could not check» never becomes «not written»)
+     · it has a room and a student account, and it has already started (KST)
+   Pure function. Also drops the internal lms_teacher_uid so cafe24 numbers never leave the server. */
+const REPORT_DUE_STATES = new Set(['done', 'student_absent', 'late_postpone', 'unknown']);
+export function markWritableLessons(data: any, isMine: (it: any) => boolean, nowMs: number): any {
+  for (const it of data.items || []) {
+    const start = Date.parse(`${it.date}T${hhmmKey(it.start) || '00:00'}:00+09:00`);
+    it.can_write = !it.feedback && REPORT_DUE_STATES.has(it.state) && it.report_loaded !== false
+      && !!it.room_id && !!it.student_uid && Number.isFinite(start) && start <= nowMs && isMine(it) === true;
+    delete it.lms_teacher_uid;
+  }
+  if (data.previous) delete data.previous.lms_teacher_uid;
+  return data;
 }
 
 /** Read only. Student identity must come from an authorized schedule, never the query string. */

@@ -38,7 +38,8 @@ import { loadHolidayClosure, isHolidayClosedFor, holidayClosedMsg } from './holi
 import { loadHandovers } from './teacher-handover';   // 🤝 강사 인수인계 카드(2026-10-10)
 import { loadActiveGoals, setStudentGoal, goalByKey, GOALS } from './student-goal';   // 🗓 4주 목표(2026-10-10)
 import { loadParentRequests, markParentRequestDone } from './parent-request';   // 👪 학부모 요청 반영(2026-10-10)
-import { loadTeacherStudentHistory, validHistoryDate } from './teacher-student-history';
+import { loadTeacherStudentHistory, validHistoryDate, markWritableLessons } from './teacher-student-history';
+import { loadTeacherNameOf } from './student-schedule-summary';
 import { normalizeTeacherLevelChoice, setStudentLevelByTeacher, levelScaleForPortal, teacherLevelScope, attachLevelScope, TEACHER_LEVEL_PAST_DAYS } from './teacher-student-level';   // 🎚 일지에서 학생 레벨 정하기(2026-10-27)
 import { buildPhoneGaps, PHONE_GAP_DAYS_MAX, SMS_MIN_DIGITS } from './phone-gaps';   // 📵 번호 없는 학생 — 강사판(2026-10-28)
 import { setOverridePhones } from './student-override';
@@ -494,6 +495,21 @@ export async function handleTeacherApi(
         || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || Number(month.slice(0,4)) < 2000) {
       return json({ ok: false, error: 'bad_history_request' }, 400);
     }
+    /* ✎ (2026-11-11) «my lesson» for the calendar's Write-feedback button (rules: markWritableLessons).
+       Reservation lessons: the name finally shown for that day (after substitutes · teacher changes) equals the name of one
+       of MY linked teacher ids — exact, never a substring. Old-LMS lessons: the cafe24 teacher number equals mine (0–1 number,
+       the same judge as the LMS list). Unknown → not mine (no button). Managers are not linked → no button. */
+    const withWritable = async (hist: any) => {
+      try {
+        const nameOf = await loadTeacherNameOf(env);
+        const myNames = new Set(linkedTeacherIds.map((id: any) => String(nameOf(id) || '').trim().toUpperCase()).filter(Boolean));
+        const hasLms = (hist.items || []).some((it: any) => it.lms_teacher_uid);
+        const lmsTid = hasLms ? ((await resolveCafe24TeacherIds(env.DB, actor.name).catch(() => []))[0] || '') : '';
+        return markWritableLessons(hist, (it: any) => it.teacher_source === 'lms'
+          ? !!lmsTid && String(it.lms_teacher_uid || '') === String(lmsTid)
+          : !!it.teacher_name && myNames.has(String(it.teacher_name).trim().toUpperCase()), Date.now());
+      } catch { return markWritableLessons(hist, () => false, Date.now()); }   // history still shows, just no button
+    };
     if (isLmsHistory) {
       /* 권한 = 목록에 그 줄을 그린 판정과 같다: 카페24 강사번호(D1 강사원부 연결과 무관 — 목록도 그것을 안 본다)
          + 목록과 같은 날 창(LMS_LOOKBACK_DAYS). 그 창 밖의 옛 방으로는 열지 않는다(예약 경로가 «지금 담당» 만 여는 것과 같은 뜻). */
@@ -509,7 +525,7 @@ export async function handleTeacherApi(
         const lessonDate = row ? String(row.date || '').slice(0, 10) : '';
         if (!uid || !validHistoryDate(lessonDate)) return json({ ok: false, error: 'history_forbidden' }, 403);
         // 기준일은 그 LMS 수업 날 — 화면이 보낸 날짜(오늘 목록의 class_date)가 아니다.
-        return json(await loadTeacherStudentHistory(env, uid, month, lessonDate));
+        return json(await withWritable(await loadTeacherStudentHistory(env, uid, month, lessonDate)));
       } catch (e) {
         console.warn('[teacher-history] lms read failed');
         return json({ ok: false, error: 'history_unavailable' }, 503);
@@ -529,7 +545,7 @@ export async function handleTeacherApi(
         allowed = !!sub && keys.includes(String(sub.substitute_teacher_id));
       }
       if (!allowed) return json({ ok: false, error: 'history_forbidden' }, 403);
-      return json(await loadTeacherStudentHistory(env, uid, month, date));
+      return json(await withWritable(await loadTeacherStudentHistory(env, uid, month, date)));
     } catch (e) {
       console.warn('[teacher-history] read failed');
       return json({ ok: false, error: 'history_unavailable' }, 503);
