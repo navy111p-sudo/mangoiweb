@@ -4492,7 +4492,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   }
   window.loadFeeSum = function(){
     if (!MY.feeRange) {
-      var td = (DATA && DATA.today) || new Date().toISOString().slice(0, 10);
+      var td = (DATA && DATA.today) || todayKST();   // portal 응답 전에 펼쳐도 KST 오늘(UTC 면 필리핀 새벽에 «어제»)
       MY.feeRange = { from: td.slice(0, 8) + '01', to: td };   // 기본: 이번 달 1일 ~ 오늘
     }
     paintFeeSum();
@@ -4517,7 +4517,9 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     }).catch(function(){ if (seq === feeSeq) { MY.fee = { err: 'load' }; paintFeeOut(); } });
   }
   function paintFeeSum(){
-    var r = MY.feeRange || {};
+    // 언어 전환·화면 갱신으로 다시 그려도, 고르고 아직 조회 안 한 날짜는 그대로 둔다
+    var inF = document.getElementById('fs-from'), inT = document.getElementById('fs-to');
+    var r = inF && inT ? { from: inF.value, to: inT.value } : (MY.feeRange || {});
     fill('feeSumBody', '<div class="wk-jump">'
       + '<span class="fs-pair"><label for="fs-from">' + esc(T('From','시작일')) + '</label><input type="date" id="fs-from" value="' + esc(r.from || '') + '"></span>'
       + '<span class="fs-pair"><label for="fs-to">' + esc(T('To','종료일')) + '</label><input type="date" id="fs-to" value="' + esc(r.to || '') + '"></span>'
@@ -4534,20 +4536,23 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     if (!el) return;
     if (!f) { el.innerHTML = '<div class="mini">' + esc(T('Loading…','불러오는 중…')) + '</div>'; return; }
     if (f.err) { el.innerHTML = '<div class="mini neg">' + esc(FEE_ERR[f.err]()) + '</div>'; return; }
-    var t = f.teacher, fee = 0, ded = 0, tot = 0;
+    var t = f.teacher, fee = 0, ded = 0;
     var lvl = EN() ? (t.level_label_en || t.level_label_ko) : (t.level_label_ko || t.level_label_en);
+    var signed = function(v){ return v < 0 ? '−' + peso(-v) : peso(v); };
     var rows = f.lessons.map(function(l){
-      var a = Number(l.amount) || 0, d = Number(l.deduction_total) || 0;
-      var n = l.net_amount != null ? Number(l.net_amount) || 0 : a;
-      fee += a; ded += d; tot += n;
+      // 줄 합계는 0 에서 자르지 않는다 — 급여는 «기간 합계» 에만 0 하한을 건다(api-admin-payroll 월 합계와 같은 규칙).
+      //   줄마다 자르면 수업료보다 큰 공제(노쇼·긴 지각)가 합계에서 사라져 월 «예상 지급액» 과 어긋난다.
+      var a = Number(l.amount) || 0, d = Number(l.deduction_total) || 0, n = a - d;
+      fee += a; ded += d;
       return '<tr><td>' + esc(l.date + ' ' + String(l.start_time || '').slice(0, 5) + (l.end_time ? '-' + l.end_time : '')) + '</td>'
         + '<td>' + esc(l.student_name || '-') + '</td><td>' + esc(l.user_id || '-') + '</td>'
         + '<td>' + payStatusPill(l) + '</td>'
         + '<td class="n">' + esc(peso(a)) + '</td>'
         + '<td class="n">&mdash;</td>'
         + '<td class="n neg">' + (d ? '&minus;' + esc(peso(d)) : '') + '</td>'
-        + '<td class="n"><b>' + esc(peso(n)) + '</b></td></tr>';
+        + '<td class="n' + (n < 0 ? ' neg' : '') + '"><b>' + esc(signed(n)) + '</b></td></tr>';
     }).join('');
+    var tot = Math.max(0, fee - ded);
     var h = '<div class="payrow"><span>' + esc(T('Time','기간')) + ': <b>' + esc(f.from + ' ~ ' + f.to) + '</b>'
       + ' &middot; ' + esc(T('Teacher','강사')) + ': <b>' + esc(t.english_name || t.korean_name || myName() || '-') + '</b>'
       + (lvl ? ' &middot; ' + esc(T('Level','등급')) + ': <b>' + esc(lvl) + '</b>' : '')
@@ -4560,8 +4565,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       + '<tfoot><tr><td colspan="4">' + esc(T('Lessons','수업') + ' (' + f.lessons.length + ')') + '</td>'
       + '<td class="n">' + esc(peso(fee)) + '</td><td class="n">&mdash;</td>'
       + '<td class="n neg">' + (ded ? '&minus;' + esc(peso(ded)) : '') + '</td><td class="n">' + esc(peso(tot)) + '</td></tr></tfoot></table></div>'
-      + '<div class="mini">' + esc(T('Unit: PHP. Total = fee − deductions, per lesson. Incentive: none recorded in the system yet. Estimate — final pay is confirmed by your manager.',
-                                     '단위: 페소. 합계 = 수업료 − 공제(수업별). 인센티브: 아직 시스템에 기록된 것이 없습니다. 예상 금액이며 최종 지급액은 매니저가 확정합니다.')) + '</div>';
+      + '<div class="mini">' + esc(T('Unit: PHP. Total = fee − deductions (the period total never goes below ₱0). Incentive: none recorded in the system yet. Estimate — final pay is confirmed by your manager.',
+                                     '단위: 페소. 합계 = 수업료 − 공제(기간 합계는 ₱0 아래로 내려가지 않음). 인센티브: 아직 시스템에 기록된 것이 없습니다. 예상 금액이며 최종 지급액은 매니저가 확정합니다.')) + '</div>';
     el.innerHTML = h;
   }
 

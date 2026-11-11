@@ -26,21 +26,31 @@ const b = html.indexOf('  function paintPay(){');
 const block = a > 0 && b > a ? html.slice(a, b) : '';
 check('⓪ payStatusPill ~ paintPay 직전 블록을 오려 냈다', block.length > 2000 && block.includes('function searchFeeSum'));
 
-// 가짜 환경 — 요소는 id 로만 찾고 innerHTML·value·click 만 흉내 낸다
-function makeEnv(monthData, lang = 'en') {
+// 가짜 환경 — 진짜 DOM 처럼 «그려진 id 만» 찾힌다. innerHTML 을 넣으면 그 안의 id 가 새 요소로 바뀌고
+//   <input value="…"> 는 value 를, addEventListener('click') 는 _click 을 갖는다(테스트가 직접 누른다).
+function makeEnv(monthData, lang = 'en', today = '2026-11-11') {
   const els = {};
-  const el = (id) => els[id] || (els[id] = { id, innerHTML: '', value: '', _click: null,
-    removeAttribute() {}, addEventListener(t, f) { if (t === 'click') this._click = f; } });
+  const mkEl = (id, value = '') => {
+    let h = '';
+    return { id, value, _click: null, removeAttribute() {},
+      addEventListener(t, f) { if (t === 'click') this._click = f; },
+      get innerHTML() { return h; },
+      set innerHTML(v) { h = v; for (const m of v.matchAll(/<\w+[^>]*\bid="([^"]+)"[^>]*>/g)) {
+        const val = /\bvalue="([^"]*)"/.exec(m[0]); els[m[1]] = mkEl(m[1], val ? val[1] : ''); } } };
+  };
+  els.feeSumBody = mkEl('feeSumBody');
+  const el = (id) => els[id];
   const calls = [];
   const env = {
-    MY: { pay: null }, DATA: { today: '2026-11-11', me: { name: 'Gwen' } },
+    MY: { pay: null }, DATA: today ? { today, me: { name: 'Teacher Test' } } : null,
     LANG: lang,
-    document: { getElementById: (id) => el(id) },
+    document: { getElementById: (id) => els[id] || null },
     myGet: (key, url) => { calls.push(url); const m = /year=(\d+)&month=(\d+)/.exec(url);
       const d = monthData[m[1] + '-' + m[2]]; return d instanceof Error ? Promise.reject(d) : Promise.resolve(d || { ok: true, lessons: [] }); },
   };
   const fn = new Function('env', `
     var MY = env.MY, DATA = env.DATA, document = env.document, myGet = env.myGet;
+    function todayKST(){ return env.TODAY_KST; }
     function EN(){ return env.LANG !== 'ko'; }
     function T(en, ko){ return EN() ? en : ko; }
     function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }); }
@@ -133,9 +143,64 @@ const L = (date, time, extra = {}) => ({ date, start_time: time, end_time: '', s
 check('⑤ 카드는 펼칠 때만 loadFeeSum 을 부른다',
   /<details class="card mycard" id="c-feesum" ontoggle="if\(this\.open\)loadFeeSum\(\)">/.test(html));
 check('⑤ 카드 제목 EN/KO', /data-en="Class fee summary \(by date\)" data-ko="기간별 수업료 조회"/.test(html));
-check('⑤ 언어 전환 repaintMy 가 paintFeeSum 을 부른다', /function repaintMy\(\)\{[\s\S]*?if \(MY\.feeRange\) paintFeeSum\(\);[\s\S]*?\n  \}/.test(html));
+{
+  const s = html.indexOf('  function repaintMy(){'), e = html.indexOf('\n  }', s);
+  check('⑤ 언어 전환 repaintMy «본문 안» 에서 paintFeeSum 을 부른다', s > 0 && html.slice(s, e).includes('if (MY.feeRange) paintFeeSum();'));
+}
 check('⑤ 건별 명세도 같은 상태 알약을 쓴다(복제 없음)', html.includes('var stL = payStatusPill;') && (html.match(/function payStatusPill/g) || []).length === 1);
-check('⑤ 조회 URL 은 강사 본인 강제 경로(teacher_name 을 화면이 안 보냄)', !/payroll\/lessons\?year=' \+ ym\[0\][^;]*teacher_name/.test(block));
+
+// ⑥ 강사가 실제로 쓰는 길 — 펼치기(loadFeeSum) → 날짜 입력 → [조회] 클릭
+{
+  const nov = { ok: true, teacher: {}, lessons: [L('2026-11-03', '10:00'), L('2026-11-09', '10:00')] };
+  const { env, el, calls, api } = makeEnv({ '2026-11': nov });
+  api.window.loadFeeSum(); await tick(); await tick();
+  check('⑥ 펼치면 기본 기간 = 이번 달 1일 ~ 오늘(DATA.today)', env.MY.feeRange.from === '2026-11-01' && env.MY.feeRange.to === '2026-11-11'
+    && el('fs-from').value === '2026-11-01' && el('fs-to').value === '2026-11-11');
+  check('⑥ 펼치면 한 번 조회한다', calls.length === 1 && env.MY.fee && env.MY.fee.lessons.length === 2);
+  api.window.loadFeeSum(); await tick();
+  check('⑥ 다시 펼쳐도 다시 조회하지 않는다(받은 것으로 그림)', calls.length === 1);
+  check('⑥ 나간 URL 은 월 API 그대로 — teacher_name 을 안 보낸다(본인 제한은 서버가 세션으로 건다)',
+    calls[0] === '/api/admin/payroll/lessons?year=2026&month=11');
+  el('fs-from').value = '2026-11-05'; el('fs-to').value = '2026-11-30';
+  check('⑥ [조회] 버튼에 클릭이 연결돼 있다', typeof el('fs-go')._click === 'function');
+  el('fs-go')._click(); await tick(); await tick();
+  check('⑥ 클릭하면 입력한 기간 그대로(시작·종료 안 뒤바뀜) 조회', env.MY.feeRange.from === '2026-11-05' && env.MY.feeRange.to === '2026-11-30'
+    && env.MY.fee.lessons.length === 1 && env.MY.fee.lessons[0].date === '2026-11-09');
+  el('fs-from').value = '2026-11-07';   // 고르고 아직 [조회] 안 누름
+  api.paint();                           // = 언어 전환 repaintMy
+  check('⑥ 다시 그려도 조회 안 한 입력값이 남는다', el('fs-from').value === '2026-11-07' && el('fs-to').value === '2026-11-30');
+  const early = makeEnv({}, 'en', null); early.env.TODAY_KST = '2026-12-01';
+  early.api.window.loadFeeSum();
+  check('⑥ portal 응답 전(DATA 없음)에 펼치면 KST 오늘로(todayKST)', early.env.MY.feeRange.from === '2026-12-01' && early.env.MY.feeRange.to === '2026-12-01');
+}
+
+// ⑦ 공제가 수업료보다 큰 수업(노쇼 ₱0 − ₱100) — 급여와 같은 규칙: 줄은 음수 그대로, 기간 합계만 0 하한
+{
+  const run = async (lessons) => {
+    const { env, el, api } = makeEnv({ '2026-11': { ok: true, teacher: {}, lessons } });
+    env.MY.feeRange = { from: '2026-11-01', to: '2026-11-30' }; api.paint(); api.search(); await tick(); await tick();
+    return el('fs-out').innerHTML;
+  };
+  const noshow = L('2026-11-04', '10:00', { status: 'teacher_no_show', amount: 0, deduction_total: 100, net_amount: 0 });
+  let out = await run([L('2026-11-03', '10:00'), noshow]);
+  check('⑦ 노쇼 줄 합계 −₱100 (수업료 − 공제가 그 줄에서 맞는다)', out.includes('−₱100</b>'));
+  check('⑦ 기간 합계 ₱0 (₱50 − ₱100, 0 하한 = 월 «예상 지급액» 과 같은 규칙)', out.includes('Total ₱0<') && out.includes('<td class="n">₱0</td></tr></tfoot>'));
+  out = await run([L('2026-11-03', '10:00', { amount: 200, net_amount: 200 }), noshow]);
+  check('⑦ 남는 돈이 있으면 기간 합계 = 수업료 합 − 공제 합 (₱200 − ₱100 = ₱100)', out.includes('Total ₱100<'));
+}
+
+// ⑧ 실패한 옛 조회가 나중에 성공한 조회를 덮지 않는다(.catch 쪽 순서 가드)
+{
+  let rejectOct;
+  const slowFail = new Promise((_, rej) => { rejectOct = rej; });
+  slowFail.catch(() => {});
+  const { env, api } = makeEnv({ '2026-10': slowFail, '2026-11': { ok: true, lessons: [L('2026-11-05', '10:00')] } });
+  env.MY.feeRange = { from: '2026-10-01', to: '2026-10-31' }; api.search();
+  env.MY.feeRange = { from: '2026-11-01', to: '2026-11-30' }; api.search();
+  await tick(); await tick();
+  rejectOct(new Error('late')); await tick(); await tick();
+  check('⑧ 늦게 실패한 10월 조회가 11월 결과를 «오류» 로 바꾸지 않는다', !!env.MY.fee && !env.MY.fee.err && env.MY.fee.lessons.length === 1);
+}
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${pass} · 실패 ${fails.length}`);
