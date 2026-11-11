@@ -272,8 +272,10 @@ const a = new Media();
 const parkBlinks = () => timers.forEach(t => { if (t.fn.name === 'blink') t.at = T + 1e9; });
 // 이번 프레임에 눈썹 띠를 몇 px 끌어올렸나(원본 px) — 줄 Y 의 «가져온 원본 줄» 이 «안 휘었을 때» 보다 얼마나 아래인가.
 const browLift = () => {
-  if (!draws.some(d => d.im && d.im.rows)) return 0;          // 이번 프레임에 띠를 안 그렸다
-  const cv = draws.filter(d => d.im && d.im.rows).pop().im, r = cv.rows;
+  // (v22) 입 칸도 작은 캔버스(mouthTile)를 거쳐 그린다 — 입 아틀라스에서 온 캔버스는 눈썹 띠가 아니다
+  const band = draws.filter(d => d.im && d.im.rows && !d.im.rows.some(x => /-(mouths|transitions)\.webp/.test(String(x.src))));
+  if (!band.length) return 0;                                  // 이번 프레임에 띠를 안 그렸다
+  const cv = band.pop().im, r = cv.rows;
   if (!r.length) return 0;
   // 첫 토막의 시작과 마지막 토막의 끝은 «안 휜» 자리(높이 0) — 그 둘로 «안 휘었을 때» 의 대응을 잡는다.
   const z = r[r.length - 1], k = ((z.sy + z.sh) - r[0].sy) / ((z.dy + z.dh) - r[0].dy); let m = 0;

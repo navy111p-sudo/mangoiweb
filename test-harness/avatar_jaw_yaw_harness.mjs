@@ -92,5 +92,27 @@ const blend = body('blendBand');
 ok(/'destination-out'[\s\S]*'lighter'/.test(blend) && !/'source-over'; c\.drawImage/.test(blend), '⑧ 띠 섞기는 destination-out → lighter');
 ok((SRC.match(/blendBand\(/g) || []).length >= 3, '⑧ 턱·고개 두 띠가 같은 섞기(blendBand)를 쓴다');
 
+// ⑨ (v22) 입 칸 둘레 1px 선 — 칸을 1:1(보간 없이) 오려 낸 뒤 늘인다. mouthTile 을 가짜 캔버스로 실제로 돌린다.
+const tm = SRC.match(/var mouthCv = null;\s*(function mouthTile\([\s\S]*?\n    \})/);
+let mouthTile = null; const calls = []; let smooth = null, throwIt = false;
+const fakeDoc = { createElement: () => { if (throwIt) throw new Error('no canvas'); return { width: 0, height: 0,
+  getContext: () => ({ set imageSmoothingEnabled(v) { smooth = v; }, clearRect: (...a) => calls.push({ clear: a }), drawImage: (...a) => calls.push({ a, smooth }) }) }; } };
+try { mouthTile = tm && new Function('document', 'var mouthCv = null;' + tm[1] + '; return mouthTile;')(fakeDoc); } catch { mouthTile = null; }
+ok(typeof mouthTile === 'function', '(전제) mouthTile 을 소스에서 떼어 돌릴 수 있다');
+if (mouthTile) {
+  const sp = {}, cv = mouthTile(sp, 288, 122, 144, 122), c0 = calls.find(c => c.a), cl = calls[0];
+  ok(cv && cv.width === 144 && cv.height === 122, '⑨ 칸 크기 캔버스를 돌려준다');
+  ok(c0 && c0.a[0] === sp && c0.a.slice(1).join() === '288,122,144,122,0,0,144,122', `⑨ 칸을 1:1 로 옮긴다 (${c0 && c0.a.slice(1).join()})`);
+  ok(c0 && c0.smooth === false, '⑨ 보간을 끄고 옮긴다 — 켜면 옆 칸 픽셀이 섞일 수 있다');
+  ok(cl && cl.clear && cl.clear.join() === '0,0,144,122', '⑨ 옮기기 «전» 에 캔버스를 통째로 지운다 — 안 지우면 반투명 입 그림(Noah)에 앞 장 입이 비친다');
+  const again = mouthTile(sp, 0, 0, 144, 122);
+  ok(again === cv && calls.filter(c => c.a).length === 2, '⑨ (짝) 캔버스는 한 번 만들어 다시 쓴다');
+  const fresh = new Function('document', 'var mouthCv = null;' + tm[1] + '; return mouthTile;')((throwIt = true, fakeDoc));
+  ok(fresh(sp, 0, 0, 144, 122) === null, '⑨ (짝) 캔버스를 못 만들면 null — 예전처럼 아틀라스에서 바로 그린다');
+}
+ok(/mc=mouthTile\(sprite,tx,ty,r\.w,r\.h\)/.test(compose) && /if\(mc\) ctx\.drawImage\(mc,0,0,r\.w,r\.h,dx,dy,dw,dh\); else ctx\.drawImage\(sprite,/.test(compose),
+  '⑨ composeFrame 이 오려 낸 칸(mc)을 그리고, 아틀라스 직접 그리기는 못 만들었을 때만',
+  '아틀라스에서 칸을 바로 늘이면 코 옆 볼에 선(2026-11-10 사장님 제보) — 실제 픽셀은 manual/avatar-jaw-yaw-browser ⑨');
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail ? 1 : 0);

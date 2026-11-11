@@ -490,6 +490,9 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
     W.frame();
   };
   const nameOf = im => String(im && im.src || '').replace(/^.*\//, '').split('?')[0];
+  // (v22) 입은 작은 캔버스(mouthTile)에 1:1 로 오린 뒤 그린다 — 그 캔버스면 «그 직전에 옮겨 넣은 그림» 의 이름으로 본다
+  const srcName = o => { if (!(o.src && o.src.ctx)) return nameOf(o.src);
+    const d = o.src.ctx.ops.filter(p => p.op === 'draw' && p.seq < o.seq).pop(); return d ? nameOf(d.src) : ''; };
   const isBaseBuild = (o, file) => o.op === 'draw' && nameOf(o.src) === file && o.a.length === 8 && o.a[6] === 640 && o.a[7] === 800;
   const findBase = file => created.slice(c0).find(c => c !== g5 && c.ctx.ops.some(o => isBaseBuild(o, file)));
   const speak = async (av, a, frames) => {
@@ -514,8 +517,10 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
   const whole = ops.filter(o => o.op === 'clear' && o.base === 2 && o.a[0] === 0 && o.a[1] === 0 && o.a[2] === 320 && o.a[3] === 400);
   const boxClear = ops.filter(o => o.op === 'clear' && o.base === 1);
   const restore = ops.filter(o => o.op === 'draw' && o.src === baseCv && o.base === 1);
-  const mouths = ops.filter(o => o.op === 'draw' && nameOf(o.src) === 'lily-mouths.webp');
+  const mouths = ops.filter(o => o.op === 'draw' && srcName(o) === 'lily-mouths.webp');
   ok(mouths.length >= 55, `(전제) 말하는 동안 입모양을 프레임마다 그렸다 (${mouths.length}/60)`, '이 경로가 안 돌면 아래 검사가 아무것도 안 잽니다');
+  ok(mouths.length > 0 && mouths.every(o => o.src && o.src.ctx), `(v22) 입은 언제나 작은 캔버스(mouthTile)를 거쳐 그린다 — 아틀라스에서 바로 ${mouths.filter(o => !(o.src && o.src.ctx)).length}장`,
+    '아틀라스에서 칸을 바로 늘이면 옆 칸 픽셀이 번져 코 옆 볼에 1px 선(2026-11-10 사장님 제보)');
   ok(whole.length === 1, `통째로 지우고 그리는 것은 말 첫 장 한 번뿐이다 (통째 지우기 ${whole.length}회 / ${mouths.length}장)`,
     '매 프레임 2배 얼굴 전체를 다시 그리면 재생을 다시 시작하는 순간 메인 스레드가 멈춰(헤드리스 실측) 1.3배속의 짧은 입모양을 놓쳤습니다');
   ok(ops.some(o => o.op === 'draw' && o.src === baseCv && o.base === 2 && o.a.length === 4 && o.a[2] === 320 && o.a[3] === 400),
@@ -599,7 +604,7 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
     a.paused = true; a.emit('pause'); tickW(W5, 16);
     const h = W5.canvas.height;
     const wholeN = after.filter(o => o.op === 'clear' && o.base === 2 && o.a[0] === 0 && o.a[1] === 0 && o.a[2] === 320 && o.a[3] === h).length;
-    const mouthN = after.filter(o => o.op === 'draw' && nameOf(o.src) === name + '-mouths.webp').length;
+    const mouthN = after.filter(o => o.op === 'draw' && srcName(o) === name + '-mouths.webp').length;
     ok(held === 1 && mouthN >= 10, `(전제) ${label}: 쉬는 얼굴 그림을 붙잡아 두고 말하는 도중에 도착시켰다 (붙잡음 ${held} · 그 뒤 입 ${mouthN}장)`);
     return { after, wholeN, h };
   };
@@ -628,7 +633,7 @@ console.log('\n■ ⑬ 입모양 그림 경로 — 바뀌는 칸(입·눈)만, �
       a.paused = false; a.emit('playing');
       for (let i = 0; i < 10; i++) tickW(W6, 16);
       a.paused = true; a.emit('pause'); tickW(W6, 16);
-      mouthsN = W6.canvas.ctx.ops.slice(from).filter(o => o.op === 'draw' && nameOf(o.src) === 'lily-mouths.webp').length;
+      mouthsN = W6.canvas.ctx.ops.slice(from).filter(o => o.op === 'draw' && srcName(o) === 'lily-mouths.webp').length;
     } catch (e) { err = e; }
     ok(!err && mouthsN >= 8, `화면 밖 캔버스가 없어도 입모양을 화면 캔버스에 바로 그린다 (입 ${mouthsN}장${err ? ' · ' + err.message : ''})`,
       '바탕 사본을 만들려고 comp.width 를 읽으면 그 프레임이 통째로 죽습니다');
