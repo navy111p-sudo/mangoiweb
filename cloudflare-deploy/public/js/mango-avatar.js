@@ -256,7 +256,9 @@
     // ?v=2 (2026-10-18): smile-line creases beside the mouth retouched (tools/remove-smile-folds.py).
     // ?v=3 (2026-10-18): mouth shrunk to 0.9x relative to the face (tools/shrink-mouth.py) · Noah's patch rect widened.
     // ?v=4 (2026-10-18): «O» poses E·F cleaned (folds softened, Noah's pale red square → portrait skin tone) · Noah G·H
-    //      were black ovals (failed generation) → B·C (tools/clean-o-mouths.py). All lily/noah URLs share one version.
+    //      were black ovals (failed generation) → B·C (tools/clean-o-mouths.py).
+    // ?v=5 (2026-11-11, lily only): cheek seam beside the nose healed (tools/heal-cheek-seams.py) — noah stays ?v=4.
+    //   Each character's URLs share one version (avatar_smile_folds_harness ④).
     //   Media without ?v= is cached 7 days, so a retouched file needs a new address. Bump on every change.
     lily: { frames:{ closed:'/img/lily-closed.webp?v=5', medium:'/img/lily-mid.webp?v=5', wide:'/img/lily-wide.webp?v=5' },
             still:'/img/lily-closed.webp?v=5', rect:{ l:0.05, t:0.02, r:0.95, b:0.92 },

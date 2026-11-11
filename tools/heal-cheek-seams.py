@@ -96,6 +96,7 @@ def run(name):
         print(name, kind, report['files'][rel]['energyBefore'], '->', report['files'][rel]['energyAfter'])
 
     base = frames['closed'][..., :3]          # what the browser decodes under the tile
+    _, base_old = original(f'img/{name}-closed.webp')   # what was deployed under the old tile
     rel = f'img/visemes/{name}-mouths.webp'
     raw, atlas = original(rel)
     out_atlas = atlas.copy()
@@ -120,10 +121,12 @@ def run(name):
         comp[ry:ry+rh, rx:rx+rw] = tile
         cw = comp[win]
         new = fill(cw, dom)
+        before = base_old[..., :3].copy()
+        before[ry:ry+rh, rx:rx+rw] = tile      # deployed state: old tile on old base
         out_atlas[ay:ay+rh, ax:ax+rw, :3] = new[ty0:ty0+rh, tx0:tx0+rw]
         info = {'pose': pose,
-                'energyBefore': round(line_energy(cw, dom), 1), 'energyAfter': round(line_energy(new, dom), 1),
-                'seamBefore': seam(cw), 'seamAfter': seam(new),
+                'energyBefore': round(line_energy(before[win], dom), 1), 'energyAfter': round(line_energy(new, dom), 1),
+                'seamBefore': seam(before[win]), 'seamAfter': seam(new),
                 'outsideMaxChange': float(np.abs(new-cw)[~dom].max())}
         tiles.append(info)
         print(name, pose, info['energyBefore'], '->', info['energyAfter'],

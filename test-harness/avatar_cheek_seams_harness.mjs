@@ -8,7 +8,8 @@
  * 지키는 것 (문자열이 아니라 «파일·보고서·설정·표» 를 서로 대조)
  *   ⓪ 설정·보고서가 같은 기준(sourceRev·params)이고 다각형이 그대로다(픽셀 수 대조)
  *   ① 커밋된 그림 4장 == 도구 출력 · 입력 == 앞 단계 출력(shrink-mouth · «오» 정리) — 손 덧칠·순서 꼬임은 FAIL
- *   ② 선이 실제로 줄었다 · 다각형 밖은 인코딩 전 0 변화 · 칸 경계의 밝기 차가 나빠지지 않았다
+ *   ② 선이 실제로 줄었다 · 다각형 밖은 인코딩 전 0 변화 · 칸 경계의 밝기 차가 «배포돼 있던 상태(옛 칸·옛 바탕)» 보다 나빠지지 않았다
+ *      ⚠️ 선 세기·밖 0 변화는 도구가 적은 보고서를 믿습니다 — 그림이 그 보고서의 출력인지는 ①이 sha 로 묶습니다.
  *   ③ 사이 그림(transitions)이 고친 입모양으로 다시 만들어졌다 — 아니면 말하는 도중에만 옛 선이 번쩍입니다
  *   ④ 고친 그림 주소가 ?v=5 이상 — 옛 주소(?v=4)면 7일 캐시에 옛 얼굴이 남습니다
  *   ⑤ 다각형이 눈 칸(EYES) 아래 · 턱 띠(JAW) 위 · 그림 안에 있다
@@ -98,9 +99,10 @@ ok(!!TR.actors.lily && TR.actors.lily.sourceSha256 === sha(join(PUB, 'img/viseme
   'transitions.json lily sourceSha256 == 지금 입모양 묶음', 'python3 tools/build-viseme-transitions.py lily (opencv)');
 
 console.log('④ 고친 그림 주소가 ?v=5 이상');
-const vs = [...AV.matchAll(/\/img\/(?:visemes\/)?lily-(?:closed|mid|wide|mouths|transitions)\.webp\?v=(\d+)/g)].map(m => +m[1]);
-ok(vs.length >= 6, `mango-avatar.js 의 lily 그림 주소 ${vs.length}개를 찾았다`);
-ok(vs.length > 0 && vs.every(v => v >= 5), `모두 ?v=5 이상 (${[...new Set(vs)].join(',')})`, '?v= 를 안 올리면 7일 캐시에 옛 얼굴이 남습니다');
+// ?v= 가 «없는» 주소도 함께 센다 — 하나만 ?v= 를 빠뜨려도 그 주소는 7일 캐시입니다.
+const vs = [...AV.matchAll(/\/img\/(?:visemes\/)?lily-(?:closed|mid|wide|mouths|transitions)\.webp(?:\?v=(\d+))?/g)].map(m => (m[1] ? +m[1] : 0));
+ok(vs.length >= 7, `mango-avatar.js 의 lily 그림 주소 ${vs.length}개를 찾았다(closed·mid·wide·still·base·atlas·trans)`);
+ok(vs.length > 0 && vs.every(v => v >= 5), `모두 ?v=5 이상 (${vs.join(',')})`, '?v= 를 안 올리면(또는 빠뜨리면) 7일 캐시에 옛 얼굴이 남습니다');
 const WP = readFileSync(join(PUB, 'js/warmup-photo-icons.js'), 'utf8').match(/lily-closed\.webp\?v=(\d+)/);
 ok(!!WP && +WP[1] >= 5, `warmup-photo-icons.js 의 lily 주소도 ?v=5 이상 (${WP && WP[1]})`);
 

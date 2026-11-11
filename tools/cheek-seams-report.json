@@ -54,73 +54,73 @@
      "tiles": [
       {
        "pose": "X",
-       "energyBefore": 1539.6,
+       "energyBefore": 1504.5,
        "energyAfter": 297.6,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.24,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "A",
-       "energyBefore": 1273.2,
+       "energyBefore": 1239.7,
        "energyAfter": 189.6,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.24,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "B",
-       "energyBefore": 2296.8,
+       "energyBefore": 2264.0,
        "energyAfter": 502.8,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.11,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "C",
-       "energyBefore": 2179.3,
+       "energyBefore": 2165.9,
        "energyAfter": 570.1,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.0,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "D",
-       "energyBefore": 2163.3,
+       "energyBefore": 2147.0,
        "energyAfter": 539.6,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 0.98,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "E",
-       "energyBefore": 1314.1,
+       "energyBefore": 1308.7,
        "energyAfter": 424.4,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.05,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "F",
-       "energyBefore": 1235.0,
+       "energyBefore": 1226.7,
        "energyAfter": 307.6,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.03,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "G",
-       "energyBefore": 1940.3,
+       "energyBefore": 1909.3,
        "energyAfter": 566.2,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.16,
        "outsideMaxChange": 0.0
       },
       {
        "pose": "H",
-       "energyBefore": 1943.3,
+       "energyBefore": 1915.5,
        "energyAfter": 795.0,
-       "seamBefore": 2.4,
+       "seamBefore": 1.4,
        "seamAfter": 1.06,
        "outsideMaxChange": 0.0
       }
