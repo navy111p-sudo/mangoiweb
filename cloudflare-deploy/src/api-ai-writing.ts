@@ -9,8 +9,13 @@ import { triageIssues, isReadableKo, isEnglishReply } from './write-issue-triage
 import { markVocabTag, VOCAB_TAG_AWKWARD } from './vocab-tags';
 import { handleStoryApi } from './story-correct';
 import { recordAiFailure } from './ai-failure-log';
+import { parseLlmJson } from './llm-json';
+import { isRfRejection } from './warmup-correction';
 import type { MangoEnv } from './api-mango';
 
+/* 🧩 AI 답 길이 상한 — 2000자 글이면 수정본 ~600 + 고칠 곳(한국어 이유) ~600 + 표현·답장 ~700 토큰.
+   옛 1500 은 긴 글에서 답이 잘려 «못 읽음» 이 됐다(잘림 = 닫는 } 없음). 값은 실제로 쓴 만큼만 과금된다. */
+const WRITE_MAX_TOKENS = 3000;
 let _awTopicColTried = false;   // 📅 topic_id 지연 ALTER — 워커당 한 번
 export async function handleWritingApi(request: Request, url: URL, env: MangoEnv): Promise<Response | null> {
   const path = url.pathname;
@@ -39,6 +44,7 @@ export async function handleWritingApi(request: Request, url: URL, env: MangoEnv
       if (!text || text.length < 3) return json({ ok: false, error: 'text_too_short' }, 400);
       if (text.length > 2000) return json({ ok: false, error: 'text_too_long' }, 400);
 
+      // ⚠️ 학생 글을 """…""" 로 감싸 보내면 모델이 답에도 """ 를 따라 써서 JSON 이 깨졌다(운영 6/8건) — 끝에 JSON 문자열로 보낸다
       const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
 1. Provide a corrected version (preserve student's meaning). Fix ALL the problems you list in "issues" (both "error" and "unnatural" items) and ONLY those; keep every other word exactly as the student wrote it.
 2. Provide a numeric score 0-100 for overall quality.
@@ -52,7 +58,7 @@ export async function handleWritingApi(request: Request, url: URL, env: MangoEnv
 5. Reply to the CONTENT of the student's writing like a pen-pal friend, in ENGLISH ONLY appropriate for ${level} level (1-2 short sentences, warm, may end with a small question). Never write Korean in "reply".
 6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" is REQUIRED and must be a short Korean sentence saying WHY the new word is better (nuance, register, precision) — an item with an empty "why" is DISCARDED, so never leave it blank. If nothing is worth upgrading, use an empty list.
 
-Respond in this strict JSON format only, no markdown:
+Respond with ONE valid JSON object only, no markdown. Inside JSON strings write line breaks as \\n — never use triple quotes ("""):
 {
   "corrected": "...",
   "score": 85,
@@ -62,7 +68,7 @@ Respond in this strict JSON format only, no markdown:
   "upgrades": [{"from":"...","to":"...","why":"..."}]
 }
 
-Student text: """${text}"""`;
+Student text (as a JSON string): ${JSON.stringify(text)}`;
 
       if (!env.AI) {
         return json({ ok: false, error: 'AI_binding_missing' }, 503);
@@ -73,39 +79,57 @@ Student text: """${text}"""`;
         '@cf/meta/llama-3.1-8b-instruct',
         '@cf/meta/llama-3-8b-instruct',
       ];
-      let raw = '';
+      let parsed: any = null;
       let lastErr: any = null;
+      let unreadable = 0, empty = 0;
+      /* 🧩 JSON 모드(response_format) — 모델이 «올바른 JSON» 만 내게 한다(같은 모델로 웜업·일기·결재·마케팅이 이미 씀).
+         거부하는 모델(옛 8b)이면 그 모델만 끄고 한 번 더. ⛔ 429·5xx·시간초과는 «제약 탓» 이 아니다 — 판정 정본 isRfRejection(CLAUDE.md). */
+      const runModel = async (m: string): Promise<any> => {
+        const opts: any = { messages: [{ role: 'user', content: prompt }], max_tokens: WRITE_MAX_TOKENS, temperature: 0.3, response_format: { type: 'json_object' } };
+        try { return await env.AI.run(m, opts); }
+        catch (e: any) {
+          if (!isRfRejection(e)) throw e;
+          console.warn(`[write-correct] model ${m} rejected response_format, retrying without:`, e?.message || e);
+          delete opts.response_format;
+          return await env.AI.run(m, opts);
+        }
+      };
+      // 🧩 «읽을 수 있는 답(corrected 있음)» 이 나올 때까지 다음 모델로 — 글자만 왔다고 멈추면 못 읽는 답이 그대로 나간다(2026-11-11)
       for (const m of models) {
         try {
-          const resp: any = await env.AI.run(m, {
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 1500, temperature: 0.3,
-          });
-          if (typeof resp === 'string') raw = resp;
-          else if (resp && typeof resp.response === 'string') raw = resp.response;
-          else if (resp && resp.response) raw = JSON.stringify(resp.response);
-          else if (resp && resp.result && typeof resp.result === 'string') raw = resp.result;
-          raw = String(raw || '').trim();
-          if (raw) break;
+          const resp: any = await runModel(m);
+          // JSON 모드면 response 가 «이미 객체» 일 수 있다 — String() 하면 "[object Object]"(CLAUDE.md 2026-09-08 실사고)
+          const body = resp?.response ?? resp?.result?.response ?? resp?.result ?? resp;
+          if (body == null || (typeof body === 'string' && !body.trim())) { empty++; continue; }
+          parsed = parseLlmJson(body);
+          if (parsed && String(parsed.corrected || '').trim()) break;
+          parsed = null; unreadable++;
+          // ⛔ 답 내용은 로그에 안 남긴다 — 수정본 = 학생 글(이름·학교가 들어갈 수 있음, AGENTS.md «개인정보 로그 금지»)
+          console.warn(`[write-correct] model ${m} reply unreadable: type=${typeof body} len=${typeof body === 'string' ? body.length : JSON.stringify(body)?.length ?? 0}`);
         } catch (e: any) {
           lastErr = e;
           console.error(`[write-correct] model ${m} failed:`, e?.message || e);
         }
       }
 
-      // JSON 추출 시도 — 다양한 응답 형식 대응
-      const mm = raw.match(/\{[\s\S]*\}/);
-      let parsed: any = {};
-      try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
+      /* ⛔ [2026-11-11 엘리더잼 원장님 피드백] 못 읽었으면 «원문 = 수정본 · 75점» 으로 지어내지 않고 솔직히 실패로 돌려준다.
+         (그 가짜 결과에 포인트까지 적립되고 기록에도 «고칠 곳 없음» 으로 남았다 — 운영 45건 중 8건) */
+      if (!parsed) {
+        try {
+          await recordAiFailure(env, { feature: 'write-correct', models: models.join(','), err: String(lastErr?.message || lastErr || 'unreadable_json'), rf: 1, plain: unreadable, empty, level });
+        } catch (e: any) { console.error('[write-correct] recordAiFailure failed:', e?.message || e); }
+        return json({ ok: false, error: 'ai_unreadable', detail: 'AI 답을 읽지 못했어요. 한 번 더 «AI 첨삭 받기» 를 눌러 주세요.\nCould not read the AI reply. Please press «Get AI Correction» again.' }, 502);
+      }
 
-      // AI 가 JSON 으로 응답 안 했을 때 안전한 폴백
+      // 모델이 원문을 그대로 돌려줬을 때 — 첫 글자 대문자·마침표만 다듬는다
       let corrected = String(parsed.corrected || '').trim();
       if (!corrected || corrected === text) {
         // 기본 폴백: 첫 글자 대문자화 + 마침표 추가
         corrected = text.charAt(0).toUpperCase() + text.slice(1);
         if (!/[.!?]$/.test(corrected.trim())) corrected = corrected.trim() + '.';
       }
-      const score = Math.max(0, Math.min(100, Number(parsed.score || 75)));
+      // 모델이 점수를 "high"·85.5 로 줄 때도 0~100 정수로(그전엔 NaN → 화면 «null점»). 0·없음은 예전처럼 75.
+      const score = Math.max(0, Math.min(100, Math.round(Number(parsed.score)) || 75));
       // ✍️ [2026-07-27] 첨삭에 '왜 고쳤는지'가 안 보이던 문제(직원 피드백 #14).
       //   프롬프트는 이유(reason)를 한국어로 요구하고 화면도 이유를 렌더링한다 — 그런데
       //   모델이 reason 을 비워 보내도 서버가 그대로 통과시켜, 학생 화면에 "with → to" 만 떴다.
@@ -178,10 +202,7 @@ Student text: """${text}"""`;
         // 복수형(-s/-es)도 «썼다» 로 센다 — 그림 속 미션 단어는 단수로 주는데 아이들은 «candles» 로 쓴다(2026-10-08)
         new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es)?\\b`, 'i').test(text));
 
-      // raw 가 있긴 한데 JSON 파싱 실패 → AI 응답 텍스트를 tip 에 일부 포함
-      const meta = raw && !Object.keys(parsed).length
-        ? { ai_raw_excerpt: raw.slice(0, 500), parsed: false }
-        : { parsed: true };
+      const meta = { parsed: true };
 
       // 📅 어느 주제로 쓴 글인가(숙제 제출 확인용) — 양의 정수만. 화면이 보낸 번호라 «제출» 의 근거일 뿐 권한·포인트에는 안 쓴다.
       const _tid = Number(b.topic_id);
@@ -320,8 +341,6 @@ Student text: """${text}"""`;
         } catch (e: any) { console.warn('[write-correct] judgment capture skip:', e?.message); }
       }
 
-      // raw 도 lastErr 도 없을 일이 거의 없지만, 어느쪽이든 결과는 반환 (ok: true)
-      // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
       return json({
         ok: true,
         corrected, score, issues, suggestions, tip, reply, upgrades, level,
@@ -329,7 +348,6 @@ Student text: """${text}"""`;
         points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus, points_guest: pointsGuest,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,
         topic_recorded: topicRecorded,
-        ...(raw ? {} : { ai_unavailable: true, fallback: true }),
       });
     }
 
