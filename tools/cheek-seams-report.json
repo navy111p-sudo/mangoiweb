@@ -1,0 +1,132 @@
+{
+ "schema": 1,
+ "sourceRev": "0ae7d15098842e3807dc31edb598be8f2b8be993",
+ "params": {
+  "hfSigma": 1.0,
+  "hfClip": 3.0,
+  "iters": 4000,
+  "frameQuality": 89
+ },
+ "actors": {
+  "lily": {
+   "rect": [
+    250,
+    294,
+    144,
+    122
+   ],
+   "window": [
+    234,
+    278,
+    191,
+    154
+   ],
+   "roiPx": 3126,
+   "files": {
+    "img/lily-closed.webp": {
+     "sourceSha256": "66103f2c8c854a27de462e0ffb37d419b040e2a0c751e7d33c90b549439cd496",
+     "sha256": "89e32b5fb1c69d690562366607853f660baa72f6ec5bbd0ac83e9b96b528e948",
+     "bytes": 67734,
+     "energyBefore": 3763.4,
+     "energyAfter": 1222.8,
+     "outsideMaxChangePreEncode": 0.0
+    },
+    "img/lily-mid.webp": {
+     "sourceSha256": "654484acf026feb1f30d9b80aee2fe66c7447ce1ae53e9d0ee94ab8245384da2",
+     "sha256": "67876d02a7eb232986f0216343aaefc9f7e18dba518d0b0f1afc4e3ec8cc80f4",
+     "bytes": 63308,
+     "energyBefore": 4525.9,
+     "energyAfter": 1377.0,
+     "outsideMaxChangePreEncode": 0.0
+    },
+    "img/lily-wide.webp": {
+     "sourceSha256": "0a0d70bd84ba237f2078aee19bbff2d5a5b6feeffbf1b48e2162f5bd35a11298",
+     "sha256": "7d044a06dffecae2a5c5708f57acaaa493e9c947dc9040c324a445b4084439ff",
+     "bytes": 63440,
+     "energyBefore": 2497.9,
+     "energyAfter": 859.2,
+     "outsideMaxChangePreEncode": 0.0
+    },
+    "img/visemes/lily-mouths.webp": {
+     "sourceSha256": "5c889b78d1918bc1a23960e302eb81f43a2a9d2becb87ed23ea17b98668ede66",
+     "sha256": "df6ad7de24711e0b7671ef4b6962add05b2a5bbc99a0d87472d410b81f9a530e",
+     "bytes": 119928,
+     "tiles": [
+      {
+       "pose": "X",
+       "energyBefore": 1539.6,
+       "energyAfter": 297.6,
+       "seamBefore": 2.4,
+       "seamAfter": 1.24,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "A",
+       "energyBefore": 1273.2,
+       "energyAfter": 189.6,
+       "seamBefore": 2.4,
+       "seamAfter": 1.24,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "B",
+       "energyBefore": 2296.8,
+       "energyAfter": 502.8,
+       "seamBefore": 2.4,
+       "seamAfter": 1.11,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "C",
+       "energyBefore": 2179.3,
+       "energyAfter": 570.1,
+       "seamBefore": 2.4,
+       "seamAfter": 1.0,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "D",
+       "energyBefore": 2163.3,
+       "energyAfter": 539.6,
+       "seamBefore": 2.4,
+       "seamAfter": 0.98,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "E",
+       "energyBefore": 1314.1,
+       "energyAfter": 424.4,
+       "seamBefore": 2.4,
+       "seamAfter": 1.05,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "F",
+       "energyBefore": 1235.0,
+       "energyAfter": 307.6,
+       "seamBefore": 2.4,
+       "seamAfter": 1.03,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "G",
+       "energyBefore": 1940.3,
+       "energyAfter": 566.2,
+       "seamBefore": 2.4,
+       "seamAfter": 1.16,
+       "outsideMaxChange": 0.0
+      },
+      {
+       "pose": "H",
+       "energyBefore": 1943.3,
+       "energyAfter": 795.0,
+       "seamBefore": 2.4,
+       "seamAfter": 1.06,
+       "outsideMaxChange": 0.0
+      }
+     ]
+    }
+   }
+  }
+ }
+}
