@@ -143,7 +143,8 @@ function fakeEnv(replies) {
     sql, calls,
     env: {
       DB: { exec: async (q) => { sql.push(q); }, prepare: (q) => stmt(q) },
-      AI: { run: async (m) => { calls.push(m); const r = replies[calls.length - 1]; if (r instanceof Error) throw r; return { response: r }; } },
+      // replies[i]: 문자열 = { response: 문자열 } · Error = 던짐 · 함수 = (모델, 옵션) → 응답 그대로(던져도 됨)
+      AI: { run: async (m, opts) => { calls.push({ m, opts: JSON.parse(JSON.stringify(opts)) }); const r = replies[calls.length - 1]; if (typeof r === 'function') return r(m, opts); if (r instanceof Error) throw r; return { response: r }; } },
     },
   };
 }
@@ -179,6 +180,30 @@ if (handleWritingApi) {
   check('D14 멀쩡한 JSON(고칠 곳 없음) → 그대로 ok · 95점', r4.d.ok === true && r4.d.score === 95 && r4.d.issues.length === 0);
   const sc = async (v) => (await callCorrect([JSON.stringify({ corrected: 'I like dogs.', score: v })], 'I like cats.')).d.score;
   check('D15 점수가 "high"·85.5·"88"·120·-5 여도 0~100 정수', (await sc('high')) === 75 && (await sc(85.5)) === 86 && (await sc('88')) === 88 && (await sc(120)) === 100 && (await sc(-5)) === 0);
+
+  console.log('\nF. 원인 차단 — JSON 모드 · 프롬프트 · 답 길이 (호출 옵션을 «실제로» 본다)');
+  const OBJ87 = { corrected: CORR_87, score: 85, issues: [{ original: 'I blow the candles', suggested: 'I blow out the candles', category: 'error', reason: '촛불을 끌 때는 blow out 을 써요.' }], tip: '잘했어요.', reply: 'Happy birthday!', upgrades: [] };
+  const f1 = await callCorrect([JSON.stringify(OBJ87)]);
+  const o1 = f1.calls[0].opts;
+  check('F1 AI 호출에 JSON 모드(response_format json_object)가 실린다', o1.response_format && o1.response_format.type === 'json_object');
+  check('F2 답 길이 상한이 2000자 글을 담을 만큼(≥2500) — 선언이 아니라 호출 옵션', o1.max_tokens >= 2500);
+  const pr = o1.messages[0].content;
+  check('F3 프롬프트가 학생 글을 """ 로 감싸지 않고 JSON 문자열로 보낸다', !pr.includes('"""' + STUDENT_87) && pr.includes(JSON.stringify(STUDENT_87)));
+  check('F4 프롬프트에 소스 주석(한국어 메모)이 새지 않는다', !/운영 6\/8건|⚠️/.test(pr));
+  check('F5 프롬프트가 «줄바꿈은 \\n · """ 금지» 를 말한다', pr.includes('\\n') && /never use triple quotes/i.test(pr));
+  const rfReject = (m, o) => { if (o.response_format) throw new Error('400 Bad Request: response_format is not supported by this model'); return { response: JSON.stringify(OBJ87) }; };
+  const f6 = await callCorrect([rfReject, rfReject]);
+  check('F6 모델이 JSON 모드를 거부하면 같은 모델을 JSON 모드 없이 한 번 더 → ok', f6.d.ok === true && f6.calls.length === 2 && f6.calls[0].m === f6.calls[1].m && !f6.calls[1].opts.response_format);
+  const f7 = await callCorrect([new Error('429 Too Many Requests'), new Error('400 Bad Request — rate limit exceeded'), JSON.stringify(OBJ87)]);
+  check('F7 429·«400+rate limit» 은 JSON 모드를 끄지 않고 다음 모델로(모두 JSON 모드 유지)', f7.d.ok === true && f7.calls.length === 3 && new Set(f7.calls.map((c) => c.m)).size === 3 && f7.calls.every((c) => c.opts.response_format));
+  const f8 = await callCorrect([() => ({ response: OBJ87 })]);
+  check('F8 JSON 모드가 «이미 객체» 로 줘도 읽는다([object Object] 아님)', f8.d.ok === true && f8.d.corrected === CORR_87 && f8.d.issues.length === 1);
+  const f9 = await callCorrect([() => ({ result: { response: OBJ87 } })]);
+  check('F9 result.response 모양도 읽는다', f9.d.ok === true && f9.d.corrected === CORR_87);
+  const f10 = await callCorrect([() => ({ response: { score: 90 } }), () => ({ response: [OBJ87] }), () => ({ response: OBJ87 })]);
+  check('F10 corrected 없는 객체·배열 객체는 못 읽음으로 보고 다음 모델', f10.d.ok === true && f10.calls.length === 3);
+  const f11 = await callCorrect([() => ({ response: '' }), () => ({}), () => null]);
+  check('F11 빈 답·빈 객체·null 만 오면 솔직한 실패', f11.d.ok === false && f11.status === 502 && f11.calls.length === 3);
 }
 
 console.log('\nE. 변이시험 — 정본을 고장 내면 잡히는가');
