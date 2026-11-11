@@ -116,6 +116,16 @@ html[data-t="dark"] details.mycard > summary{color:#c9d4e0}
 .payls-who{font-weight:600}
 .payls-amt{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
 .payls-sub{width:100%;font-size:11.5px;color:#b3261e;padding-left:2px}
+/* 📅 기간별 수업료 표 — 폰에서는 표만 옆으로 밀린다(페이지는 안 밀린다) */
+.fs-pair{display:flex;gap:6px;align-items:center;flex:1 1 220px}   /* 라벨이 입력칸과 떨어져 줄바꿈되지 않게 */
+.fs-scroll{overflow-x:auto;margin:8px 0}
+.fs-tbl{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap}
+.fs-tbl th,.fs-tbl td{border-top:1px solid #eaeef2;padding:6px 8px;text-align:left}
+.fs-tbl th{background:#f3f6f9;color:#5d6b7a;font-weight:700}
+.fs-tbl .n{text-align:right;font-variant-numeric:tabular-nums}
+.fs-tbl tfoot td{font-weight:800;border-top:2px solid #cfd8e1}
+html[data-t="dark"] .fs-tbl th{background:#1b2330;color:#9dabb9}
+html[data-t="dark"] .fs-tbl th,html[data-t="dark"] .fs-tbl td{border-color:#2b3541}
 .neg{color:#b3261e}
 .pos{color:#0b7a3d}
 
@@ -1028,6 +1038,11 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   <details class="card mycard" id="c-pay" ontoggle="if(this.open)loadPay()">
     <summary data-en="Pay &amp; deductions (this month)" data-ko="수업료 정산 (이번 달)">Pay &amp; deductions (this month)</summary>
     <div id="payBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <details class="card mycard" id="c-feesum" ontoggle="if(this.open)loadFeeSum()">
+    <summary data-en="Class fee summary (by date)" data-ko="기간별 수업료 조회">Class fee summary (by date)</summary>
+    <div id="feeSumBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
   <details class="card mycard" id="c-rate" ontoggle="if(this.open)loadRatings()">
@@ -4447,6 +4462,123 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     myGet('pay', '/api/admin/payroll/lessons?year=' + d.getFullYear() + '&month=' + (d.getMonth()+1))
       .then(function(j){ MY.pay = j; paintPay(); }).catch(function(){ failed('payBody'); });
   };
+  // 수업 상태 알약 — 건별 명세와 기간별 조회 표가 같이 쓴다(한 곳에서만 고친다).
+  function payStatusPill(l){
+    if (l.status === 'finish')          return '<span class="pill p-done">'   + esc(T('Done','완료')) + '</span>';
+    if (l.status === 'student_absent')  return '<span class="pill p-plan">'   + esc(T('Student absent','학생 결석')) + '</span>';
+    if (l.status === 'absence_hold')    return '<span class="pill p-hold">'   + esc(T('On hold (no pay)','보류 (지급 0)')) + '</span>';
+    if (l.status === 'teacher_no_show') return '<span class="pill p-noshow">' + esc(T('No-show','미입장')) + '</span>';
+    if (l.status === 'holiday')         return '<span class="pill p-hold">'   + esc(T('Holiday (no class)','공휴일 휴강')) + '</span>';
+    if (l.status === 'postponed')
+      //  왜 이 금액인지 — 30분 이내 연기는 전액, 사전 연기는 0 (2026-08-13 사장님 결정)
+      return '<span class="pill p-cancel">' + esc(l.postpone_fee_type === 'free'
+        ? T('Postponed early','사전 연기') : T('Postponed','연기')) + '</span>';
+    return esc(l.status);
+  }
+
+  /* 📅 기간별 수업료 조회 (2026-11-11 사장님 — 옛 LMS 「Time: from To [Search]」 표: 시간·학생·ID·인센티브·수업료·합계).
+     서버는 손대지 않는다: 월 단위 /payroll/lessons 를 기간이 걸친 달만큼 불러 날짜로 거른다.
+     강사 본인 것만 오는 것은 서버가 강제한다(teacher 세션이면 teacher_name 무시).
+     shortcut: 한 번에 3개월까지(달마다 서버 월 계산 1회) — 더 길게 필요해지면 서버에 from/to 를 받게 한다. */
+  var FEE_MAX_MONTHS = 3, feeSeq = 0;
+  var FEE_ERR = {
+    dates: function(){ return T('Pick both a start and an end date.','시작일과 종료일을 모두 고르세요.'); },
+    order: function(){ return T('The start date is after the end date.','시작일이 종료일보다 늦습니다.'); },
+    span:  function(){ return T('You can search up to 3 months at a time.','한 번에 3개월까지 조회할 수 있습니다.'); },
+    load:  function(){ return T('Could not load. Check your connection and try again.','불러오지 못했습니다. 연결을 확인하고 다시 조회해 주세요.'); }
+  };
+  function feeMonths(from, to){
+    var y = +from.slice(0,4), m = +from.slice(5,7), ey = +to.slice(0,4), em = +to.slice(5,7), out = [];
+    while ((y < ey || (y === ey && m <= em)) && out.length <= FEE_MAX_MONTHS) { out.push([y, m]); if (++m > 12) { m = 1; y++; } }
+    return out;
+  }
+  function feeRangeError(r){
+    var re = /^\d{4}-\d{2}-\d{2}$/;
+    if (!re.test(r.from || '') || !re.test(r.to || '')) return 'dates';
+    if (r.from > r.to) return 'order';
+    if (feeMonths(r.from, r.to).length > FEE_MAX_MONTHS) return 'span';
+    return '';
+  }
+  window.loadFeeSum = function(){
+    if (!MY.feeRange) {
+      var td = (DATA && DATA.today) || todayKST();   // portal 응답 전에 펼쳐도 KST 오늘(UTC 면 필리핀 새벽에 «어제»)
+      MY.feeRange = { from: td.slice(0, 8) + '01', to: td };   // 기본: 이번 달 1일 ~ 오늘
+    }
+    paintFeeSum();
+    if (!MY.fee) searchFeeSum();
+  };
+  function searchFeeSum(){
+    var r = MY.feeRange, err = feeRangeError(r), seq = ++feeSeq;
+    if (err) { MY.fee = { err: err }; paintFeeOut(); return; }
+    MY.fee = null; paintFeeOut();
+    Promise.all(feeMonths(r.from, r.to).map(function(ym){
+      return myGet('fee' + ym[0] + '-' + ym[1], '/api/admin/payroll/lessons?year=' + ym[0] + '&month=' + ym[1]);
+    })).then(function(js){
+      if (seq !== feeSeq) return;   // 더 나중에 누른 조회가 이긴다
+      var ls = [];
+      js.forEach(function(j){ (j.lessons || []).forEach(function(l){
+        // 예정(upcoming)은 아직 돈이 아니다 — 건별 명세와 같은 규칙
+        if (l.status && l.status !== 'upcoming' && l.date >= r.from && l.date <= r.to) ls.push(l);
+      }); });
+      ls.sort(function(a, b){ return (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')); });
+      MY.fee = { from: r.from, to: r.to, teacher: (js[js.length - 1] || {}).teacher || {}, lessons: ls };
+      paintFeeOut();
+    }).catch(function(){ if (seq === feeSeq) { MY.fee = { err: 'load' }; paintFeeOut(); } });
+  }
+  function paintFeeSum(){
+    // 언어 전환·화면 갱신으로 다시 그려도, 고르고 아직 조회 안 한 날짜는 그대로 둔다
+    var inF = document.getElementById('fs-from'), inT = document.getElementById('fs-to');
+    var r = inF && inT ? { from: inF.value, to: inT.value } : (MY.feeRange || {});
+    fill('feeSumBody', '<div class="wk-jump">'
+      + '<span class="fs-pair"><label for="fs-from">' + esc(T('From','시작일')) + '</label><input type="date" id="fs-from" value="' + esc(r.from || '') + '"></span>'
+      + '<span class="fs-pair"><label for="fs-to">' + esc(T('To','종료일')) + '</label><input type="date" id="fs-to" value="' + esc(r.to || '') + '"></span>'
+      + '<button type="button" id="fs-go">' + esc(T('Search','조회')) + '</button></div>'
+      + '<div id="fs-out" aria-live="polite"></div>');
+    document.getElementById('fs-go').addEventListener('click', function(){
+      MY.feeRange = { from: document.getElementById('fs-from').value, to: document.getElementById('fs-to').value };
+      searchFeeSum();
+    });
+    paintFeeOut();
+  }
+  function paintFeeOut(){
+    var el = document.getElementById('fs-out'), f = MY.fee;
+    if (!el) return;
+    if (!f) { el.innerHTML = '<div class="mini">' + esc(T('Loading…','불러오는 중…')) + '</div>'; return; }
+    if (f.err) { el.innerHTML = '<div class="mini neg">' + esc(FEE_ERR[f.err]()) + '</div>'; return; }
+    var t = f.teacher, fee = 0, ded = 0;
+    var lvl = EN() ? (t.level_label_en || t.level_label_ko) : (t.level_label_ko || t.level_label_en);
+    var signed = function(v){ return v < 0 ? '−' + peso(-v) : peso(v); };
+    var rows = f.lessons.map(function(l){
+      // 줄 합계는 0 에서 자르지 않는다 — 급여는 «기간 합계» 에만 0 하한을 건다(api-admin-payroll 월 합계와 같은 규칙).
+      //   줄마다 자르면 수업료보다 큰 공제(노쇼·긴 지각)가 합계에서 사라져 월 «예상 지급액» 과 어긋난다.
+      var a = Number(l.amount) || 0, d = Number(l.deduction_total) || 0, n = a - d;
+      fee += a; ded += d;
+      return '<tr><td>' + esc(l.date + ' ' + String(l.start_time || '').slice(0, 5) + (l.end_time ? '-' + l.end_time : '')) + '</td>'
+        + '<td>' + esc(l.student_name || '-') + '</td><td>' + esc(l.user_id || '-') + '</td>'
+        + '<td>' + payStatusPill(l) + '</td>'
+        + '<td class="n">' + esc(peso(a)) + '</td>'
+        + '<td class="n">&mdash;</td>'
+        + '<td class="n neg">' + (d ? '&minus;' + esc(peso(d)) : '') + '</td>'
+        + '<td class="n' + (n < 0 ? ' neg' : '') + '"><b>' + esc(signed(n)) + '</b></td></tr>';
+    }).join('');
+    var tot = Math.max(0, fee - ded);
+    var h = '<div class="payrow"><span>' + esc(T('Time','기간')) + ': <b>' + esc(f.from + ' ~ ' + f.to) + '</b>'
+      + ' &middot; ' + esc(T('Teacher','강사')) + ': <b>' + esc(t.english_name || t.korean_name || myName() || '-') + '</b>'
+      + (lvl ? ' &middot; ' + esc(T('Level','등급')) + ': <b>' + esc(lvl) + '</b>' : '')
+      + '</span><span class="g">' + esc(T('Total','합계')) + ' ' + esc(peso(tot)) + '</span></div>';
+    if (!f.lessons.length) { el.innerHTML = h + '<div class="mini">' + esc(T('No lessons in this period.','이 기간에 수업이 없습니다.')) + '</div>'; return; }
+    h += '<div class="fs-scroll"><table class="fs-tbl"><thead><tr>'
+      + '<th>' + esc(T('Lesson time','수업 시간')) + '</th><th>' + esc(T('Student','학생')) + '</th><th>' + esc(T('Student ID','학생 ID')) + '</th>'
+      + '<th>' + esc(T('Status','상태')) + '</th><th class="n">' + esc(T('Fee','수업료')) + '</th><th class="n">' + esc(T('Incentive','인센티브')) + '</th>'
+      + '<th class="n">' + esc(T('Deduction','공제')) + '</th><th class="n">' + esc(T('Total','합계')) + '</th></tr></thead><tbody>' + rows + '</tbody>'
+      + '<tfoot><tr><td colspan="4">' + esc(T('Lessons','수업') + ' (' + f.lessons.length + ')') + '</td>'
+      + '<td class="n">' + esc(peso(fee)) + '</td><td class="n">&mdash;</td>'
+      + '<td class="n neg">' + (ded ? '&minus;' + esc(peso(ded)) : '') + '</td><td class="n">' + esc(peso(tot)) + '</td></tr></tfoot></table></div>'
+      + '<div class="mini">' + esc(T('Unit: PHP. Total = fee − deductions (the period total never goes below ₱0). Incentive: none recorded in the system yet. Estimate — final pay is confirmed by your manager.',
+                                     '단위: 페소. 합계 = 수업료 − 공제(기간 합계는 ₱0 아래로 내려가지 않음). 인센티브: 아직 시스템에 기록된 것이 없습니다. 예상 금액이며 최종 지급액은 매니저가 확정합니다.')) + '</div>';
+    el.innerHTML = h;
+  }
+
   function paintPay(){
     var j = MY.pay; if (!j) return;
     var s = j.summary || {}, rate = (j.teacher && j.teacher.fee_per_10min) || 0;
@@ -4473,18 +4605,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     if (ls.length){
       ls.sort(function(a,b){ return (b.date + (b.start_time||'')).localeCompare(a.date + (a.start_time||'')); });
       var CAP = 80;   // 한 달 20분 수업 기준 넉넉한 상한 — 넘치면 «몇 건 더» 를 말한다(조용한 절단 금지)
-      var stL = function(l){
-        if (l.status === 'finish')          return '<span class="pill p-done">'   + esc(T('Done','완료')) + '</span>';
-        if (l.status === 'student_absent')  return '<span class="pill p-plan">'   + esc(T('Student absent','학생 결석')) + '</span>';
-        if (l.status === 'absence_hold')    return '<span class="pill p-hold">'   + esc(T('On hold (no pay)','보류 (지급 0)')) + '</span>';
-        if (l.status === 'teacher_no_show') return '<span class="pill p-noshow">' + esc(T('No-show','미입장')) + '</span>';
-        if (l.status === 'holiday')         return '<span class="pill p-hold">'   + esc(T('Holiday (no class)','공휴일 휴강')) + '</span>';
-        if (l.status === 'postponed')
-          //  왜 이 금액인지 — 30분 이내 연기는 전액, 사전 연기는 0 (2026-08-13 사장님 결정)
-          return '<span class="pill p-cancel">' + esc(l.postpone_fee_type === 'free'
-            ? T('Postponed early','사전 연기') : T('Postponed','연기')) + '</span>';
-        return esc(l.status);
-      };
+      var stL = payStatusPill;
       var DED = {
         no_feedback_day: T('no feedback','피드백 미작성'),
         late_no_extend:  T('late','지각'),
@@ -4850,6 +4971,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     var pp = document.getElementById('c-postpone');
     if (pp && pp.open) window.renderPostponeList();
     if (MY.pay) paintPay();
+    if (MY.feeRange) paintFeeSum();
     if (MY.rate) paintRatings();
     if (MY.insight) paintInsight();
     if (MY.report) paintReports();
