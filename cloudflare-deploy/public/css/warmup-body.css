@@ -8,20 +8,23 @@
    KO: 대화 화면 안에서, 공간이 있을 때만 적용합니다. 얼굴·대사가 나란한 화면(851px 이상)
        또는 위아래 배치라도 높이 900px 이상인 화면. 휴대폰은 원래 가슴 위 카드를 유지해
        「함께 말해 봐요」 버튼과 대사가 아래로 밀리지 않게 합니다.
-       몸통 그림이 카드 높이를 정하고, 얼굴 캔버스는 원래 비율 그대로 같은 자리에 겹칩니다. */
+       몸통 그림이 카드 높이를 정하고, 얼굴 캔버스는 원래 비율 그대로 같은 자리에 겹칩니다.
+   Seam / 이음새: the canvas fades out over its last 4% onto the torso, which repeats the
+       picture there (OVERLAP) and starts drawing CUT px above the seam (build-avatar-bodies.py),
+       so no line shows. 캔버스 아래 4% 를 흐리게 해 몸통 그림과 이어 붙입니다(선이 안 보이게). */
 #tavatar-ring>.wf-body{display:none;}
 
 @container(min-width:851px){
  body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body{height:auto!important;overflow:hidden;}
  body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>.wf-body{display:block;position:relative;z-index:1;width:100%;height:auto;border-radius:14px;pointer-events:none;user-select:none;-webkit-user-drag:none;}
- body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>#tavatar-canvas{position:absolute;top:4px;left:4px;width:calc(100% - 8px);height:auto;border-radius:14px 14px 0 0;}
+ body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>#tavatar-canvas{position:absolute;top:4px;left:4px;width:calc(100% - 8px);height:auto;border-radius:14px 14px 0 0;-webkit-mask-image:linear-gradient(#000 96%,transparent);mask-image:linear-gradient(#000 96%,transparent);}
  body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>#tavatar-video{display:none;}
 }
 @container(max-width:850px){
  @media(min-height:900px){
   body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body{height:auto!important;overflow:hidden;}
   body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>.wf-body{display:block;position:relative;z-index:1;width:100%;height:auto;border-radius:14px;pointer-events:none;user-select:none;-webkit-user-drag:none;}
-  body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>#tavatar-canvas{position:absolute;top:4px;left:4px;width:calc(100% - 8px);height:auto;border-radius:14px 14px 0 0;}
+  body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>#tavatar-canvas{position:absolute;top:4px;left:4px;width:calc(100% - 8px);height:auto;border-radius:14px 14px 0 0;-webkit-mask-image:linear-gradient(#000 96%,transparent);mask-image:linear-gradient(#000 96%,transparent);}
   body .wf-stage>#tavatar-wrap>#tavatar-ring.wf-has-body>#tavatar-video{display:none;}
  }
 }
