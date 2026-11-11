@@ -25,3 +25,5 @@ Follow-up (2026-11-12 KST), after owner requested continuation:
 - Full CI and browser verification remain required before merge. No claim of completed production deployment.
 
 Rollback, if authorized later, is a PR reverting the feature with fresh asset versions; no stored data migration is involved.
+
+Validation follow-up: local full deployment gates passed (743 PASS, 20 designated E2E skips, 0 failures; JS syntax and 344 asset references passed). GitHub CI also passed at 889ad2a. Browser jobs failed before tests because apt could not resolve azure.archive.ubuntu.com. Both affected browser workflows now install Chromium without re-installing already supplied runner system libraries; all browser test commands remain mandatory.

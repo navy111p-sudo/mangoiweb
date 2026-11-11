@@ -27,7 +27,7 @@ jobs:
       - name: Install browser
         run: |
           npm install --prefix "$RUNNER_TEMP/status-pw" playwright@1.58.2
-          "$RUNNER_TEMP/status-pw/node_modules/.bin/playwright" install --with-deps chromium
+          "$RUNNER_TEMP/status-pw/node_modules/.bin/playwright" install chromium
       - name: Verify calculations and layouts
         env:
           PW_DIR: ${{ runner.temp }}/status-pw
