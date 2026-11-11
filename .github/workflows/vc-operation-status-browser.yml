@@ -1,0 +1,36 @@
+name: Class operation status browser verification
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/public/js/idx-vc-qlog.js'
+      - 'cloudflare-deploy/public/js/idx-vc-sizebar.js'
+      - 'test-harness/*operation_status*'
+      - 'test-harness/manual/vc-operation-browser.cjs'
+      - '.github/workflows/vc-operation-status-browser.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Restore .git cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: repo-git-v1-${{ github.run_id }}
+          restore-keys: repo-git-v1-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/status-pw" playwright@1.58.2
+          "$RUNNER_TEMP/status-pw/node_modules/.bin/playwright" install chromium
+      - name: Verify calculations and layouts
+        env:
+          PW_DIR: ${{ runner.temp }}/status-pw
+        run: |
+          node test-harness/vc_operation_status_harness.mjs
+          node test-harness/manual/vc-operation-browser.cjs

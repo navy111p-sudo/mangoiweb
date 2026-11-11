@@ -271,6 +271,7 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
       let applied: string | null = null;
       let _oneWeekApplied = false;   // 🔁 반복 수업 «그 주 하루만» 으로 반영했나(이력 문구용)
       let teacherChanged: { id: string; name: string | null } | null = null;   // 👨‍🏫 승인으로 담당 강사를 바꿨으면
+      let _origTeacherId: any = null;   // 🔔 바꾸기 «전» 담당 — 강사 알림이 원래 강사에게 가게(teacher-change-alert.ts)
       if (action === 'approved' && row.schedule_id) {
         try {
           // ⚠️ 운영 스케줄은 대부분 반복(매주, scheduled_date=NULL) — 반복 row 를 덮어쓰면
@@ -281,6 +282,7 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
             `SELECT * FROM class_schedules WHERE id = ? LIMIT 1`
           ).bind(row.schedule_id).first();
           if (!cs) return json({ ok: false, error: 'schedule_not_found' }, 409);
+          _origTeacherId = cs.teacher_id ?? null;
           const isDated = !!(cs && cs.scheduled_date);
           /* 🔁 (2026-10-09) 반복 수업은 «그 주 하루만» 반영할 수 있으면 그렇게 한다(recurring-one-week.ts).
              못 하는 사유가 «예전 요청이라 회차·스냅샷이 없음» 이면 예전처럼 기록만(recorded). */
@@ -452,6 +454,7 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
           lesson_time: row.orig_time || null,
           actor: (body.decided_by || _srdActor.name || '관리자').trim(),
           actor_role: 'admin',
+          teacher_id: _origTeacherId,
           source: 'schedule-request',
           reason: row.reason || null,
           detail: [((row as any).end_makeup && applied === 'moved' ? String((row as any).end_makeup) : null),
