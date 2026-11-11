@@ -314,7 +314,7 @@
   function evqLoad(go) {
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=4';
+    sc.src = '/js/eval-quick-view.js?v=5';
     sc.onload = go;
     sc.onerror = function () { alert(T('전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.', 'Could not load the viewer — please tap again.')); };
     document.head.appendChild(sc);
@@ -338,7 +338,8 @@
       window.mgEvalQuick.create({
         which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
         student_uid: s.student_uid, student_name: s.student_name, teacher_name: s.teacher_name,
-        room_id: s.room_id, class_date: s.class_date, prev_classes: s.prev_classes
+        room_id: s.room_id, class_date: s.class_date, prev_classes: s.prev_classes,
+        level: s.level, attendance: s.attendance   /* 🗓 (2026-11-11) 창에 학생 레벨·입장 기록 출결을 미리 보여 준다 */
       }, { en: isEn(), onSaved: evqSaved });
     });
   }

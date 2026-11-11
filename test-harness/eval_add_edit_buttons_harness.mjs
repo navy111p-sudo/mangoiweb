@@ -164,6 +164,22 @@ if (typeof Q._renderCreate === 'function') {
   ok('B-13 점수 칸이 없다(별점은 강사 일지 창의 몫)', !/score/.test(last + today));
   ok('B-14 이름을 탈출한다(XSS)', !/<img/.test(last));
   ok('B-15 한/영 — 한국어 화면은 한국어', /오늘 피드백 추가/.test(today) && /Add last class feedback/.test(last));
+  /* 🗓 (2026-11-11 매니저 제안 «강사 화면과 같은 일지 칸») 학생 레벨 · 출결 칩 · 수준 그룹 칩 — 미리 고름은 «오늘 + 입장 기록» 일 때만(짝) */
+  const onOf = (h, g) => { const m = h.split('data-evq-chips="' + g + '"')[1] || ''; return (m.split('</div>')[0].match(/evq-chip on" data-v="(\w+)"/g) || []).map(s => s.replace(/.*data-v="(\w+)"/, '$1')); };
+  const C = (o) => Q._renderCreate(Object.assign({ which: 'today', student_name: 'Mina', class_date: '2026-10-28', room_id: 'class-1-20261028', prev_classes: PREV }, o), true);
+  ok('B-16 출결 칩 셋 · 수준 그룹 칩 셋이 있다', (C({}).match(/data-evq-chips="att"[\s\S]*?<\/div>/)[0].match(/data-v=/g) || []).length === 3
+    && (C({}).match(/data-evq-chips="band"[\s\S]*?<\/div>/)[0].match(/data-v=/g) || []).length === 3);
+  for (const st of ['attended', 'late', 'absent']) {
+    ok('B-17 오늘 + 입장 기록 ' + st + ' → 그 칩만 켜짐', JSON.stringify(onOf(C({ attendance: { state: st } }), 'att')) === JSON.stringify([st]));
+  }
+  for (const st of ['waiting', 'unknown', 'not_yet', 'cafe24', undefined]) {
+    ok('B-18 기록이 «모름·대기» (' + st + ') 면 아무것도 안 켬(짝)', onOf(C({ attendance: st ? { state: st } : null }), 'att').length === 0);
+  }
+  ok('B-19 지난 수업은 오늘 입장 기록으로 미리 고르지 않는다(짝)', onOf(C({ which: 'last', attendance: { state: 'attended' } }), 'att').length === 0);
+  ok('B-20 학생 레벨을 보여 준다 · 없으면 «Not set»', C({ level: 'Lv 12' }).includes('Lv 12') && C({}).includes('Not set'));
+  ok('B-21 레벨 글자를 탈출한다(XSS)', !C({ level: '<img src=x>' }).includes('<img'));
+  ok('B-22 수준 그룹: 넘겨준 값만 켜짐 · 없으면 안 켬(짝)', JSON.stringify(onOf(C({ eval_band: 'grow' }), 'band')) === '["grow"]' && onOf(C({}), 'band').length === 0);
+  ok('B-23 칩 이름은 data-evq-chips — «어느 수업인가요?» 고르기(data-evq-pick)와 안 겹친다', !/data-evq-pick="/.test(C({ which: 'last' })));
 }
 {
   const i = VIEW.indexOf('function showCreate(ctx, en, opts)');
@@ -177,6 +193,9 @@ if (typeof Q._renderCreate === 'function') {
   ok('C-6 저장 성공은 «ok === true + id» 로 가른다', /x\.st === 200 && x\.d && x\.d\.ok === true && x\.d\.id/.test(src));
   ok('C-7 두 번 눌러도 두 번 저장하지 않는다', /if \(saving\) return;/.test(src) && /saving = true/.test(src));
   ok('C-8 문자 결과를 서버 응답 그대로 말한다(밤 미룸·보냄·실패·번호 없음)', /notifyLine\(sms, x\.d\.notify, en\)/.test(src));
+  // 실제로 눌러 본문을 보는 검사는 manual/eval-add-edit-browser.mjs G절 — 여기선 «칩을 배선하고 그 값을 싣는가» 만
+  ok('C-8b 칩을 배선하고, 고른 출결·그룹을 싣는다(안 고르면 안 보냄)', /wireChips\(box\)/.test(src)
+    && /attendance_status: chosen\(box, 'att'\) \|\| undefined/.test(src) && /band: chosen\(box, 'band'\) \|\| undefined/.test(src));
 }
 {
   ok('C-9b 고를 회차가 없으면 «지난» 창을 열지 않는다', /if \(ctx\.which === 'last' && !pickableClasses\(ctx\)\.length\) return;/.test(VIEW));
@@ -200,6 +219,8 @@ ok('D-8 강사: 위임 → teacher-feedback-new → 공용 창 create', /dispatc
   && /addEventListener\('teacher-feedback-new'[\s\S]{0,400}mgEvalQuick\.create\(ctx/.test(TCH));
 ok('D-9 강사: 쓰는 사람 = 이 강사(teacher_uid = 내 아이디)', /teacher_uid:DATA\.me && DATA\.me\.username/.test(TCH));
 ok('D-9b 세 화면 모두 서버 회차(prev_classes)를 창에 넘긴다', /prev_classes: s\.prev_classes/.test(ADM) && /prev_classes: r\.prev_classes/.test(MGR) && /prev_classes:c\.prev_classes/.test(TCH));
+ok('D-9d 관리자·매니저는 학생 레벨·입장 기록 출결을, 강사는 레벨·수준 그룹을 창에 넘긴다',
+  /level: s\.level, attendance: s\.attendance/.test(ADM) && /level: r\.level, attendance: r\.attendance/.test(MGR) && /level:c\.level, eval_band:c\.eval_band/.test(TCH));
 ok('D-9c 강사: 다시그리기 지문에 지난 회차 목록이 있다(캐시 뒤 서버 응답에서 버튼이 뜨게)', /sc\.prev_classes\.length/.test(TCH));
 ok('D-10 manager·teacher 는 공용 창을 정적 <script src> 로 싣지 않는다(외부 리소스 0개)',
   !/<script[^>]+src="\/js\/eval-quick-view/.test(MGR) && !/<script[^>]+src="\/js\/eval-quick-view/.test(TCH));

@@ -101,7 +101,8 @@ await page.route('**/*', async (route) => {
   if (m && req.method() === 'GET') {
     const id = +m[1];
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, can_edit: id !== 43,
-      eval: { id, student_name: 'Jun', lesson_date: TODAY, note_en: 'Old note', note_ko: '예전 글입니다', parent_notified: 0 } }) });
+      eval: { id, student_name: 'Jun', lesson_date: TODAY, note_en: 'Old note', note_ko: '예전 글입니다', parent_notified: 0,
+              student_level: id === 41 ? 'Lv 9' : null, attendance_status: id === 41 ? 'attended' : null } }) });
   }
   if (m && req.method() === 'PATCH') { patches.push({ id: +m[1], body: JSON.parse(req.postData() || '{}') }); return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, id: +m[1], parent_notified: false }) }); }
   return route.fulfill({ status: 404, body: '' });
@@ -226,6 +227,68 @@ await page.locator('[data-evq-fix="41"]').focus();
 await page.keyboard.press('Enter');
 await page.waitForSelector('#mg-evq [data-evq-f="note_en"]');
 check('F-1 Enter 로도 연다(role=button)', true);
+await page.click('#mg-evq [data-evq-close]');
+
+console.log('\n[G] 🗓 (2026-11-11) 학생 레벨 · 수업 출결 · 수준 그룹 칩');
+check('G-0 앞 절의 저장 본문: 오늘(입장 기록 attended) → 미리 고른 출결이 실린다 · 지난 → 출결 안 실림(짝)',
+  posts[0].attendance_status === 'attended' && !('attendance_status' in posts[1]) && !('band' in posts[0]), [posts[0], posts[1]]);
+const onChips = (g) => page.$$eval('#mg-evq [data-evq-chips="' + g + '"] .evq-chip.on', (bs) => bs.map((b) => b.getAttribute('data-v')));
+await page.evaluate(() => window.mgEvalQuick.create({ which: 'today', student_uid: 'stu_g', student_name: 'Gia', room_id: 'class-2-20261028',
+  class_date: '2026-10-28', level: 'Lv 12', attendance: { state: 'late' } }, { en: true }));
+await page.waitForSelector('#mg-evq [data-evq-chips="att"]');
+check('G-1 학생 레벨이 보인다', /Lv 12/.test(await page.locator('#mg-evq').innerText()));
+check('G-2 입장 기록(late)이 미리 골라져 있다', JSON.stringify(await onChips('att')) === '["late"]');
+await page.click('#mg-evq [data-evq-chips="att"] [data-v="absent"]');
+check('G-3 다른 칩을 누르면 하나만 켜진다', JSON.stringify(await onChips('att')) === '["absent"]');
+await page.click('#mg-evq [data-evq-chips="band"] [data-v="grow"]');
+check('G-4 수준 그룹 고르기', JSON.stringify(await onChips('band')) === '["grow"]');
+if (SHOT_DIR) await page.locator('#mg-evq .evq-box').screenshot({ path: join(SHOT_DIR, 'create-chips.png') });
+await page.fill('#mg-evq [data-evq-f="note_en"]', 'Gia was absent');
+await page.click('#mg-evq [data-evq-save]');
+await page.waitForSelector('#mg-evq [data-evq-open]');
+const pg = posts[posts.length - 1] || {};
+check('G-5 저장 본문: attendance_status=absent · band=grow · 레벨은 안 보낸다(서버가 원부에서 읽음)',
+  pg.attendance_status === 'absent' && pg.band === 'grow' && !('level' in pg) && !('student_level' in pg), pg);
+await page.click('#mg-evq [data-evq-close]');
+// 켜진 칩을 다시 누르면 꺼진다 → 안 보낸다(짝)
+await page.evaluate(() => window.mgEvalQuick.create({ which: 'today', student_uid: 'stu_h', student_name: 'Hana', room_id: 'class-3-20261028',
+  class_date: '2026-10-28', attendance: { state: 'attended' } }, { en: true }));
+await page.waitForSelector('#mg-evq [data-evq-chips="att"]');
+await page.click('#mg-evq [data-evq-chips="att"] [data-v="attended"]');
+check('G-6 켜진 칩을 다시 누르면 꺼진다', (await onChips('att')).length === 0);
+await page.fill('#mg-evq [data-evq-f="note_en"]', 'Unsure');
+await page.click('#mg-evq [data-evq-save]');
+await page.waitForSelector('#mg-evq [data-evq-open]');
+check('G-7 껐으면 출결을 안 보낸다(짝)', !('attendance_status' in (posts[posts.length - 1] || {})), posts[posts.length - 1]);
+await page.click('#mg-evq [data-evq-close]');
+// ✏️ 고치기 — 저장된 출결(attended)이 켜진 채로 열리고, 바꾸면 PATCH 에 실린다
+const pBefore = patches.length;
+await page.evaluate(() => window.mgEvalQuick(41, { en: true, edit: true }));
+await page.waitForSelector('#mg-evq [data-evq-chips="att"]');
+check('G-8 고치기: 저장된 레벨(Lv 9) 보기 · 저장된 출결(attended) 켜짐', /Lv 9/.test(await page.locator('#mg-evq').innerText()) && JSON.stringify(await onChips('att')) === '["attended"]');
+if (SHOT_DIR) await page.locator('#mg-evq .evq-box').screenshot({ path: join(SHOT_DIR, 'edit-chips.png') });
+await page.click('#mg-evq [data-evq-chips="att"] [data-v="late"]');
+await page.click('#mg-evq [data-evq-save]');
+await page.waitForFunction(() => /Saved/.test(document.getElementById('mg-evq').innerText));
+check('G-9 출결만 바꾸면 PATCH 본문은 {attendance_status:"late"} 하나', patches.length === pBefore + 1
+  && JSON.stringify(patches[patches.length - 1].body) === '{"attendance_status":"late"}', patches[patches.length - 1]);
+await page.click('#mg-evq [data-evq-close]');
+await page.evaluate(() => window.mgEvalQuick(41, { en: true, edit: true }));
+await page.waitForSelector('#mg-evq [data-evq-chips="att"]');
+await page.click('#mg-evq [data-evq-chips="att"] [data-v="attended"]');
+await page.click('#mg-evq [data-evq-save]');
+await page.waitForFunction(() => /Saved/.test(document.getElementById('mg-evq').innerText));
+check('G-10 켜진 출결을 끄면 "" 로 지운다', JSON.stringify(patches[patches.length - 1].body) === '{"attendance_status":""}', patches[patches.length - 1]);
+await page.click('#mg-evq [data-evq-close]');
+await page.evaluate(() => window.mgEvalQuick(41, { en: true, edit: true }));
+await page.waitForSelector('#mg-evq [data-evq-chips="att"]');
+await page.click('#mg-evq [data-evq-save]');
+check('G-11 아무것도 안 바꾸면 PATCH 안 나감 · «바뀐 내용이 없다»(짝)', /Nothing changed/.test(await page.locator('#mg-evq [data-evq-msg]').innerText()) && patches.length === pBefore + 2);
+// 모바일 폭 — 칩이 넘치지 않고 줄바꿈된다
+await page.setViewportSize({ width: 360, height: 800 });
+const ov = await page.$eval('#mg-evq [data-evq-chips="att"]', (el) => el.scrollWidth <= el.clientWidth + 1);
+check('G-12 360px 폭에서도 칩이 넘치지 않는다', ov);
+if (SHOT_DIR) await page.locator('#mg-evq .evq-box').screenshot({ path: join(SHOT_DIR, 'edit-chips-360.png') });
 
 check('페이지 오류 없음', errs.length === 0, errs);
 await browser.close();
