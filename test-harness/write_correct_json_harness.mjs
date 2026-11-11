@@ -204,6 +204,18 @@ if (handleWritingApi) {
   check('F10 corrected 없는 객체·배열 객체는 못 읽음으로 보고 다음 모델', f10.d.ok === true && f10.calls.length === 3);
   const f11 = await callCorrect([() => ({ response: '' }), () => ({}), () => null]);
   check('F11 빈 답·빈 객체·null 만 오면 솔직한 실패', f11.d.ok === false && f11.status === 502 && f11.calls.length === 3);
+
+  // 🔒 G. 개인정보 — 못 읽은 답(=학생 글이 담긴 수정본)을 로그에 남기지 않는다(AGENTS.md «student personal data» 로그 금지 · Codex 리뷰 P1)
+  const SECRET = 'My name is Kim Minjun from Seoul Hana Elementary.\nI am happy.';
+  const logged = [];
+  const saved = { log: console.log, warn: console.warn, error: console.error };
+  for (const k of Object.keys(saved)) console[k] = (...a) => logged.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
+  let g1;
+  try {
+    g1 = await callCorrect([`{"corrected": "${SECRET.replace('\n', '\\n')}`, () => ({ response: '{"corrected": """' + SECRET + '\n' }), () => ({ response: { score: 1, note: SECRET } })], SECRET);
+  } finally { Object.assign(console, saved); }
+  check('G1 (전제) 세 모델 모두 못 읽어 실패 경로를 탔다', g1 && g1.d.ok === false && logged.some((l) => /reply unreadable/.test(l)));
+  check('G2 그 경로의 로그 어디에도 학생 글(이름·학교)이 없다', !logged.some((l) => /Kim Minjun|Hana Elementary/.test(l)), logged.find((l) => /Kim Minjun|Hana Elementary/.test(l)));
 }
 
 console.log('\nE. 변이시험 — 정본을 고장 내면 잡히는가');

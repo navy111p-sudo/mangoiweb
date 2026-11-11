@@ -104,7 +104,8 @@ Student text (as a JSON string): ${JSON.stringify(text)}`;
           parsed = parseLlmJson(body);
           if (parsed && String(parsed.corrected || '').trim()) break;
           parsed = null; unreadable++;
-          console.warn(`[write-correct] model ${m} reply unreadable:`, (typeof body === 'string' ? body : JSON.stringify(body)).slice(0, 200));
+          // ⛔ 답 내용은 로그에 안 남긴다 — 수정본 = 학생 글(이름·학교가 들어갈 수 있음, AGENTS.md «개인정보 로그 금지»)
+          console.warn(`[write-correct] model ${m} reply unreadable: type=${typeof body} len=${typeof body === 'string' ? body.length : JSON.stringify(body)?.length ?? 0}`);
         } catch (e: any) {
           lastErr = e;
           console.error(`[write-correct] model ${m} failed:`, e?.message || e);
