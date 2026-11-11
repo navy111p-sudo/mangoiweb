@@ -109,6 +109,10 @@ ok('   th·td 가 같은 조건(selCol)으로 짝지어 그려진다', /\(selCol
 ok('일괄 버튼은 «보이는 줄» 에서 대상을 뽑는다', /tcMsgTargets\(rows, _tcSel\)/.test(fnSrc(SRC, 'render')));
 ok('여러 명이면 보내기 전에 한 번 더 묻는다', /targets\.length > 1 && !confirm\(/.test(SRC));
 ok('보낸 뒤엔 «못 보낸 학생만» 다시 — 같은 문자 두 번 방지', /targets = bad\.map/.test(SRC));
+// Codex P2 — 창 안 지역 변수면 «닫고 다시 열기» 로 두 묶음이 겹친다. 깃발은 창 밖(모듈)에.
+const modal = fnSrc(SRC, 'tcOpenMsgModal');
+ok('보내는 중 깃발이 창 밖에 있다 (닫았다 열어도 겹쳐 보내지 않는다)',
+  /\n  var _tcMsgBusy = false;/.test(SRC) && /if \(_tcMsgBusy\)/.test(modal) && !/var busy\b/.test(modal));
 
 console.log('\n════════════════════════════════════════════');
 console.log(`  ${FAIL ? "⚠" : "✅"} PASS ${PASS} / FAIL ${FAIL}`);

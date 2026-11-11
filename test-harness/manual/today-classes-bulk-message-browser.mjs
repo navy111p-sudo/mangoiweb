@@ -53,6 +53,7 @@ const BOOT = `
       if (s.indexOf('/api/admin/retention/care') >= 0) {
         var b = {}; try { b = JSON.parse((o && o.body) || '{}'); } catch(e) {}
         window.__sent.push(b);
+        if (window.__delay) return new Promise(function(r){ setTimeout(function(){ r(ok({ ok:true, status:'sent', detail:'문자 발송 → ***1234' })); }, window.__delay); });
         /* hilime 은 번호가 없어 «못 보냄» — 다시 보내기가 그 한 명만 고르는지 본다 */
         if (b.user_id === 'hilime' && !window.__fixHilime) return Promise.resolve(ok({ ok:true, status:'failed', detail:'문자: 보낼 번호가 없습니다' }));
         return Promise.resolve(ok({ ok:true, status:'sent', detail:'문자 발송 → ***1234' }));
@@ -161,6 +162,19 @@ async function main() {
   check('한 명 창은 글이 그 학생 이름으로 미리 채워진다 (자리표 없음)', /탁학생 학생/.test(t1) && !/\{/.test(t1), t1);
   await ev('document.getElementById("tc-msg-send").click()'); await sleep(300);
   check('   한 명은 묻지 않고 바로 1건', (await ev('window.__confirms.length')) === 0 && (await ev('window.__sent.length')) === 1);
+  await ev('document.getElementById("tc-msg-cancel").click()');
+
+  console.log('\n── ⑤-2 보내는 중 닫았다 다시 열어도 두 번 안 나간다 (Codex P2) ──');
+  await ev('window.__sent = []; window.__delay = 400; document.getElementById("tc-bulk-msg").click()'); await sleep(150);
+  await ev('document.getElementById("tc-msg-send").click()'); await sleep(100);
+  await ev('document.getElementById("tc-msg-cancel").click(); document.getElementById("tc-bulk-msg").click()'); await sleep(100);
+  await ev('document.getElementById("tc-msg-send").click()'); await sleep(100);
+  check('앞 묶음이 끝나기 전 새 «보내기» 는 막고 이유를 말한다', /아직 끝나지 않았습니다/.test(await ev('document.getElementById("tc-msg-out").textContent')));
+  await sleep(1600);
+  const dup = JSON.parse(await ev('JSON.stringify(window.__sent.map(function(b){return b.user_id}))'));
+  check('   학생마다 정확히 한 번씩 (중복 0)', dup.length === 3 && new Set(dup).size === 3, JSON.stringify(dup));
+  await ev('window.__delay = 0; window.__sent = []; document.getElementById("tc-msg-send").click()'); await sleep(400);
+  check('   앞 묶음이 끝나면 다시 보낼 수 있다 (짝)', (await ev('window.__sent.length')) === 3);
   await ev('document.getElementById("tc-msg-cancel").click()');
 
   console.log('\n── ⑥ 폰 폭 · EN ─────────────────────────────────');

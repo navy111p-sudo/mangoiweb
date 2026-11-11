@@ -771,6 +771,8 @@
      강사 휴가·사고 때 한 명씩 📩 를 누르던 일을 없앤다. 서버는 그대로(class_notice 를 학생마다 한 번씩).
      선택은 «학생+수업 시각» 으로 기억 — 다시 그려도 남고, 날짜를 바꾸면 자연히 풀린다. */
   var _tcSel = {};
+  // 🔒 보내는 중 표시는 «창 밖» 에 둔다 — 창을 닫았다 다시 열어도 앞 묶음이 끝나기 전엔 새로 못 보낸다(같은 문자 두 번 방지).
+  var _tcMsgBusy = false;
   function tcSelKey(s) { return String(s.student_uid) + '|' + String(s.start_ts || s.start_time || ''); }
   // ⏸ «다른 날로 옮긴» 줄은 빼다 — 원래 시각으로 안내가 나가 거짓이 된다(📩 칩과 같은 조건 · 정본은 이 한 줄).
   function tcMsgable(s) { return !!(s && s.student_uid && !s.moved_away); }
@@ -864,21 +866,21 @@
     document.getElementById('tc-msg-text').value = many ? tpl : tcFillMsg(tpl, one);
     box.addEventListener('click', function (e) { if (e.target === box) tcMsgModalClose(); });
     document.getElementById('tc-msg-cancel').addEventListener('click', tcMsgModalClose);
-    var busy = false, sendBtn = document.getElementById('tc-msg-send');
+    var sendBtn = document.getElementById('tc-msg-send');
     sendBtn.addEventListener('click', function () {
-      if (busy) return;
       var out = document.getElementById('tc-msg-out');
+      if (_tcMsgBusy) { out.style.color = '#b42318'; out.textContent = T('앞서 보내던 안내가 아직 끝나지 않았습니다. 잠시 뒤 다시 눌러 주세요.', 'The previous send is still running. Please try again shortly.'); return; }
       var msg = String(document.getElementById('tc-msg-text').value || '').trim();
       var push = document.getElementById('tc-msg-push').checked, sms = document.getElementById('tc-msg-sms').checked;
       if (!msg) { out.style.color = '#b42318'; out.textContent = T('보낼 내용을 적어 주세요.', 'Please write a message.'); return; }
       if (!push && !sms) { out.style.color = '#b42318'; out.textContent = T('푸시나 문자 중 하나는 골라 주세요.', 'Pick push or SMS.'); return; }
       // 💸 여러 명은 돈이 나가는 문자라 한 번 더 묻는다(실수로 전체에게 나가지 않게).
       if (targets.length > 1 && !confirm(T(targets.length + '명에게 보냅니다. 계속할까요?', 'Send to ' + targets.length + ' students?'))) return;
-      busy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
+      _tcMsgBusy = true; out.style.color = '#475467'; out.textContent = T('보내는 중…', 'Sending…');
       tcSendMsgs(targets, msg, push, sms, function (i, n) {
         if (n > 1) out.textContent = T('보내는 중… ' + i + ' / ' + n, 'Sending… ' + i + ' / ' + n);
       }).then(function (res) {
-        busy = false;
+        _tcMsgBusy = false;
         var bad = res.filter(function (r) { return !r.ok; });
         if (res.length === 1) {
           out.style.color = res[0].ok ? '#067647' : '#b42318';
