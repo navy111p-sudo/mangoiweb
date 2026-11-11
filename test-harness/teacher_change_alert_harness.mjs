@@ -49,7 +49,7 @@ function blockFrom(src, openIdx) {
 console.log('\n🔔 수업 취소·연기·변경 → 강사 푸시 + Paid/Unpaid\n');
 
 // ═══════════════ A~C. 정본을 실제로 돌린다 ═══════════════
-const FILES = ['teacher-change-alert.ts', 'postpone-pay.ts', 'session-ledger.ts', 'teacher-push.ts', 'web-push.ts', 'd1-chunk.ts', 'class-audit.ts'];
+const FILES = ['teacher-change-alert.ts', 'postpone-pay.ts', 'session-ledger.ts', 'class-start-date.ts', 'teacher-push.ts', 'web-push.ts', 'd1-chunk.ts', 'class-audit.ts'];
 const tmp = mkdtempSync(join(tmpdir(), 'tca-'));
 const fix = (s) => s.replace(/from '\.\/([\w-]+)'/g, "from './$1.ts'");
 for (const f of FILES) writeFileSync(join(tmp, f), fix(rd(f)));
@@ -85,7 +85,7 @@ const runner = `
   function mkEnv(opts = {}) {
     const sq = new DatabaseSync(':memory:');
     sq.exec(\`
-      CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, teacher_id INTEGER, student_name TEXT, scheduled_date TEXT, start_time TEXT, status TEXT);
+      CREATE TABLE class_schedules (id INTEGER PRIMARY KEY, teacher_id INTEGER, student_name TEXT, scheduled_date TEXT, start_time TEXT, status TEXT, skip_dates TEXT);
       CREATE TABLE schedule_change_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER, request_type TEXT, orig_date TEXT, fee_type TEXT, status TEXT, created_at INTEGER);
       CREATE TABLE payroll_deduction_rules (code TEXT PRIMARY KEY, amount INTEGER, enabled INTEGER);
       CREATE TABLE teacher_account_links (teacher_id INTEGER, username TEXT);
@@ -108,7 +108,7 @@ const runner = `
   const queue = (sq) => sq.prepare('SELECT title, body, tag FROM push_queue').all().map(r => ({ ...r }));
   const go = async (name, rows, reqs, a, opts) => {
     const { sq, env } = mkEnv(opts);
-    for (const r of rows) sq.prepare('INSERT INTO class_schedules VALUES (?,?,?,?,?,?)').run(r.id, r.teacher_id ?? 7, r.student_name || 'Minji', r.scheduled_date, r.start_time, r.status || 'active');
+    for (const r of rows) sq.prepare('INSERT INTO class_schedules (id, teacher_id, student_name, scheduled_date, start_time, status, skip_dates) VALUES (?,?,?,?,?,?,?)').run(r.id, r.teacher_id ?? 7, r.student_name || 'Minji', r.scheduled_date, r.start_time, r.status || 'active', r.skip_dates || null);
     for (const q of reqs) sq.prepare('INSERT INTO schedule_change_requests (schedule_id, request_type, orig_date, fee_type, status, created_at) VALUES (?,?,?,?,?,?)').run(q.schedule_id, q.request_type || 'postpone', q.orig_date, q.fee_type, q.status || 'approved', q.created_at || 1);
     let threw = false, why = null;
     try { why = await alertTeacherOfClassChange(env, a, NOW); } catch { threw = true; }
@@ -127,6 +127,13 @@ const runner = `
   await go('B_postFree', [{ id: 1, scheduled_date: '2026-11-11', start_time: '21:00', status: 'postponed' }],
     [{ schedule_id: 1, orig_date: '2026-11-11', fee_type: 'free' }], { ...base, action: 'postpone', lesson_time: '21:00' });
   await go('B_move', [{ id: 1, scheduled_date: '2026-11-12', start_time: '15:00', status: 'active' }], [], { ...base, action: 'postpone' });
+  // Codex P1 — 매주 반복 줄: «기록만» 승인(회차 그대로) → 안 보냄 / 그 날이 skip_dates 에 있으면 → 보냄
+  await go('B_recurRecorded', [{ id: 1, scheduled_date: null, start_time: '19:20', status: 'active' }], [], { ...base, action: 'postpone' });
+  await go('B_recurSkipped', [{ id: 1, scheduled_date: null, start_time: '19:20', status: 'active', skip_dates: '2026-11-04,2026-11-11' }], [], { ...base, action: 'postpone' });
+  await go('B_recurOtherSkip', [{ id: 1, scheduled_date: null, start_time: '19:20', status: 'active', skip_dates: '2026-11-04' }], [], { ...base, action: 'reschedule' });
+  // Codex P2 — 강사가 함께 바뀐 승인: 행은 이미 새 강사(9), 원래 강사(7)를 넘기면 7 에게 간다(9 는 연결 계정 없음)
+  await go('B_origTeacher', [{ id: 1, teacher_id: 9, scheduled_date: '2026-11-12', start_time: '15:00', status: 'active' }], [], { ...base, action: 'postpone', teacher_id: 7 });
+  await go('B_newTeacherOnly', [{ id: 1, teacher_id: 9, scheduled_date: '2026-11-12', start_time: '15:00', status: 'active' }], [], { ...base, action: 'postpone' });
   await go('B_sameSlot', [{ id: 1, scheduled_date: '2026-11-11', start_time: '19:20', status: 'active' }], [], { ...base, action: 'reschedule' });
   await go('B_notChange', [{ id: 1, scheduled_date: '2026-11-11', start_time: '19:20', status: 'active' }], [], { ...base, action: 'end' });
   await go('B_noAccount', [{ id: 1, teacher_id: 99, scheduled_date: '2026-11-11', start_time: '19:20', status: 'cancelled' }], [], { ...base, action: 'remove' });
@@ -138,14 +145,14 @@ const runner = `
     const { sq, env } = mkEnv();
     const soon = new Date(Date.now() + 20 * 60000 + 9 * 3600000).toISOString();   // 20분 뒤(KST 글자)
     const d = soon.slice(0, 10), t = soon.slice(11, 16);
-    sq.prepare('INSERT INTO class_schedules VALUES (?,?,?,?,?,?)').run(5, 7, 'Jisoo', d, t, 'cancelled');
+    sq.prepare('INSERT INTO class_schedules (id, teacher_id, student_name, scheduled_date, start_time, status) VALUES (?,?,?,?,?,?)').run(5, 7, 'Jisoo', d, t, 'cancelled');
     await writeClassAudit(env, { action: 'remove', schedule_id: 5, student_name: 'Jisoo', lesson_date: d, lesson_time: t, actor: 'Mai', actor_role: 'admin', source: 'ui' });
     const auditRows = sq.prepare('SELECT action FROM class_audit_log').all().length;
     await writeClassAudit(env, { action: 'remove', schedule_id: 5, student_name: 'Jisoo', lesson_date: d, lesson_time: t, actor: 'T', actor_role: 'teacher', source: 'ui' });
     out.C_audit = { auditRows, q: queue(sq) };
     // 이력 표가 없어 기록이 실패해도(던지지 않고) 푸시는 따로 간다
     const e2 = mkEnv();
-    e2.sq.prepare('INSERT INTO class_schedules VALUES (?,?,?,?,?,?)').run(5, 7, 'Jisoo', d, t, 'cancelled');
+    e2.sq.prepare('INSERT INTO class_schedules (id, teacher_id, student_name, scheduled_date, start_time, status) VALUES (?,?,?,?,?,?)').run(5, 7, 'Jisoo', d, t, 'cancelled');
     const badEnv = { ...e2.env, DB: { ...e2.env.DB, exec: async () => { throw new Error('no audit'); } } };
     let threw = false; try { await writeClassAudit(badEnv, { action: 'remove', schedule_id: 5, lesson_date: d, lesson_time: t, actor_role: 'admin' }); } catch { threw = true; }
     out.C_auditFail = { threw, q: queue(e2.sq) };
@@ -229,6 +236,11 @@ check('매주 반복 줄 전체 취소(날짜 없음) → 안 보냄', o.B_weekl
 check('연기(20분 전) → «postponed» · «within 30 min» · 수업료 글자 없음', !!q1('B_postPaid')[0] && q1('B_postPaid')[0].title.includes('postponed') && q1('B_postPaid')[0].body.includes('within 30 min') && !/Paid|Unpaid|수업료/.test(q1('B_postPaid')[0].body));
 check('짝: 연기(2시간 전) → «30분 이내» 없음', !!q1('B_postFree')[0] && !q1('B_postFree')[0].body.includes('30분 이내'));
 check('다른 날로 옮김 → «moved to 11/12 15:00»', q1('B_move')[0]?.body.includes('moved to 11/12 15:00'));
+check('매주 반복 «기록만» 승인(회차 그대로 열림) → 안 보냄', o.B_recurRecorded?.why === 'no_visible_change' && q1('B_recurRecorded').length === 0);
+check('짝: 그 날이 skip_dates 에 있음 → «postponed» 보냄', o.B_recurSkipped?.why === 'sent' && q1('B_recurSkipped')[0]?.title.includes('postponed'));
+check('짝: 다른 날만 빠짐 → 안 보냄', o.B_recurOtherSkip?.why === 'no_visible_change');
+check('강사가 함께 바뀜 + 원래 강사 id 넘김 → 원래 강사에게 보냄', o.B_origTeacher?.why === 'sent' && q1('B_origTeacher').length === 1);
+check('짝: 안 넘기면 지금 담당(새 강사)을 본다', o.B_newTeacherOnly?.why === 'no_linked_account');
 check('같은 날·같은 시각(강사만 바뀜 등) → 안 보냄', o.B_sameSlot?.why === 'no_visible_change' && q1('B_sameSlot').length === 0);
 check('종료(end) 등 변경 아닌 이력 → 안 보냄', o.B_notChange?.why === 'not_change');
 check('연결 계정 없는 강사 → 이유만 돌려줌', o.B_noAccount?.why === 'no_linked_account');
@@ -247,6 +259,19 @@ check('날짜+강사가 함께 바뀜 → «원래» 강사(7)에게', (cm.moved
 check('짝: 강사만 바뀜 → 0번', Array.isArray(cm.teacherOnly) && cm.teacherOnly.length === 0);
 check('짝: 강사 본인 이동 → 0번', Array.isArray(cm.byTeacher) && cm.byTeacher.length === 0);
 check('짝: 되돌리기·복구(guarded) → 0번', Array.isArray(cm.guarded) && cm.guarded.length === 0);
+
+{
+  const DAYS = rd('api-admin-class-days.ts');
+  const setAt = DAYS.indexOf('_origTeacherId = cs.teacher_id');
+  const updAt = DAYS.indexOf("UPDATE class_schedules SET teacher_id = ? WHERE id = ?");
+  const auAt = DAYS.indexOf("source: 'schedule-request',");
+  check('승인 경로 — 강사 바꾸기 «전» 스냅샷에서 원래 강사를 잡는다', setAt > 0 && updAt > setAt);
+  check('승인 경로 — 그 값을 writeClassAudit 의 teacher_id 로 넘긴다', auAt > 0 && /teacher_id:\s*_origTeacherId/.test(DAYS.slice(auAt - 300, auAt)));
+  const AUTO = rd('student-auto-postpone.ts');
+  const aAt = AUTO.indexOf("source: 'schedule-request-auto'");
+  check('자동 연기 경로 — writeClassAudit 에 바꾸기 전 cs.teacher_id', aAt > 0 && /teacher_id:\s*cs\.teacher_id/.test(AUTO.slice(aAt - 300, aAt)));
+  check('이력 표에는 teacher_id 를 안 쓴다(INSERT 칸 목록 그대로)', !/INSERT INTO class_audit_log \([^)]*teacher_id/.test(rd('class-audit.ts')));
+}
 
 console.log('\n[D] 강사 화면 Paid/Unpaid 식 = 급여 식');
 check('급여 정본에서 식을 오려 냈다', (o.D?.declLen || 0) > 100);

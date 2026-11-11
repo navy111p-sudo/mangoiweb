@@ -33,11 +33,17 @@
 - **취소·다른 날로 옮김에도 Paid/Unpaid** — 급여는 취소된 수업을 아예 안 세고, 옮긴 수업은 새 날짜에 셈.
   «30분 안 취소도 지급?» 은 **사장님 결정 대기** — 그 전까지 표시하지 않음(지어내지 않음).
 
+### 3-1. 리뷰(Codex)에서 고친 것
+- **P1** 매주 반복 줄 «기록만» 승인(`applied='recorded'`)도 이력을 써서 «기다리지 않아도 됩니다» 가 갈 뻔 —
+  회차가 그대로 열려 있는데. → 반복 줄은 그 날이 `skip_dates` 에 있을 때만 알림(`recurSkippedOn`, 급여와 같은 판정).
+- **P2** 요청 승인·자동 연기가 강사를 함께 바꾸면 이력을 쓸 때 행이 이미 새 강사라 «원래» 강사가 못 받음 →
+  두 경로가 바꾸기 전 `teacher_id` 를 `writeClassAudit` 에 넘김(이력 표에는 안 씀, 알림만).
+
 ## 4. 확인한 방법
 - `tsc --noEmit` 통과(오류 0).
 - `test-harness/teacher_change_alert_harness.mjs` — 정본을 진짜 SQLite 로 실행, 이동 엔진 훅·화면 함수를 오려 내 실행,
-  급여 식 대조. **PASS 49 / FAIL 0**, 변이 18종 전부 실제 FAIL.
-- 회귀 `node test-harness/run.mjs --fast` — PASS 742 / FAIL 0 / SKIP 20.
+  급여 식 대조. **PASS 58 / FAIL 0**, 변이 22종 전부 실제 FAIL.
+- 회귀 `node test-harness/run.mjs --fast` — PASS 743 / FAIL 0 / SKIP 20.
 - 브라우저(Playwright, API 스텁): 표 보기 · 카드 보기 PC 상자 · 폰 줄 × KO/EN — 지급/미지급 표시, `pay_pct` 없으면 표시 없음, 페이지 예외 0.
 - ⚠️ 실제 푸시가 폰에 뜨는 것은 못 봄(운영 VAPID·구독 필요) — 배포 후 사람이 한 번 확인.
 

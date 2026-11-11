@@ -23,6 +23,7 @@ export interface ClassAuditEntry {
   source?: string | null;     // ui | ai-command | schedule-request | api
   reason?: string | null;
   detail?: string | null;     // 자유 텍스트/JSON (예: 새 일시)
+  teacher_id?: number | string | null;   // 🔔 알림 받을 «원래» 담당(teachers.id) — DB 에는 안 씀. 강사가 함께 바뀌는 경로만 넘긴다
 }
 
 export async function ensureClassAuditTable(env: any): Promise<void> {

@@ -14,6 +14,7 @@
    ═══════════════════════════════════════════════════════════════════════ */
 import { pushToTeacher } from './teacher-push';
 import { POSTPONE_FREE_MINUTES_GT } from './session-ledger';   // 30분 경계 — 급여·학생 원장과 같은 값
+import { recurSkippedOn } from './class-start-date';
 
 export const ALERT_AHEAD_MS = 24 * 3600 * 1000;
 export const ALERT_AFTER_START_MS = 30 * 60 * 1000;
@@ -73,9 +74,7 @@ export async function alertTeacherOfClassChange(env: any, a: {
     if (startMs > nowMs + ALERT_AHEAD_MS || startMs < nowMs - ALERT_AFTER_START_MS) return 'out_of_window';
     const sid = parseInt(String(a.schedule_id ?? ''), 10);
     if (!sid || !env?.DB) return 'no_schedule';
-    const row: any = await env.DB.prepare(
-      `SELECT teacher_id, student_name, scheduled_date, start_time, status FROM class_schedules WHERE id = ?`
-    ).bind(sid).first();
+    const row: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ?`).bind(sid).first();   // * — skip_dates 는 지연 ALTER 칸
     const tid = a.teacher_id ?? (row && row.teacher_id);
     if (!row || !tid) return 'no_teacher';
     const st = String(row.status || 'active');
@@ -85,9 +84,11 @@ export async function alertTeacherOfClassChange(env: any, a: {
     if (action === 'remove' || st === 'cancelled') kind = 'cancel';
     else if (st === 'postponed') kind = 'postpone';
     else if (rDate && (rDate !== date || rTime !== time)) kind = 'move';
-    else if (!rDate) kind = action === 'postpone' ? 'postpone' : 'move';   // 매주 반복 줄의 한 회차 — 새 자리는 모른다
+    /* 매주 반복 줄의 한 회차 — 그 날이 «실제로 빠졌을 때만»(skip_dates). 옛 요청의 «기록만» 승인(applied='recorded')은
+       회차가 그대로 열려 있으니 «기다리지 않아도 됩니다» 를 보내면 수업을 놓친다(PR #2275 Codex P1). */
+    else if (!rDate && recurSkippedOn(row, date)) kind = action === 'postpone' ? 'postpone' : 'move';
     else return 'no_visible_change';                                        // 같은 날·같은 시각(강사만 바뀜 등)
-    // shortcut: 강사가 함께 바뀐 이동은 «지금» 담당(teacher_id)에게 간다 — 옛 강사에게 따로 알리려면 이동 엔진처럼 teacher_id 를 넘길 것.
+    // 강사가 함께 바뀌는 경로(이동 엔진·요청 승인·자동 연기)는 «원래» 강사 id 를 a.teacher_id 로 넘긴다 — 없으면 지금 담당.
     const msg = classChangeAlertText({
       kind, student: String(a.student_name || row.student_name || ''), date, time,
       minutesBefore: (startMs - nowMs) / 60000,
