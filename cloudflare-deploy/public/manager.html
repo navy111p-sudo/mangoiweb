@@ -5448,7 +5448,7 @@ var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-pane
   function load(go){
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=4';
+    sc.src = '/js/eval-quick-view.js?v=5';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);
@@ -5472,7 +5472,8 @@ var s=document.createElement('script');s.defer=true;s.src='/js/absence-hold-pane
       window.mgEvalQuick.create({
         which: el.getAttribute('data-evq-new') === 'last' ? 'last' : 'today',
         student_uid: r.student_uid, student_name: r.student_name, teacher_name: r.teacher_name,
-        room_id: r.room_id, class_date: r.class_date || hook.date(), prev_classes: r.prev_classes
+        room_id: r.room_id, class_date: r.class_date || hook.date(), prev_classes: r.prev_classes,
+        level: r.level, attendance: r.attendance   /* 🗓 (2026-11-11) 창에 학생 레벨·입장 기록 출결을 미리 보여 준다 */
       }, { en: en(), onSaved: saved });
     });
   }

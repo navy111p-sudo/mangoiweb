@@ -25,6 +25,8 @@
  * ➕ (2026-10-28 매니저·강사 제안 «오늘·지난 피드백 칸에 고치기·추가 버튼»)
  *    · mgEvalQuick(id, { edit:true }) — 보기를 건너뛰고 곧장 고치기(서버가 허락할 때만, 아니면 보기 + 이유).
  *    · mgEvalQuick.create(ctx, opts) — 빈 칸에서 새로 쓰기(POST /api/eval/manual-create). 규칙은 renderCreate 머리말.
+ * 🗓 (2026-11-11 매니저 제안 «매니저 화면에도 강사와 같은 일지 칸 — 학생 레벨·수업 출결») 쓰기·고치기 창에
+ *    학생 레벨(보기만)·수업 출결 칩·(쓰기) 수준 그룹 칩. 값의 정본은 서버(src/eval-attendance.ts · api-lessons.ts).
  */
 (function () {
   'use strict';
@@ -75,7 +77,10 @@
       + '#mg-evq .evq-btn2{background:#f1f5f9;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}'
       + '#mg-evq .evq-note{font-size:12.5px;font-weight:700;margin:4px 16px 0}'
       + '#mg-evq .evq-in{font:inherit;font-size:13.5px;background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px}'
-      + '#mg-evq .evq-chk{display:flex;gap:8px;align-items:center;font-size:13px;color:#101828;cursor:pointer}';
+      + '#mg-evq .evq-chk{display:flex;gap:8px;align-items:center;font-size:13px;color:#101828;cursor:pointer}'
+      + '#mg-evq .evq-chips{display:flex;flex-wrap:wrap;gap:6px}'
+      + '#mg-evq .evq-chip{background:#ffffff;color:#101828;border:1px solid #cbd5e1;border-radius:99px;padding:5px 12px;font-size:13px;font-weight:700;cursor:pointer}'
+      + '#mg-evq .evq-chip.on{background:#1d4ed8;color:#ffffff;border-color:#1d4ed8}';
     document.head.appendChild(st);
   }
 
@@ -93,12 +98,44 @@
   }
 
   // These are the values saved with this log, not today's level or inferred attendance.
+  function savedLevel(e, en) {
+    return sec(en ? 'Student level (saved with this log)' : '학생 레벨 (일지 저장 당시)', String(e.student_level || '').trim() || (en ? 'Not recorded' : '기록 없음'));
+  }
   function logDetails(e, en) {
     var T = function (a, b) { return en ? a : b; };
     var states = { attended: T('Attended', '출석'), late: T('Late', '지각'), absent: T('Absent', '결석') };
     var state = Object.prototype.hasOwnProperty.call(states, e.attendance_status) ? states[e.attendance_status] : T('Not recorded', '기록 없음');
-    return sec(T('Student level (saved with this log)', '학생 레벨 (일지 저장 당시)'), String(e.student_level || '').trim() || T('Not recorded', '기록 없음'))
-      + sec(T('Class status (recorded in this log)', '수업 출결 (일지 기록)'), state);
+    return savedLevel(e, en) + sec(T('Class status (recorded in this log)', '수업 출결 (일지 기록)'), state);
+  }
+
+  /* 🗓🌱 출결·수준 그룹 칩 — 강사 일지 창(teacher.html openEval)과 같은 값. 하나만 골라지고, 켜진 것을 다시 누르면 «안 고름».
+     ⚠️ data-evq-chips 다 — data-evq-pick 은 «어느 수업인가요?» 고르기 칸이 이미 쓴다. */
+  var CHIPS = {
+    att: [['attended', '✅', 'Attended', '출석'], ['late', '⏰', 'Late', '지각'], ['absent', '❌', 'Absent', '결석']],
+    band: [['sprout', '🌱', 'Sprout', '새싹'], ['grow', '🌿', 'Grow', '자람'], ['fruit', '🥭', 'Fruit', '열매']]
+  };
+  function chipsHtml(name, label, cur, en, hint) {
+    return '<div class="evq-sec"><div class="evq-lb">' + esc(label) + '</div><div class="evq-chips" data-evq-chips="' + name + '">'
+      + CHIPS[name].map(function (c) {
+          var on = cur === c[0];
+          return '<button type="button" class="evq-chip' + (on ? ' on' : '') + '" data-v="' + c[0] + '" aria-pressed="' + on + '">'
+            + c[1] + ' ' + esc(en ? c[2] : c[3]) + '</button>';
+        }).join('')
+      + '</div>' + (hint ? '<div class="evq-sub">' + esc(hint) + '</div>' : '') + '</div>';
+  }
+  function wireChips(box) {
+    var gs = box.querySelectorAll('[data-evq-chips]');
+    for (var i = 0; i < gs.length; i++) gs[i].addEventListener('click', function (ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest('[data-v]') : null;
+      if (!b) return;
+      var was = b.classList.contains('on'), all = this.querySelectorAll('[data-v]');
+      for (var j = 0; j < all.length; j++) { all[j].classList.remove('on'); all[j].setAttribute('aria-pressed', 'false'); }
+      if (!was) { b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); }
+    });
+  }
+  function chosen(box, name) {
+    var el = box.querySelector('[data-evq-chips="' + name + '"] .on');
+    return el ? el.getAttribute('data-v') : '';
   }
 
   /** 행 하나 → 창 본문 HTML. 하니스가 이 함수를 오려 내 실제로 돌린다. */
@@ -134,7 +171,7 @@
       + '</div>';
   }
 
-  /** ✏️ 고치기 화면 — 글 두 칸. 하니스가 오려 내 돌린다. */
+  /** ✏️ 고치기 화면 — 출결 칩 + 글 두 칸(레벨은 저장 당시 «사진» 이라 보기만). 하니스가 오려 내 돌린다. */
   function renderEdit(e, en) {
     var T = function (enS, koS) { return en ? enS : koS; };
     var ta = function (key, label, val) {
@@ -145,7 +182,8 @@
       + '<span class="evq-sub">' + esc(String(e.lesson_date || '').slice(0, 10) || ymd(e.created_at)) + '</span></div>'
       + '<button type="button" class="evq-x" data-evq-close aria-label="' + esc(T('Close', '닫기')) + '">✕</button></div>'
       + '<div class="evq-bd">'
-      + logDetails(e, en)
+      + savedLevel(e, en)
+      + chipsHtml('att', T('Class status — tap to change', '수업 출결 — 눌러서 바꿔요'), e.attendance_status, en)
       + ta('note_en', T('Teacher note (English)', '강사 메모 (영어)'), e.note_en)
       + ta('note_ko', T('Shown to parents (Korean)', '학부모 안내 (한국어)'), e.note_ko)
       + (Number(e.parent_notified) === 1
@@ -199,6 +237,7 @@
     show(renderEdit(ev, en));
     var b2 = document.getElementById('mg-evq');
     var msg = b2.querySelector('[data-evq-msg]');
+    wireChips(b2);
     b2.querySelector('[data-evq-cancel]').addEventListener('click', function () { showView(ev, en, opts, ''); });
     var sv = b2.querySelector('[data-evq-save]');
     sv.addEventListener('click', function () {
@@ -209,6 +248,8 @@
         var v = String(fs[i].value || '').trim();
         if (v !== String(ev[k] == null ? '' : ev[k]).trim()) body[k] = v;
       }
+      var att = chosen(b2, 'att');   /* '' = 끔 → 서버가 null 로 지운다 */
+      if (att !== String(ev.attendance_status || '')) body.attendance_status = att;
       if (!Object.keys(body).length) { msg.style.color = '#b45309'; msg.textContent = T('Nothing changed.', '바뀐 내용이 없습니다.'); return; }
       sv.disabled = true; msg.style.color = '#475467'; msg.textContent = T('Saving…', '저장 중…');
       fetch('/api/eval/' + encodeURIComponent(ev.id), {
@@ -255,10 +296,14 @@
     });
   }
 
-  /** ➕ 쓰기 화면 — 하니스가 오려 내 돌린다. */
+  /** ➕ 쓰기 화면 — 하니스가 오려 내 돌린다.
+   *  학생 레벨은 보기만(ctx.level) — 서버가 저장하는 순간 학생 원부에서 직접 읽는다(본문 값은 안 받음).
+   *  출결은 «오늘» 만 입장 기록(ctx.attendance.state)으로 미리 고른다 — 그 기록은 오늘 수업의 것이다. 모르면 안 고른다. */
   function renderCreate(ctx, en) {
     var T = function (enS, koS) { return en ? enS : koS; };
     var last = ctx.which === 'last';
+    var st = !last && ctx.attendance ? ctx.attendance.state : '';
+    var attPre = (st === 'attended' || st === 'late' || st === 'absent') ? st : '';
     var ta = function (key, label, ph) {
       return '<div class="evq-sec"><div class="evq-lb">' + esc(label) + '</div>'
         + '<textarea class="evq-ta" data-evq-f="' + key + '" maxlength="2000" placeholder="' + esc(ph) + '"></textarea></div>';
@@ -281,6 +326,12 @@
             + '<div class="evq-sub">' + esc(T('From the student\'s schedule — the most recent class is selected. Pick another if it was moved or a holiday.',
                 '학생 예약표의 지난 수업입니다 — 가장 최근 수업이 골라져 있습니다. 연기·휴강이었으면 다른 날을 고르세요.')) + '</div></div>'
           : '')
+      + sec(T('Student level (from the student profile — saved with this log)', '학생 레벨 (학생 정보 — 일지와 함께 저장)'),
+          String(ctx.level || '').trim() || T('Not set', '미등록'))
+      + chipsHtml('att', T('Class status — tap to confirm or change', '수업 출결 — 눌러서 확인하거나 바꿔요'), attPre, en,
+          attPre ? T('Pre-selected from the entry record — change it if wrong.', '입장 기록으로 미리 골랐어요 — 틀리면 바꿔 주세요.')
+                 : T('Not chosen — pick one if you know.', '고르지 않았어요 — 알면 골라 주세요.'))
+      + chipsHtml('band', T('Level group (optional — tap to set or change)', '수준 그룹 (선택 — 눌러서 정하거나 바꿔요)'), ctx.eval_band || '', en)
       + ta('note_en', T('Teacher note (English)', '강사 메모 (영어)'),
           T('What happened in class — a few lines in English.', '수업에서 있었던 일 — 영어로 몇 줄.'))
       + '<div class="evq-sec"><button type="button" class="evq-btn2" data-evq-tr>'
@@ -312,6 +363,7 @@
     var msg = box.querySelector('[data-evq-msg]');
     var fEn = box.querySelector('[data-evq-f="note_en"]'), fKo = box.querySelector('[data-evq-f="note_ko"]');
     var say = function (color, text) { msg.style.color = color; msg.textContent = text; };
+    wireChips(box);
     box.querySelector('[data-evq-cancel]').addEventListener('click', close);
     /* 🇰🇷 강사 일지 창과 같은 서버 길(/api/translate mode='note') — 다듬은 영어와 학부모용 한국어를 한 번에 받는다. */
     var tr = box.querySelector('[data-evq-tr]');
@@ -358,7 +410,8 @@
           student_uid: ctx.student_uid, student_name: ctx.student_name || null,
           teacher_uid: ctx.teacher_uid || null, teacher_name: ctx.teacher_name || null,
           room_id: room || null, lesson_date: date,
-          note_en: noteEn || null, note_ko: noteKo || null, notify_parent: sms
+          note_en: noteEn || null, note_ko: noteKo || null, notify_parent: sms,
+          attendance_status: chosen(box, 'att') || undefined, band: chosen(box, 'band') || undefined   /* 안 고르면 안 보낸다 */
         })
       }).then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (d) { return { st: r.status, d: d }; });

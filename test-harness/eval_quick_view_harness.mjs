@@ -111,7 +111,8 @@ if (R) {
 for (const [state, en, ko] of [['attended', 'Attended', '출석'], ['late', 'Late', '지각'], ['absent', 'Absent', '결석']]) {
   const record = { id: 7, student_level: 'Lv 5', attendance_status: state, note_en: 'Lesson note' };
   ok('Saved status ' + state, R(record, true).includes('>' + en + '<') && R(record, false).includes('>' + ko + '<'));
-  ok('Edit retains saved details ' + state, winA.mgEvalQuick._renderEdit(record, true).includes('Lv 5') && winA.mgEvalQuick._renderEdit(record, true).includes('>' + en + '<'));
+  // (2026-11-11) 고치기 화면의 출결은 칩 — 저장된 값이 «켜진 칩» 으로 남아야 한다(바꿀 수 있게)
+  ok('Edit retains saved details ' + state, winA.mgEvalQuick._renderEdit(record, true).includes('Lv 5') && winA.mgEvalQuick._renderEdit(record, true).includes('class="evq-chip on" data-v="' + state + '"'));
 }
 ok('Old logs explicitly have no recorded details', (R({ id: 1 }, true).match(/Not recorded/g) || []).length === 2);
 ok('Unknown status is not attendance', R({ id: 1, attendance_status: 'constructor' }, true).includes('Not recorded'));

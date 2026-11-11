@@ -2065,7 +2065,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     document.dispatchEvent(new CustomEvent('teacher-feedback-new',{ detail:{
       which:'last', student_uid:stuUid(c), student_name:c.student_name,
       teacher_uid:DATA.me && DATA.me.username, teacher_name:DATA.me && DATA.me.name,
-      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, prev_classes:c.prev_classes
+      room_id:c.room_id, class_date:c.class_date || c.date || DATA.today, prev_classes:c.prev_classes,
+      level:c.level, eval_band:c.eval_band
     }}));
   });
   /* 하루치 목록 — 주간 카드와 합친 카드의 «다른 날» 보기가 같은 줄 모양을 쓴다(한 곳에서만 고친다). */
@@ -5632,7 +5633,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   function load(go){
     if (window.mgEvalQuick) return go();
     var sc = document.createElement('script');
-    sc.src = '/js/eval-quick-view.js?v=4';
+    sc.src = '/js/eval-quick-view.js?v=5';
     sc.onload = go;
     sc.onerror = function(){ alert(en() ? 'Could not load the viewer — please tap again.' : '전문 보기 창을 불러오지 못했습니다 — 다시 눌러 주세요.'); };
     document.head.appendChild(sc);
