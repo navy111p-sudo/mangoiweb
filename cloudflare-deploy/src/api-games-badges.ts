@@ -7,26 +7,26 @@ import { ATTENDANCE_BY_UID, attUidBinds } from './attendance-uid';
 import { computeAttendanceStreak } from './api-games-attendance-streak';
 
 export const BADGE_CATALOG = [
-      { code: 'first_login',       icon: '🎉', name: '첫 발걸음',         name_en: 'First Steps',          desc: '망고아이 첫 로그인',           desc_en: 'First login to Mangoi',                      rule: 'manual' },
-      { code: 'first_class',       icon: '🎓', name: '첫 수업 입장',       name_en: 'First Class',          desc: '첫 화상수업 참여',             desc_en: 'Joined a first video class',                 rule: 'attendance_1' },
-      { code: 'streak_7',          icon: '📅', name: '7일 연속 출석',      name_en: '7-Day Streak',         desc: '일주일 매일 출석',             desc_en: 'Attended every day for a week',              rule: 'streak_7' },
-      { code: 'streak_30',         icon: '🔥', name: '30일 연속 출석',     name_en: '30-Day Streak',        desc: '한달 매일 출석',               desc_en: 'Attended every day for a month',             rule: 'streak_30' },
-      { code: 'eval_perfect',      icon: '⭐', name: '평가서 만점',        name_en: 'Perfect Score',        desc: '확인된 평가서 종합 만점',             desc_en: 'Perfect score on a verified evaluation',       rule: 'eval_10' },
-      { code: 'voice_practice_10', icon: '🎙', name: '음성 코칭 10회',     name_en: '10 Voice Sessions',    desc: 'AI 음성 코칭 10회 완료',       desc_en: 'Completed 10 AI voice coaching sessions',    rule: 'voice_10' },
-      { code: 'voice_score_90',    icon: '🌟', name: '발음 마스터',        name_en: 'Pronunciation Master', desc: 'AI 음성 코칭 90점 이상',       desc_en: 'Scored 90+ in AI voice coaching',            rule: 'voice_90' },
-      { code: 'writing_first',     icon: '✍️', name: '첫 영작',            name_en: 'First Writing',        desc: 'AI 영작 첨삭 첫 도전',         desc_en: 'First try at AI writing feedback',           rule: 'writing_1' },
-      { code: 'writing_10',        icon: '📝', name: '영작 10편',          name_en: '10 Writings',          desc: 'AI 영작 첨삭 10편 완성',       desc_en: 'Completed 10 AI-reviewed writings',          rule: 'writing_10' },
-      { code: 'writing_30',        icon: '📖', name: '영작 작가',          name_en: 'Young Author',         desc: 'AI 영작 첨삭 30편 완성',       desc_en: 'Completed 30 AI-reviewed writings',          rule: 'writing_30' },
-      { code: 'writing_90',        icon: '🏅', name: '영작 90점',          name_en: 'Writing Ace',          desc: 'AI 영작 첨삭 90점 이상',       desc_en: 'Scored 90+ on AI writing feedback',          rule: 'writing_90' },
-      { code: 'writing_streak_7',  icon: '🖋️', name: '7일 연속 영작',      name_en: '7-Day Writer',         desc: '일주일 매일 영작하기',         desc_en: 'Wrote every day for a week',                 rule: 'writing_streak_7' },
-      { code: 'vocab_first',       icon: '🌱', name: '첫 단어',            name_en: 'First Word',           desc: '나의 단어장에 첫 단어 추가',   desc_en: 'Added a first word to My Vocabulary',        rule: 'vocab_1' },
-      { code: 'vocab_50',          icon: '📚', name: '단어 수집가',        name_en: 'Word Collector',       desc: '단어 50개 수집',               desc_en: 'Collected 50 words',                         rule: 'vocab_50' },
-      { code: 'vocab_review_100',  icon: '🧠', name: '복습 챔피언',        name_en: 'Review Champion',      desc: '단어 복습 100회 달성',         desc_en: 'Reached 100 word reviews',                   rule: 'vocab_review_100' },
-      { code: 'vocab_master_10',   icon: '🥇', name: '골드 카드 10장',     name_en: '10 Gold Cards',        desc: '단어 10개 마스터 (Lv5 이상)',  desc_en: 'Mastered 10 words (Lv5 or higher)',          rule: 'vocab_master_10' },
-      { code: 'vocab_streak_7',    icon: '🔥', name: '7일 연속 복습',      name_en: '7-Day Reviewer',       desc: '일주일 매일 단어 복습',        desc_en: 'Reviewed words every day for a week',        rule: 'vocab_streak_7' },
-      { code: 'points_1000',       icon: '💎', name: '포인트 1,000',       name_en: '1K Points',            desc: '누적 1,000 포인트',            desc_en: '1,000 points earned in total',               rule: 'points_1000' },
-      { code: 'points_5000',       icon: '👑', name: '포인트 5,000',       name_en: '5K Points',            desc: '누적 5,000 포인트',            desc_en: '5,000 points earned in total',               rule: 'points_5000' },
-      { code: 'monthly_top',       icon: '🏆', name: '월간 TOP',           name_en: 'Monthly TOP',          desc: '월간 학원 랭킹 TOP 3 진입',    desc_en: 'Reached TOP 3 in the monthly ranking',       rule: 'monthly_top' },
+      { code: 'first_login',       icon: '🎉', name: '첫 발걸음',         name_en: 'First Steps',          desc: '망고아이 첫 로그인',           desc_en: 'First login to Mangoi',                      rule: 'manual', how: '망고아이에 로그인한 뒤 마이 페이지를 열면 받아요.', how_en: 'Log in to Mangoi and open My Page.' },
+      { code: 'first_class',       icon: '🎓', name: '첫 수업 입장',       name_en: 'First Class',          desc: '첫 화상수업 참여',             desc_en: 'Joined a first video class',                 rule: 'attendance_1', how: '화상수업에 한 번 들어가면 받아요.', how_en: 'Join one video class.' },
+      { code: 'streak_7',          icon: '📅', name: '7일 연속 출석',      name_en: '7-Day Streak',         desc: '일주일 매일 출석',             desc_en: 'Attended every day for a week',              rule: 'streak_7', how: '7일 동안 하루도 빠짐없이 수업에 출석하세요.', how_en: 'Attend class 7 days in a row.' },
+      { code: 'streak_30',         icon: '🔥', name: '30일 연속 출석',     name_en: '30-Day Streak',        desc: '한달 매일 출석',               desc_en: 'Attended every day for a month',             rule: 'streak_30', how: '30일 동안 하루도 빠짐없이 수업에 출석하세요.', how_en: 'Attend class 30 days in a row.' },
+      { code: 'eval_perfect',      icon: '⭐', name: '평가서 만점',        name_en: 'Perfect Score',        desc: '확인된 평가서 종합 만점',             desc_en: 'Perfect score on a verified evaluation',       rule: 'eval_10', how: '선생님 평가서에서 종합 100점(만점)을 받아 보세요.', how_en: 'Get a perfect 100 on a teacher evaluation.' },
+      { code: 'voice_practice_10', icon: '🎙', name: '음성 코칭 10회',     name_en: '10 Voice Sessions',    desc: 'AI 음성 코칭 10회 완료',       desc_en: 'Completed 10 AI voice coaching sessions',    rule: 'voice_10', how: 'AI 음성 코칭을 10번 해 보세요.', how_en: 'Do AI voice coaching 10 times.' },
+      { code: 'voice_score_90',    icon: '🌟', name: '발음 마스터',        name_en: 'Pronunciation Master', desc: 'AI 음성 코칭 90점 이상',       desc_en: 'Scored 90+ in AI voice coaching',            rule: 'voice_90', how: 'AI 음성 코칭에서 90점 이상을 받아 보세요.', how_en: 'Score 90+ in AI voice coaching.' },
+      { code: 'writing_first',     icon: '✍️', name: '첫 영작',            name_en: 'First Writing',        desc: 'AI 영작 첨삭 첫 도전',         desc_en: 'First try at AI writing feedback',           rule: 'writing_1', how: 'AI 영작 첨삭을 한 번 해 보세요.', how_en: 'Try AI writing feedback once.' },
+      { code: 'writing_10',        icon: '📝', name: '영작 10편',          name_en: '10 Writings',          desc: 'AI 영작 첨삭 10편 완성',       desc_en: 'Completed 10 AI-reviewed writings',          rule: 'writing_10', how: 'AI 영작 첨삭으로 글 10편을 써 보세요.', how_en: 'Write 10 pieces with AI writing feedback.' },
+      { code: 'writing_30',        icon: '📖', name: '영작 작가',          name_en: 'Young Author',         desc: 'AI 영작 첨삭 30편 완성',       desc_en: 'Completed 30 AI-reviewed writings',          rule: 'writing_30', how: 'AI 영작 첨삭으로 글 30편을 써 보세요.', how_en: 'Write 30 pieces with AI writing feedback.' },
+      { code: 'writing_90',        icon: '🏅', name: '영작 90점',          name_en: 'Writing Ace',          desc: 'AI 영작 첨삭 90점 이상',       desc_en: 'Scored 90+ on AI writing feedback',          rule: 'writing_90', how: 'AI 영작 첨삭에서 90점 이상을 받아 보세요.', how_en: 'Score 90+ on AI writing feedback.' },
+      { code: 'writing_streak_7',  icon: '🖋️', name: '7일 연속 영작',      name_en: '7-Day Writer',         desc: '일주일 매일 영작하기',         desc_en: 'Wrote every day for a week',                 rule: 'writing_streak_7', how: '7일 동안 매일 AI 영작 첨삭을 해 보세요.', how_en: 'Use AI writing feedback every day for 7 days.' },
+      { code: 'vocab_first',       icon: '🌱', name: '첫 단어',            name_en: 'First Word',           desc: '나의 단어장에 첫 단어 추가',   desc_en: 'Added a first word to My Vocabulary',        rule: 'vocab_1', how: '나의 단어장에 단어를 하나 추가해 보세요.', how_en: 'Add one word to My Vocabulary.' },
+      { code: 'vocab_50',          icon: '📚', name: '단어 수집가',        name_en: 'Word Collector',       desc: '단어 50개 수집',               desc_en: 'Collected 50 words',                         rule: 'vocab_50', how: '나의 단어장에 단어를 50개 모아 보세요.', how_en: 'Collect 50 words in My Vocabulary.' },
+      { code: 'vocab_review_100',  icon: '🧠', name: '복습 챔피언',        name_en: 'Review Champion',      desc: '단어 복습 100회 달성',         desc_en: 'Reached 100 word reviews',                   rule: 'vocab_review_100', how: '단어장 복습을 모두 합쳐 100번 해 보세요.', how_en: 'Review vocabulary 100 times in total.' },
+      { code: 'vocab_master_10',   icon: '🥇', name: '골드 카드 10장',     name_en: '10 Gold Cards',        desc: '단어 10개 마스터 (Lv5 이상)',  desc_en: 'Mastered 10 words (Lv5 or higher)',          rule: 'vocab_master_10', how: '단어를 꾸준히 복습해 10개를 Lv5까지 올려 보세요.', how_en: 'Keep reviewing until 10 words reach Lv5.' },
+      { code: 'vocab_streak_7',    icon: '🔥', name: '7일 연속 복습',      name_en: '7-Day Reviewer',       desc: '일주일 매일 단어 복습',        desc_en: 'Reviewed words every day for a week',        rule: 'vocab_streak_7', how: '7일 동안 매일 단어를 복습해 보세요.', how_en: 'Review words every day for 7 days.' },
+      { code: 'points_1000',       icon: '💎', name: '포인트 1,000',       name_en: '1K Points',            desc: '누적 1,000 포인트',            desc_en: '1,000 points earned in total',               rule: 'points_1000', how: '지금까지 모은 포인트가 1,000점이 되면 받아요. 포인트를 써도 줄지 않아요.', how_en: 'Earn 1,000 points in total (spending does not count against you).' },
+      { code: 'points_5000',       icon: '👑', name: '포인트 5,000',       name_en: '5K Points',            desc: '누적 5,000 포인트',            desc_en: '5,000 points earned in total',               rule: 'points_5000', how: '지금까지 모은 포인트가 5,000점이 되면 받아요. 포인트를 써도 줄지 않아요.', how_en: 'Earn 5,000 points in total (spending does not count against you).' },
+      { code: 'monthly_top',       icon: '🏆', name: '월간 TOP',           name_en: 'Monthly TOP',          desc: '월간 학원 랭킹 TOP 3 진입',    desc_en: 'Reached TOP 3 in the monthly ranking',       rule: 'monthly_top', how: '월간 학원 랭킹 3위 안에 들면 받아요. (지급 준비 중)', how_en: 'Reach TOP 3 in the monthly ranking. (Coming soon)' },
     ];
 
 const ensureBadgeTables = async (env: MangoEnv) => {
@@ -55,6 +55,12 @@ export const checkAndAwardBadges = async (env: MangoEnv, userId: string): Promis
           have.add(code);
         } catch {}
       };
+
+      // 첫 발걸음 — 실제 학생 계정일 때만 (아무 uid 로나 배지 행을 만들지 않게)
+      try {
+        const stu: any = await env.DB.prepare(`SELECT 1 AS ok FROM students_erp WHERE user_id = ? LIMIT 1`).bind(userId).first();
+        if (stu?.ok) await award('first_login');
+      } catch (e) { console.warn('[badges] first_login', (e as any)?.message); }
 
       // 출석 카운트
       try {
@@ -172,7 +178,9 @@ export async function handleBadgesApi(request: Request, url: URL, env: MangoEnv)
         earned: earnedMap.has(c.code),
         awarded_at: earnedMap.get(c.code) || null,
       }));
-      return json({ ok: true, earned_count: earned.length, total_count: BADGE_CATALOG.length, badges });
+      // 카탈로그에 있는 배지만 센다 — 옛 코드 'attendance_1' 같은 행이 «획득 2/20» 으로 부풀리지 않게
+      const earnedCount = badges.filter(b => b.earned).length;
+      return json({ ok: true, earned_count: earnedCount, total_count: BADGE_CATALOG.length, all_collected: earnedCount === BADGE_CATALOG.length, badges });
     }
 
     // ── GET /api/admin/badges/stats — 전체 배지 통계 ──
