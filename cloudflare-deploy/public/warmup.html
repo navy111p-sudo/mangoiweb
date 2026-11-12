@@ -1093,7 +1093,7 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
     </div>
     <div class="meta">
       <span class="chip topic"><b id="m-topic">자유 대화</b></span>
-      <span class="chip combo" id="comboChip" style="display:none">🔥 <b id="comboN">0</b>콤보</span>
+      <span class="chip combo" id="comboChip" title="대화 응원 표시예요. 발음이나 정확도 점수가 아니에요." style="display:none">✨ 응원 <b id="comboN">0</b>콤보</span>
       <span class="chip dim">세션 <b id="m-session">—</b></span>
       <span class="chip dim">서버 <b id="m-server">미연결</b></span>
     </div>
@@ -4731,11 +4731,11 @@ function wuApplyGrade(d){
 }
 var COMBO_MILESTONES = {
   3:'🔥 3콤보! 대화에 불이 붙었어요!',
-  5:'⚡ 5콤보! 영어가 술술 나오는데요?',
-  7:'🎉 7콤보! 오늘 컨디션 최고!',
-  10:'🏆 10콤보! 말하기 챔피언 등극!',
-  15:'💯 15콤보! 선생님도 깜짝 놀랄 실력!',
-  20:'👑 20콤보! 전설의 수다왕!'
+  5:'⚡ 5콤보! 대화를 이어가고 있어요!',
+  7:'🎉 7콤보! 계속 도전해 봐요!',
+  10:'⭐ 10콤보! 꾸준히 참여하고 있어요!',
+  15:'✨ 15콤보! 대화 연습을 응원해요!',
+  20:'🎉 20콤보! 함께 대화를 이어가요!'
 };
 function bumpCombo(){
   _combo++;
@@ -4750,7 +4750,7 @@ function bumpCombo(){
 /* ✨ 보내기 순간 입력줄 위로 떠오르는 응원 이모지 */
 function cheerFly(){
   try{
-    var pool=['✨','🔥','👍','💪','🥳','⭐','💯'];
+    var pool=['✨','🔥','👍','💪','🥳','⭐'];
     var e=document.createElement('span'); e.className='cheer-fly';
     e.textContent=pool[Math.floor(Math.random()*pool.length)];
     var bar=document.querySelector('.inbar');
