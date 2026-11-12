@@ -24,13 +24,14 @@ try {
   await page.addInitScript(()=>localStorage.setItem('mangoi_aiwrite_howto_v1','1'));
   let calls=0,mode='hold',release;
   let held=new Promise(r=>release=r);
+  let entered;const routed=new Promise(r=>entered=r);
   const good={ok:true,corrected:'A boy is eating cake.',score:85,issues:[],upgrades:[],suggestions:[]};
   await page.route('**/*',async route=>{
    const u=new URL(route.request().url());
    if(u.origin!==base)return route.abort();
    if(!u.pathname.startsWith('/api/'))return route.continue();
    if(u.pathname==='/api/ai/write-correct') {
-    calls++;
+    calls++;entered();
     if(mode==='stall')return route.continue();
     if(mode==='hold')await held;
     return route.fulfill({json:mode==='invalid'?{ok:true,score:85}:good});
@@ -43,9 +44,8 @@ try {
   await page.click('#coachAdd');assert.equal(await page.inputValue('#text'),'My first sentence. \nA boy is eating cake.');
   await page.fill('#text','');await page.click('#coachAdd');assert.equal(await page.inputValue('#text'),'A boy is eating cake.');
   await page.click('#coachAdd');assert.equal(await page.inputValue('#text'),'A boy is eating cake.');
-  const sent=page.waitForRequest('**/api/ai/write-correct');
   await page.evaluate(()=>{_goAnswers.where='original place';submitText();submitText();});
-  await sent;
+  await routed;
   assert.equal(calls,1);
   await page.evaluate(()=>{currentLevel='B2';_goAnswers.where='changed place';document.querySelector('#text').value='My new draft.';});
   release();await page.waitForFunction(()=>!document.querySelector('#submitBtn').disabled);
