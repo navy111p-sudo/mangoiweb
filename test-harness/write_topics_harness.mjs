@@ -640,7 +640,7 @@ function gWorld(o = {}) {
     awThemeFromCustom: it => it ? { id: 'custom:' + it.id, icon: it.icon || '📌', ko: it.title_ko, en: it.title_en || it.title_ko, set: 'custom', img: it.image_url || '' } : null,
     goApplyTheme: t => { log.applied.push(t.id); ctx._goTheme = t; }, renderGoQuestions() {}, renderGoMemo() {}, goSave() {},
     updateCharCount() { log.updated = (log.updated || 0) + 1; },
-    _goTheme: o.theme || null, _goAnswers: o.answers || {}, _lastResult: o.result || null, _lastDraft: o.draft || '', currentLevel: o.level || 'A1',
+    _lastResultTheme: o.resultTheme || o.theme || null, _goTheme: o.theme || null, _goAnswers: o.answers || {}, _lastResult: o.result || null, _lastDraft: o.draft || '', currentLevel: o.level || 'A1',
   };
   runInNewContext('var window = this.window;' + G_DEPS.replace(/^\s*const /gm, 'var ') + '\n' + GBLK.replace(/^\s*const /gm, 'var ') + '\nthis.__g = { awTopicWorkSave, awTopicWorkGet, awTopicMap, awMineSorted, awMineWorkLine, awPraise, awWorkFromResult, awWorkSave, awWorksRead, awWorkCardHtml };', ctx);
   return { ctx, g: ctx.__g, store, el, log, w: ctx.window };
@@ -729,6 +729,11 @@ ok(/What I did well/.test(cardEn) && /Print/.test(cardEn) && /awShowWork\(0\)/.t
 GW = gWorld({ result: RES, draft: 'I have a brown dog.', theme: CUSTOM });
 GW.w.openWorkCard();
 ok(GW.log.cls.has('sheet-open') && /My Dog/.test(GW.el('sheetModal').innerHTML) && GW.g.awWorksRead().length === 1 && GW.log.toasts.some(t => /저장했어요/.test(t)), '9) «작품 카드로 저장» → 저장하고 카드를 연다');
+GW = gWorld({ result: RES, draft: 'I have a brown dog.', resultTheme: CUSTOM,
+  theme: { id: 'custom:99', en: 'Changed topic', ko: '바뀐 주제' }, level: 'B2' });
+GW.w.openWorkCard();
+const originalCard = GW.g.awWorksRead()[0];
+ok(originalCard.en === 'My Dog' && originalCard.level === 'A1', '9) 주제·단계를 바꾼 뒤 저장해도 제출 당시 주제·단계로 작품 카드를 만든다', JSON.stringify(originalCard));
 GW = gWorld({ result: null });
 GW.w.openWorkCard();
 ok(GW.log.alerts === 1 && !GW.log.cls.has('sheet-open'), '(짝) 첨삭 전이면 열지 않고 안내만');
@@ -875,7 +880,7 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
   hw.awMarkHwDone(23);
   ok(hw.toasts.length === 1, '(짝) 숙제가 아닌 글감은 아무 말도 안 한다');
   const sub = blockFrom(HTML, 'async function submitWrite()') || HTML;
-  ok(/topic_id: awTopicIdNow\(\)/.test(HTML) && /if \(d\.topic_recorded === true\) awMarkHwDone\(awTopicIdNow\(\)\)/.test(HTML), '6) 첨삭 요청에 topic_id · 서버가 «적었다»(topic_recorded) 고 할 때만 ✓');
+  ok(/topicId: awTopicIdNow\(\)/.test(HTML) && /topic_id: submitted\.topicId/.test(HTML) && /if \(d\.topic_recorded === true\) awMarkHwDone\(submitted\.topicId\)/.test(HTML), '6) 첨삭 요청에 topic_id · 서버가 «적었다»(topic_recorded) 고 할 때만 ✓');
   ok(!/^\s*awMarkHwDone\(awTopicIdNow\(\)\);/m.test(HTML), '(짝) 서버 확인 없이 ✓ 를 그리는 줄이 없다');
   ok(/topic_recorded: topicRecorded/.test(AIS) && /topicRecorded = topicId !== null && !!uid;/.test(AIS) && AIS.indexOf('topicRecorded = topicId') < AIS.indexOf('retry without'), '6) 서버: topic_id 를 «실제로» 적었을 때만 topic_recorded=true(옛 모양으로 다시 적으면 false)');
   ok(/duplicate column/.test(AIS) && /_awTopicColTried = false/.test(AIS), '6) ALTER 가 일시 장애로 실패하면 다음 요청에서 다시 시도한다');
@@ -896,3 +901,4 @@ console.log('\n[H] 숙제·마감일(제안 6) · 칭찬 먼저(제안 7) · 안
 }
 
 done();
+
