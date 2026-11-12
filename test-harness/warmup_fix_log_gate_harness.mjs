@@ -65,7 +65,7 @@ function hdrs(apiBase, url) {
   let seen = null;
   const g = new Function('API_BASE', '_warmPaused', '_warmControllers', 'AbortController', 'setTimeout', 'clearTimeout', 'fetch', 'localStorage',
     f + '\nreturn warmupFetch;')(apiBase, false, [], class { constructor() { this.signal = {}; } abort() {} }, () => 0, () => {},
-    (u, o) => { seen = o.headers || {}; return Promise.resolve({}); }, { getItem: k => k === 'mango_token' ? 'TOK' : null });
+    (u, o) => { seen = o.headers || {}; return Promise.resolve({json(){return Promise.resolve({});}}); }, { getItem: k => k === 'mango_token' ? 'TOK' : null });
   g(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
   return seen;
 }
