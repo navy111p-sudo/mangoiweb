@@ -23,6 +23,7 @@ const ym = today.slice(0, 7);
 const lesson = (d, t, extra = {}) => ({ date: `${ym}-${d}`, start_time: t, end_time: '', student_name: '테스트 학생 A', user_id: 'test_stu_a',
   status: 'finish', amount: 50, deduction_total: 0, net_amount: 50, ...extra });
 const month = { ok: true, teacher: { english_name: 'Teacher Test', level_label_en: 'Test Level', level_label_ko: '테스트 등급' },
+  monthly_incentive: { period: ym, status: 'finalized', currency: 'KRW', amount: 12500 },
   summary: { final_amount: 111, pay_amount: 136, deduction_total: 25 }, lessons: [
     lesson('01', '10:00', { end_time: '10:20' }),
     lesson('01', '19:00', { status: 'student_absent', amount: 25, net_amount: 25, student_name: '테스트 학생 B', user_id: 'test_stu_b' }),
@@ -39,7 +40,7 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
 let fails = 0;
 const check = (name, c) => { console.log((c ? 'PASS ' : 'FAIL ') + name); if (!c) fails++; };
 try {
-  for (const { w, lang } of [{ w: 1280, lang: 'en' }, { w: 390, lang: 'en' }, { w: 390, lang: 'ko' }]) {
+  for (const { w, lang } of [{ w: 1280, lang: 'en' }, { w: 820, lang: 'en' }, { w: 390, lang: 'en' }, { w: 390, lang: 'ko' }]) {
     const tag = `${w}/${lang}`;
     const ctx = await browser.newContext({ viewport: { width: w, height: 900 }, deviceScaleFactor: 2 });
     const page = await ctx.newPage();
@@ -71,6 +72,8 @@ try {
     check(`${tag} 열 8개`, r.heads.length === 8);
     check(`${tag} 3행`, r.rows === 3);
     check(`${tag} 합계 ₱111`, r.foot.includes('₱111'));
+    check(`${tag} 월 인센티브 별도 표시`, (await page.textContent('.fs-incentive')).includes('₩12,500'));
+    check(`${tag} 부분 기간 임의 배분 없음`, /Partial date ranges|일할 계산하지/.test(await page.textContent('.fs-incentive')));
     check(`${tag} 페이지 가로 스크롤 없음(표만 밀림)`, !r.pageOverflow);
     check(`${tag} 제목·열 머리 언어`, lang === 'ko'
       ? r.summary.includes('기간별 수업료 조회') && r.heads[0] === '수업 시간' && r.heads[5] === '인센티브'

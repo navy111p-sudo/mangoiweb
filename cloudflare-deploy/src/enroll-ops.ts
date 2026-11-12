@@ -1869,7 +1869,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       return json({ ok: false, error: 'bad_params' }, 400);
     }
     const r = await freeTeachersOnDate(env, date, time, minutes);
-    return json(r, r.ok ? 200 : 500);
+    return json(r, r.ok ? 200 : r.error === 'bad_params' ? 400 : 500);
   }
 
   /* ── 🔄 (2026-09-23 사장님) 수업 «변경» = 앞으로 계속 ──

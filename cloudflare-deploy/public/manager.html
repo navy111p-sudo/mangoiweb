@@ -2570,13 +2570,13 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var min = document.getElementById('fqMin').value;
     var need = Math.max(1, parseInt(document.getElementById('fqNeed').value, 10) || 1);
     var el = document.getElementById('freeBody');
+    var seq = ++FQ_SEQ; D.free = null;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{1,2}:\d{2}$/.test(time)) {
       el.className = 'empty';
       el.textContent = T('Please pick a date and a start time.', '날짜와 시작 시간을 골라 주세요.');
       return;
     }
-    var seq = ++FQ_SEQ;
-    D.free = null;
+    // Every attempt invalidates the previous response, including invalid input.
     el.className = 'empty';
     el.textContent = T('Checking...', '확인하는 중...');
     get('/api/pay/enroll/admin/free-teachers-on-date?date=' + encodeURIComponent(date)
@@ -2589,7 +2589,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var j = F.j, need = F.need;
     var el = document.getElementById('freeBody');
     var sure = Array.isArray(j.sure) ? j.sure : null, check = Array.isArray(j.check) ? j.check : [];
-    if (!sure) {   // ⛔ 못 읽었는데 «0명» 이라고 말하지 않는다
+    if (j.ok === false || !sure) {   // ⛔ 못 읽었는데 «0명» 이라고 말하지 않는다
       el.className = 'empty';
       el.textContent = T('Could not check teachers. This is NOT "nobody is free". Please try again.',
                          '강사 일정을 확인하지 못했습니다. «빈 강사 0명» 이 아닙니다. 다시 시도해 주세요.');
