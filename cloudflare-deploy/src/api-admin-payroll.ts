@@ -1,3 +1,4 @@
+import { loadTeacherMonthlyIncentive } from './teacher-monthly-incentive';
 /** Payroll routes. The shared admin authentication gate remains unchanged. */
 import type { MangoEnv } from './api-mango';
 import { createLessonFeeCalculator } from './admin-lesson-fees';
@@ -256,6 +257,9 @@ export async function handleAdminPayrollApi(request: Request, url: URL, env: Man
       sum.final_amount = Math.max(0, sum.pay_amount - sum.deduction_total);
 
       const _tLvl = teacher && teacher.level ? (data.levelMap || {})[teacher.level] : null;
+      const incentive = await loadTeacherMonthlyIncentive(env.DB, year, month, _lsActor.isTeacher
+        ? { username: _lsActor.username }
+        : { rosterId: rawTid || String(teacher?.linked_teacher_id || '') });
       return json({
         ok: true, year, month,
         teacher: teacher ? {
@@ -266,6 +270,7 @@ export async function handleAdminPayrollApi(request: Request, url: URL, env: Man
           level_label_en: _tLvl ? _tLvl.label_en : null,
           rate_per_20min: teacher.fee_per_10min ? Number(teacher.fee_per_10min) * 2 : (_tLvl ? Number(_tLvl.rate_per_20min) || 0 : 0),
         } : { id: rawTid ? ('t' + rawTid) : (tid || null), korean_name: tname || (rawTid ? ((data as any).teacherNames || {})[rawTid] || null : null) },
+        monthly_incentive: incentive,
         summary: sum,
         rules: (data.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
         levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),

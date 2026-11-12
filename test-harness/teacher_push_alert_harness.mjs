@@ -288,7 +288,7 @@ console.log('\nE. teacher.html — 🔔 알림 받기 버튼 · me.username 으�
   }
   check('E-12 켜져 있으면 누르기 «전에» 켜짐으로 그린다 (getSubscription 으로 미리 본다)', /getRegistration\('\/'\)[\s\S]{0,200}?getSubscription\(\)\.then\(function\(sub\)\{ pushOn = !!sub; paintPushBtn\(\); \}\)/.test(code));
   check('E-13 라벨은 상태에 따라 JS 가 그린다 (data-en 아님) + 언어 토글 때 다시 그린다', !/id="push-lbl" data-en/.test(TEACHER) && /if \(typeof paintPushBtn === 'function'\) paintPushBtn\(\);/.test(code));
-  check('E-14 성공·실패를 토스트로 말한다 (사유 포함)', /toast\('⚠️ ' \+ r\.why\)/.test(code) && /알림 켜짐 — 결석·학생 대기 알림/.test(code));
+  check('E-14 성공·실패를 토스트로 말한다 (사유 포함)', /toast\('⚠️ ' \+ r\.why\)/.test(code) && /수업 취소·연기·변경 및 결석·대기 알림을 켰습니다/.test(code));
   check('E-15 누르는 동안 버튼을 잠근다 (두 번 눌러 두 구독이 되지 않게)', /b\.disabled = true;\s*subscribePush\(\)\.then\(function\(r\)\{\s*b\.disabled = false;/.test(code));
   check('E-16 켜진 상태 CSS 가 있다 (다크 테마 포함)', /\.tbtn-push-on\{/.test(TEACHER) && /html\[data-t="dark"\] \.tbtn-push-on\{/.test(TEACHER));
   check('E-17 ⛔ 켜기 실패로 저장값을 남기지 않는다 (localStorage 에 push 키를 안 쓴다)', !/localStorage\.setItem\(['"][^'"]*push/i.test(code));

@@ -555,12 +555,12 @@ export async function getMirrorTeachers(env: MirrorEnv): Promise<Set<string>> {
  *    'all' 로 올리는 순간 그 30건이 학생 시간표에 생긴다.
  * ✅ 그래서 enabled=0 은 «아직 안 켬» 이 아니라 **«켜지 마라»** 는 뜻이고, 'all' 도 이깁니다.
  */
-export async function getMirrorBlocked(env: MirrorEnv): Promise<Set<string>> {
+export async function getMirrorBlocked(env: MirrorEnv, opts: { strict?: boolean } = {}): Promise<Set<string>> {
   const s = new Set<string>();
   try {
     const rs: any = await env.DB.prepare(`SELECT teacher_id FROM c24_mirror_teachers WHERE enabled = 0`).all();
     for (const r of (rs.results || [])) s.add(String(r.teacher_id));
-  } catch { /* 표 없음 = 막은 강사 없음 */ }
+  } catch (e) { if (opts.strict && !/no such table/i.test(String(e))) throw e; }
   return s;
 }
 

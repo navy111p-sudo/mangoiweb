@@ -25,8 +25,7 @@
  *
  * [실패] ok:false 가 되는 것 — 그날 일정(teacherIntervalsOn)·강사 명단·근무 불가 표를 못 읽었을 때.
  *        «빈 강사 0명» 과 «못 물어봤다» 를 같은 값으로 만들지 않는다.
- *        ⚠️ 그 밖은 정본들이 스스로 «없음» 으로 넘긴다(대체 수업·공휴일·미러 설정) — 공휴일·미러를 못 읽으면
- *           각각 «평소대로»·«미러 안 됨(=전원 확인 필요)» 이라 «가능» 을 늘리는 쪽으로는 안 샌다.
+ *        ⚠️ 공휴일·미러 차단 명단도 strict 조회한다. 수업 입장의 fail-open 정책을 신규 배정에 적용하지 않는다.
  */
 import { moveCandidatesFor, teacherIntervalsOn } from './enroll-ops';
 import { getMirrorMode, getMirrorTeachers, getMirrorBlocked } from './c24-mirror';
@@ -70,6 +69,10 @@ function addDaysYmd(ymd: string, n: number): string {
 }
 
 export async function freeTeachersOnDate(env: any, date: string, time: string, minutes: number, nowMs: number = Date.now()): Promise<FreeTeachersResult> {
+  const parsed = new Date(date + 'T00:00:00Z');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(+parsed) || parsed.toISOString().slice(0, 10) !== date
+      || !/^([01]?\d|2[0-3]):[0-5]\d$/.test(time) || !Number.isFinite(minutes) || minutes <= 0
+      || toMinutes(time) + minutes > 1440) return { ok: false, error: 'bad_params' };
   let base: any;
   try {
     base = await moveCandidatesFor(env, {
@@ -95,14 +98,17 @@ export async function freeTeachersOnDate(env: any, date: string, time: string, m
   }
 
   let hol: any = null;
-  try { hol = await loadHolidayClosure(env.DB, date); } catch { hol = null; /* 공휴일을 못 읽으면 평소대로(그 판정 정본의 방향) */ }
+  try { hol = await loadHolidayClosure(env.DB, date, { strict: true }); }
+  catch { return { ok: false, error: 'holiday_lookup_failed' }; }
 
   const mode = await getMirrorMode(env);
   const today = kstYmd(nowMs);
   const beyond = date > addDaysYmd(today, MIRROR_HORIZON_DAYS);
   const mirrorOff = mode === 'off';
   const enabled = mode === 'whitelist' ? await getMirrorTeachers(env) : null;
-  const blocked = mode === 'all' ? await getMirrorBlocked(env) : null;
+  let blocked: Set<string> | null = null;
+  try { blocked = mode === 'all' ? await getMirrorBlocked(env, { strict: true }) : null; }
+  catch { return { ok: false, error: 'mirror_lookup_failed' }; }
   const isMirrored = (id: string): boolean => {
     if (mirrorOff || beyond) return false;
     if (mode === 'all') return !(blocked && blocked.has(id));
