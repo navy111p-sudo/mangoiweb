@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 function recorder(media=async()=>({getTracks:()=>[{stop(){}}]})){
- const events=[];const sandbox={Blob,FormData,Uint8Array,Promise,setTimeout,clearTimeout,cancelAnimationFrame(){},navigator:{mediaDevices:{getUserMedia:media}},fetch:async()=>{events.push('legacy-fetch');return Response.json({ok:true,text:'old route'});}};
+ const events=[];const sandbox={Blob,FormData,Uint8Array,Promise,AbortController,setTimeout,clearTimeout,cancelAnimationFrame(){},navigator:{mediaDevices:{getUserMedia:media}},fetch:async()=>{events.push('legacy-fetch');return Response.json({ok:true,text:'old route'});}};
  class Recorder{static isTypeSupported(){return true;}constructor(){this.state='inactive';}start(){this.state='recording';}stop(){this.state='inactive';this.ondataavailable({data:new Blob([new Uint8Array(1500)],{type:'audio/webm'})});this.onstop();}}
  sandbox.window=sandbox;sandbox.MediaRecorder=Recorder;vm.runInNewContext(readFileSync(new URL('../../cloudflare-deploy/public/js/mangoi-voice-input.js',import.meta.url),'utf8'),sandbox);
  return {voice:sandbox.MangoiVoice,events};
