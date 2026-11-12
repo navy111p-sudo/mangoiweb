@@ -45,7 +45,7 @@ async function runRecord(level, opts = {}) {
     close() {}
   }
   const sb = {
-    console,
+    console, AbortController,
     Uint8Array, Math, Promise,
     Date: { now: () => clock.t },
     navigator: { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() {} }] }) } },
