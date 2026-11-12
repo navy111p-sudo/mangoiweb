@@ -118,13 +118,14 @@ function makeWorld({ lang = 'ko', uid = 'kid01' } = {}) {
   const clearTimeoutF = () => {};
   const fetchF = async (url, opt) => {
     fetches.push({ url, body: JSON.parse(opt.body) });
-    return { status: 200, json: async () => ({ ok: true, score: env.nextScore, corrected: 'x', issues: [] }) };
+    return { ok: true, status: 200, json: async () => ({ ok: true, score: env.nextScore, corrected: 'x', issues: [] }) };
   };
   const SRC = `
     ${ESC}
     ${goHasKo}${goIsEn}
     let currentLevel = 'A1';
     let _lastDraft = '';
+    let _goTheme = null, _lastResultTheme = null;
     let _missionWords = [];
     let _goAnswers = {};
     const _qs = [
@@ -373,3 +374,4 @@ console.log('\n[6] 🔌 배선 — 단계 버튼 · 처음 열기 · 결과 화�
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) { console.log('실패: ' + FAILS.join(' | ')); process.exit(1); }
+
