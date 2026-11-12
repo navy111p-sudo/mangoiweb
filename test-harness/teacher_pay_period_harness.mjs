@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 const html = readFileSync(new URL('../cloudflare-deploy/public/teacher.html', import.meta.url), 'utf8');
 const block = html.slice(html.indexOf('  function payStatusPill(l){'), html.indexOf('  function paintPay(){'));
 assert.ok(block.includes('function searchPayRange'));
-function make(get) {
-  const state = { MY: {} };
+function make(get, me) {
+  const state = { MY: {}, me };
   return new Function('state', 'myGet', `
-    var MY = state.MY, window = {};
+    var MY = state.MY, DATA = { me: state.me }, window = {};
     function paintPay() { state.result = MY.payPeriod; }
     ${block}
     return { state, preset: payPresetRange, error: feeRangeError,
@@ -51,7 +51,20 @@ const cross = make(async (key, url) => {
 cross.search('2026-12-16', '2027-01-15'); await tick();
 assert.equal(cross.state.result.summary.final_amount, 100);
 assert.equal(calls.length, 2);
-assert.ok(calls.every(u => !u.includes('teacher_name')));
+assert.ok(calls.every(u => !u.includes('teacher_name') && !u.includes('teacher_id')));
+const manager = make(async (key, url) => {
+  assert.match(url, /&teacher_id=t27$/);
+  return response([lesson('2026-11-15')]);
+}, { is_manager: true, linked_teacher_ids: ['27'] });
+manager.search('2026-11-01', '2026-11-15'); await tick();
+assert.equal(manager.state.result.summary.final_amount, 50);
+for (const ids of [[], ['27', '28']]) {
+  const unlinked = make(() => assert.fail('must not request pay without a unique teacher'), {
+    is_manager: true, linked_teacher_ids: ids
+  });
+  unlinked.search('2026-11-01', '2026-11-15');
+  assert.equal(unlinked.state.result.err, 'identity');
+}
 const floor = make(async () => response([lesson('2026-11-15', { amount: 0, deduction_total: 100 }), lesson('2026-11-16')]));
 floor.search('2026-11-01', '2026-11-30'); await tick();
 assert.equal(floor.state.result.summary.final_amount, 0);
