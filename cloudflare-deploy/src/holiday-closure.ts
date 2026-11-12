@@ -43,28 +43,28 @@ export async function ensureHolidayClosureTable(db: any): Promise<void> {
   ).run();
 }
 
-/** ymd = 'YYYY-MM-DD'(KST). 던지지 않는다. */
-export async function loadHolidayClosure(db: any, ymd: string): Promise<HolidayClosure> {
+/** ymd = 'YYYY-MM-DD'(KST). Default keeps entry fail-open; strict availability reads bypass cache, never create tables and throw on lookup outages. */
+export async function loadHolidayClosure(db: any, ymd: string, opts: { strict?: boolean } = {}): Promise<HolidayClosure> {
   if (!db || !/^\d{4}-\d{2}-\d{2}$/.test(String(ymd || ''))) return OPEN;
   const hit = cache.get(ymd);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.v;
+  if (!opts.strict && hit && Date.now() - hit.at < CACHE_MS) return hit.v;
   let v: HolidayClosure = OPEN;
   try {
     let name: string | null = null;
     try {
       const r = await db.prepare(`SELECT name FROM holidays WHERE country = 'KR' AND date = ? LIMIT 1`).bind(ymd).first();
       if (r) name = String(r.name || '') || '공휴일';
-    } catch { /* 표 없음 — 다음 근거로 */ }
+    } catch (e) { if (opts.strict && !/no such table/i.test(String(e))) throw e; }
     if (!name) {
       try {
         const r = await db.prepare(`SELECT name FROM enroll_holidays WHERE day = ? LIMIT 1`).bind(ymd).first();
         if (r) name = String(r.name || '') || '휴일';
-      } catch { /* 표 없음 */ }
+      } catch (e) { if (opts.strict && !/no such table/i.test(String(e))) throw e; }
     }
     const exempt = new Set<string>(HOLIDAY_EXEMPT_TEACHERS_DEFAULT);
     let opened = false;
     try {
-      await ensureHolidayClosureTable(db);
+      if (!opts.strict) await ensureHolidayClosureTable(db);
       const rs: any = await db.prepare(
         `SELECT kind, key FROM holiday_closure_override WHERE kind = 'exempt_teacher' OR (kind = 'open_day' AND key = ?)`
       ).bind(ymd).all();
@@ -72,10 +72,10 @@ export async function loadHolidayClosure(db: any, ymd: string): Promise<HolidayC
         if (row.kind === 'exempt_teacher') exempt.add(String(row.key).trim());
         else if (row.kind === 'open_day') opened = true;
       }
-    } catch { /* 예외 표를 못 읽음 — 기본 예외만 */ }
+    } catch (e) { if (opts.strict && !/no such table/i.test(String(e))) throw e; }
     v = { closed: !!name && !opened, name, exempt, opened };
-  } catch { v = OPEN; }
-  cache.set(ymd, { at: Date.now(), v });
+  } catch (e) { if (opts.strict) throw e; v = OPEN; }
+  if (!opts.strict) cache.set(ymd, { at: Date.now(), v });
   return v;
 }
 

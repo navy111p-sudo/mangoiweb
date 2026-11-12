@@ -81,6 +81,8 @@ const runner = `
   out.A_move = classChangeAlertText({ kind: 'move', student: 'Minji', date: '2026-11-11', time: '19:20', minutesBefore: 20, toDate: '2026-11-12', toTime: '15:00' });
   out.A_late = classChangeAlertText({ kind: 'cancel', student: 'Minji', date: '2026-11-11', time: '18:50', minutesBefore: -10 });
 
+  out.A_over30 = classChangeAlertText({ kind: 'cancel', student: 'Test', date: '2026-11-11', time: '19:30', minutesBefore: 30 + 1/60 });
+  out.A_justStarted = classChangeAlertText({ kind: 'cancel', student: 'Test', date: '2026-11-11', time: '19:00', minutesBefore: -1/60 });
   // B. 진짜 SQLite
   function mkEnv(opts = {}) {
     const sq = new DatabaseSync(':memory:');
@@ -221,6 +223,8 @@ check('짝: 31분 전 → «30분 이내» 없음', !!o.A_post31 && !has(o.A_pos
 check('2시간 5분 전 → «2 h 5 min» / «2시간 5분» · 30분 이내 없음', has(o.A_post125, '2 h 5 min') && has(o.A_post125, '2시간 5분') && !has(o.A_post125, '30분 이내'));
 check('⛔ 알림 문구에 Paid/Unpaid·수업료 없음(사장님 «시간만 표시»)', ['A_cancel', 'A_post20', 'A_post125', 'A_move', 'A_late'].every(k => o[k] && !/Paid|Unpaid|Pay:|수업료/.test(o[k].title + o[k].en + o[k].ko)));
 check('옮김 → «moved to 11/12 15:00» / «11/12 15:00(으)로»', has(o.A_move, 'moved to 11/12 15:00') && has(o.A_move, '11/12 15:00(으)로'));
+check('30분 1초는 30분 이내가 아니다', !has(o.A_over30, 'within 30') && !has(o.A_over30, '30분 이내'));
+check('시작 1초 뒤는 수업 시작 뒤', has(o.A_justStarted, 'after the class started'));
 check('시작 뒤 변경 → «after the class started»', has(o.A_late, 'after the class started') && has(o.A_late, '수업 시작 뒤'));
 
 console.log('\n[B] 보내기 — 진짜 SQLite');

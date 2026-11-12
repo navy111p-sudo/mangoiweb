@@ -36,10 +36,10 @@ const hm = (t: string) => String(t || '').slice(0, 5);
 export function classChangeAlertText(i: ClassChangeAlertInput): { title: string; en: string; ko: string } {
   const when = `${md(i.date)} ${hm(i.time)}`;
   const who = i.student || 'Student';
-  const m = Math.round(i.minutesBefore);
-  const in30 = m >= 0 && m <= POSTPONE_FREE_MINUTES_GT;   // 요청 fee_type 'paid' 와 같은 경계(30분 «초과» 여야 사전 변경)
-  const leadEn = (m < 0 ? 'after the class started' : m < 60 ? `${m} min before class` : `${Math.floor(m / 60)} h ${m % 60} min before class`) + (in30 ? ' — within 30 min' : '');
-  const leadKo = (m < 0 ? '수업 시작 뒤' : m < 60 ? `수업 ${m}분 전` : `수업 ${Math.floor(m / 60)}시간 ${m % 60}분 전`) + ' 변경' + (in30 ? ' · 30분 이내' : '');
+  const m = Math.ceil(i.minutesBefore);
+  const in30 = i.minutesBefore >= 0 && i.minutesBefore <= POSTPONE_FREE_MINUTES_GT;   // 요청 fee_type 'paid' 와 같은 경계(30분 «초과» 여야 사전 변경)
+  const leadEn = (i.minutesBefore < 0 ? 'after the class started' : m < 60 ? `${m} min before class` : `${Math.floor(m / 60)} h ${m % 60} min before class`) + (in30 ? ' — within 30 min' : '');
+  const leadKo = (i.minutesBefore < 0 ? '수업 시작 뒤' : m < 60 ? `수업 ${m}분 전` : `수업 ${Math.floor(m / 60)}시간 ${m % 60}분 전`) + ' 변경' + (in30 ? ' · 30분 이내' : '');
   const to = i.toDate ? `${md(i.toDate)} ${hm(i.toTime || '')}`.trim() : '';
   if (i.kind === 'cancel') return {
     title: `❌ Class cancelled · 수업 취소 (${when})`,

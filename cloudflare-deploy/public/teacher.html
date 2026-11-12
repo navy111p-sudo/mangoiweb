@@ -1295,8 +1295,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     if (!b || !l) return;
     l.textContent = pushOn ? T('Alerts on', '알림 켜짐') : T('Alerts', '알림 받기');
     b.setAttribute('aria-label', pushOn ? T('Alerts are on', '알림 켜짐') : T('Turn on alerts', '알림 받기'));
-    b.title = pushOn ? T('Absence / waiting alerts arrive on this device', '결석·대기 알림이 이 기기로 옵니다')
-                     : T('Get absence / waiting-student alerts on this device', '결석·학생 대기 알림을 이 기기로 받습니다');
+    b.title = pushOn ? T('Class change, absence and waiting alerts are enabled on this device', '수업 취소·연기·변경 및 결석·대기 알림을 받도록 설정되었습니다')
+                     : T('Enable class change, absence and waiting-student alerts on this device', '수업 취소·연기·변경 및 결석·학생 대기 알림을 켭니다');
     b.classList.toggle('tbtn-push-on', pushOn);
   }
   function b64ToU8(s){
@@ -1379,8 +1379,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     b.disabled = true;
     subscribePush().then(function(r){
       b.disabled = false;
-      if (r.ok) toast(T('🔔 Alerts on — absence / waiting-student alerts will arrive on this device.',
-                         '🔔 알림 켜짐 — 결석·학생 대기 알림이 이 기기로 옵니다.'));
+      if (r.ok) toast(T('🔔 Alerts enabled for class changes, absences and waiting students. Check Pay & deductions for payment details.',
+                         '🔔 수업 취소·연기·변경 및 결석·대기 알림을 켰습니다. 지급 내역은 수업료 정산에서 확인하세요.'));
       else toast('⚠️ ' + r.why);
     });
   };
@@ -4477,7 +4477,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   }
 
   /* 📅 기간별 수업료 조회 (2026-11-11 사장님 — 옛 LMS 「Time: from To [Search]」 표: 시간·학생·ID·인센티브·수업료·합계).
-     서버는 손대지 않는다: 월 단위 /payroll/lessons 를 기간이 걸친 달만큼 불러 날짜로 거른다.
+     월 단위 /payroll/lessons 를 기간이 걸친 달만큼 불러 날짜로 거른다. 월 확정 인센티브는 KRW로 별도 표시한다.
      강사 본인 것만 오는 것은 서버가 강제한다(teacher 세션이면 teacher_name 무시).
      shortcut: 한 번에 3개월까지(달마다 서버 월 계산 1회) — 더 길게 필요해지면 서버에 from/to 를 받게 한다. */
   var FEE_MAX_MONTHS = 3, feeSeq = 0;
@@ -4494,7 +4494,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   }
   function feeRangeError(r){
     var re = /^\d{4}-\d{2}-\d{2}$/;
-    if (!re.test(r.from || '') || !re.test(r.to || '')) return 'dates';
+    var valid = function(d){ var x = new Date(d + 'T00:00:00Z'); return re.test(d || '') && Number.isFinite(+x) && x.toISOString().slice(0,10) === d; };
+    if (!valid(r.from) || !valid(r.to)) return 'dates';
     if (r.from > r.to) return 'order';
     if (feeMonths(r.from, r.to).length > FEE_MAX_MONTHS) return 'span';
     return '';
@@ -4515,13 +4516,15 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       return myGet('fee' + ym[0] + '-' + ym[1], '/api/admin/payroll/lessons?year=' + ym[0] + '&month=' + ym[1]);
     })).then(function(js){
       if (seq !== feeSeq) return;   // 더 나중에 누른 조회가 이긴다
+      if (js.some(function(j){ return !j || j.ok !== true || !Array.isArray(j.lessons); })) throw new Error('invalid_fee_response');
       var ls = [];
       js.forEach(function(j){ (j.lessons || []).forEach(function(l){
         // 예정(upcoming)은 아직 돈이 아니다 — 건별 명세와 같은 규칙
         if (l.status && l.status !== 'upcoming' && l.date >= r.from && l.date <= r.to) ls.push(l);
       }); });
       ls.sort(function(a, b){ return (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')); });
-      MY.fee = { from: r.from, to: r.to, teacher: (js[js.length - 1] || {}).teacher || {}, lessons: ls };
+      MY.fee = { from: r.from, to: r.to, teacher: (js[js.length - 1] || {}).teacher || {}, lessons: ls,
+        incentives: js.map(function(j, i){ return j.monthly_incentive || { period: feeMonths(r.from, r.to)[i].join('-'), status: 'unavailable' }; }) };
       paintFeeOut();
     }).catch(function(){ if (seq === feeSeq) { MY.fee = { err: 'load' }; paintFeeOut(); } });
   }
@@ -4539,6 +4542,17 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       searchFeeSum();
     });
     paintFeeOut();
+  }
+  function feeIncentiveHtml(f){
+    var rows = (f.incentives || []).map(function(i){
+      var amount = i.status === 'finalized' && i.currency === 'KRW' && typeof i.amount === 'number' && Number.isFinite(i.amount) && i.amount >= 0
+        ? '₩' + i.amount.toLocaleString() : T(i.status === 'not_finalized' ? 'Not finalized' : i.status === 'unlinked' ? 'Teacher account link required' : 'Could not verify',
+          i.status === 'not_finalized' ? '미확정' : i.status === 'unlinked' ? '교사 계정 연결 필요' : '확인하지 못함');
+      return '<div>' + esc(i.period || '') + ' · ' + esc(amount) + '</div>';
+    }).join('');
+    return '<div class="mini fs-incentive"><b>' + esc(T('Monthly incentive (KRW)', '월별 인센티브(원화)')) + '</b>' + rows
+      + '<div>' + esc(T('Whole-month finalized bonus. Partial date ranges do not prorate it. It is not added to PHP lesson fees.',
+        '해당 월 전체의 확정 보너스입니다. 일부 날짜만 조회해도 일할 계산하지 않으며 페소 수업료에 합산하지 않습니다.')) + '</div></div>';
   }
   function paintFeeOut(){
     var el = document.getElementById('fs-out'), f = MY.fee;
@@ -4566,6 +4580,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       + ' &middot; ' + esc(T('Teacher','강사')) + ': <b>' + esc(t.english_name || t.korean_name || myName() || '-') + '</b>'
       + (lvl ? ' &middot; ' + esc(T('Level','등급')) + ': <b>' + esc(lvl) + '</b>' : '')
       + '</span><span class="g">' + esc(T('Total','합계')) + ' ' + esc(peso(tot)) + '</span></div>';
+    h += feeIncentiveHtml(f);
     if (!f.lessons.length) { el.innerHTML = h + '<div class="mini">' + esc(T('No lessons in this period.','이 기간에 수업이 없습니다.')) + '</div>'; return; }
     h += '<div class="fs-scroll"><table class="fs-tbl"><thead><tr>'
       + '<th>' + esc(T('Lesson time','수업 시간')) + '</th><th>' + esc(T('Student','학생')) + '</th><th>' + esc(T('Student ID','학생 ID')) + '</th>'
@@ -4574,8 +4589,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
       + '<tfoot><tr><td colspan="4">' + esc(T('Lessons','수업') + ' (' + f.lessons.length + ')') + '</td>'
       + '<td class="n">' + esc(peso(fee)) + '</td><td class="n">&mdash;</td>'
       + '<td class="n neg">' + (ded ? '&minus;' + esc(peso(ded)) : '') + '</td><td class="n">' + esc(peso(tot)) + '</td></tr></tfoot></table></div>'
-      + '<div class="mini">' + esc(T('Unit: PHP. Total = fee − deductions (the period total never goes below ₱0). Incentive: none recorded in the system yet. Estimate — final pay is confirmed by your manager.',
-                                     '단위: 페소. 합계 = 수업료 − 공제(기간 합계는 ₱0 아래로 내려가지 않음). 인센티브: 아직 시스템에 기록된 것이 없습니다. 예상 금액이며 최종 지급액은 매니저가 확정합니다.')) + '</div>';
+      + '<div class="mini">' + esc(T('Unit: PHP. Total = fee − deductions (the period total never goes below ₱0). Incentive is monthly, shown separately below the period heading in KRW; not included in the PHP lesson total. Estimate — final pay is confirmed by your manager.',
+                                     '단위: 페소. 합계 = 수업료 − 공제(기간 합계는 ₱0 아래로 내려가지 않음). 인센티브는 월별 원화 금액으로 기간 제목 아래 별도 표시하며 페소 수업료 합계에는 포함하지 않습니다. 예상 금액이며 최종 지급액은 매니저가 확정합니다.')) + '</div>';
     el.innerHTML = h;
   }
 

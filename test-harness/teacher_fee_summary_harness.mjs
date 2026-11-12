@@ -110,7 +110,7 @@ const L = (date, time, extra = {}) => ({ date, start_time: time, end_time: '', s
   check('② 공제 합 −₱25', out.includes('&minus;₱25</td><td class="n">₱227</td>'));
   check('② 합계 ₱227 (머리글에도)', out.includes('Total ₱227'));
   check('② 인센티브: 없는 값을 지어내지 않는다(행마다 — + 안내)',
-    (out.match(/<td class="n">&mdash;<\/td>/g) || []).length === 5 + 1 && out.includes('Incentive: none recorded'));
+    (out.match(/<td class="n">&mdash;<\/td>/g) || []).length === 5 + 1 && out.includes('Incentive is monthly'));
   check('② 상태 알약(학생 결석)', out.includes('Student absent'));
 }
 
@@ -200,6 +200,24 @@ check('⑤ 건별 명세도 같은 상태 알약을 쓴다(복제 없음)', html
   await tick(); await tick();
   rejectOct(new Error('late')); await tick(); await tick();
   check('⑧ 늦게 실패한 10월 조회가 11월 결과를 «오류» 로 바꾸지 않는다', !!env.MY.fee && !env.MY.fee.err && env.MY.fee.lessons.length === 1);
+}
+
+// Invalid dates and malformed responses must never appear as zero pay.
+{
+  const { api } = makeEnv({});
+  for (const d of ['2026-02-30','2026-13-01','2026-00-01']) check('Invalid calendar date '+d, api.feeRangeError({from:d,to:d}) === 'dates');
+  check('Leap day allowed', api.feeRangeError({from:'2028-02-29',to:'2028-02-29'}) === '');
+}
+for (const bad of [{ok:true}, {ok:false,lessons:[]}, {ok:true,lessons:{}}]) {
+  const {env,api}=makeEnv({'2026-11':bad}); env.MY.feeRange={from:'2026-11-01',to:'2026-11-30'};
+  api.search(); await tick(); check('Malformed monthly reply is an error', env.MY.fee.err === 'load');
+}
+for (const [status,amount,label] of [['finalized',12500,'₩12,500'],['finalized',0,'₩0'],['not_finalized',null,'Not finalized'],['unavailable',null,'Could not verify']]) {
+  const {env,api,el}=makeEnv({'2026-11':{ok:true,lessons:[L('2026-11-05','10:00')],monthly_incentive:{period:'2026-11',currency:'KRW',status,amount}}});
+  env.MY.feeRange={from:'2026-11-05',to:'2026-11-06'}; api.paint(); api.search(); await tick();
+  check('Monthly incentive '+status+'/'+amount, el('fs-out').innerHTML.includes(label));
+  check('KRW incentive never changes PHP total',el('fs-out').innerHTML.includes('Total ₱50'));
+  check('Partial period explicitly not prorated',el('fs-out').innerHTML.includes('Partial date ranges do not prorate'));
 }
 
 console.log('\n─────────────────────────────────────────────');

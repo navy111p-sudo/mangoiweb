@@ -127,7 +127,7 @@ if (!existsSync(ESB)) {
   ok('전제: 정본을 번들했다', !!(mod && mod.freeTeachersOnDate));
 }
 
-function makeEnv({ mode = 'whitelist', failIntervals = false, failUnav = false, holiday = null, blockAll = [], carlSkip = null, sub = false } = {}) {
+function makeEnv({ mode = 'whitelist', failIntervals = false, failUnav = false, failHoliday = false, failBlocked = false, holiday = null, blockAll = [], carlSkip = null, sub = false } = {}) {
   const db = new DatabaseSync(':memory:');
   db.exec(`
     CREATE TABLE teachers (id INTEGER PRIMARY KEY, name TEXT, active INTEGER);
@@ -164,6 +164,8 @@ function makeEnv({ mode = 'whitelist', failIntervals = false, failUnav = false, 
   const norm = (a) => a.map((v) => (v === undefined ? null : v));
   const wrap = (sql, args) => {
     if (failIntervals && sql.includes('COALESCE(duration_min, 20) AS dm, scheduled_date')) throw new Error('D1 흔들림(시험)');
+    if (failHoliday && sql.includes('SELECT name FROM holidays')) throw new Error('D1 holiday unavailable');
+    if (failBlocked && sql.includes('WHERE enabled = 0')) throw new Error('D1 mirror unavailable');
     if (failUnav && sql.includes('teacher_unavailability')) throw new Error('D1 흔들림(시험)');
     return db.prepare(sql);
   };
@@ -212,6 +214,14 @@ if (mod && mod.freeTeachersOnDate) {
   catch (e) { fail = { threw: e.message }; }
   ok('일정을 못 읽으면 ok:false (0명으로 위장 안 함)', fail.ok === false && !Array.isArray(fail.sure), JSON.stringify(fail));
 
+  const holFail = await mod.freeTeachersOnDate(makeEnv({ failHoliday:true }), '2026-10-15', '17:00', 20, NOW);
+  ok('holiday failure is not availability (also bypasses old successful cache)',holFail.ok === false && !holFail.sure);
+  const blockFail = await mod.freeTeachersOnDate(makeEnv({ mode:'all', failBlocked:true }), '2026-10-15', '17:00', 20, NOW);
+  ok('mirror exclusion failure is not availability',blockFail.ok === false && !blockFail.sure);
+  for (const [date,time] of [['2026-02-30','17:00'],['2026-10-15','24:00'],['2026-10-15','23:50']]) {
+    const bad = await mod.freeTeachersOnDate(makeEnv(),date,time,20,NOW);
+    ok('invalid slot '+date+' '+time,bad.ok === false && bad.error === 'bad_params');
+  }
   const hol = await mod.freeTeachersOnDate(makeEnv({ holiday: '2026-10-22' }), '2026-10-22', '17:00', 20, NOW);
   ok('공휴일 휴강이면 확실히 가능 0명 + 휴일 이름', hol.ok && (hol.sure || []).length === 0 && hol.holiday === '임시휴일', JSON.stringify(hol).slice(0, 200));
 
@@ -359,6 +369,20 @@ if (mod && mod.freeTeachersOnDate) {
     }
   }
   ok(`무작위 ${N}회 — 정본과 독립 정답이 전부 같다`, bad === 0, `${bad}회 어긋남 · 첫 번째: ${firstBad}`);
+}
+
+// A later invalid input also invalidates an earlier pending query.
+{
+  const start = mgr.indexOf('  var FQ_SEQ = 0;'), end = mgr.indexOf('  function paintFree(){', start);
+  const elements = Object.fromEntries(['fqDate','fqTime','fqMin','fqNeed','freeBody'].map(k=>[k,{value:''}]));
+  Object.assign(elements.fqDate,{value:'2026-11-12'}); elements.fqTime.value='17:00';elements.fqMin.value='20';elements.fqNeed.value='1';
+  let release, paints=0; const pending=new Promise(r=>release=r), D={};
+  const window={};
+  new Function('window','document','D','get','T','paintFree','failBox',mgr.slice(start,end))(
+    window,{getElementById:k=>elements[k]},D,()=>pending,(en,ko)=>en,()=>paints++,()=>{});
+  window.runFree(); elements.fqDate.value=''; window.runFree(); release({ok:true,sure:[{id:'fixture'}],check:[]});
+  await new Promise(r=>setTimeout(r,0));
+  ok('invalid later input prevents stale availability result',paints===0 && D.free===null && elements.freeBody.textContent.includes('Please pick'));
 }
 
 console.log(`\n결과: PASS ${PASS} / FAIL ${FAIL} / SKIP ${SKIP}`);

@@ -1,0 +1,39 @@
+name: Teacher fee summary browser
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/public/teacher.html'
+      - 'cloudflare-deploy/src/teacher-monthly-incentive.ts'
+      - 'cloudflare-deploy/src/api-admin-payroll.ts'
+      - 'test-harness/manual/teacher-fee-summary-browser.mjs'
+      - '.github/workflows/teacher-fee-summary-browser.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: repo-git-v1-${{ github.run_id }}
+          restore-keys: repo-git-v1-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated browser tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/teacher-pw" playwright@1.58.2
+          "$RUNNER_TEMP/teacher-pw/node_modules/.bin/playwright" install chromium
+      - name: Verify English and Korean pay summary on desktop, tablet and phone
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/teacher-pw/node_modules/playwright/index.mjs
+          TEACHER_TEST_OUTPUT: ${{ runner.temp }}/teacher-browser-results
+        run: node test-harness/manual/teacher-fee-summary-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teacher-fee-summary-screens
+          path: ${{ runner.temp }}/teacher-browser-results
