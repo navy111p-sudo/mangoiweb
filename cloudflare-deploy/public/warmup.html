@@ -3570,7 +3570,7 @@ function speak(text, btn){
      흘러나와도 아무도 그리기를 다시 켜지 않아 "소리는 나는데 입은 안 움직임"으로 보였다.
      이제 plainStart() 는 실제 재생이 막 시작되는 시점(아래 play() 안, _synthSpeak 안)
      에서만 부른다 — 워치독이 재는 무음 시간이 실제 재생 이후로만 좁혀진다. */
-  var done=function(){ if(_atSeq===_speakSeq) warmThought(false); if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
+  var done=function(){ if(_atSeq!==_speakSeq)return; warmThought(false); if(btn) btn.classList.remove('playing'); try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}
     /* 🔁 다시 듣기가 끝나면 얼굴을 «지금 고른 친구» 로 되돌린다 — 그 사이 다른 말이 시작됐으면 손대지 않는다 */
     if(btn && _replayWho && _atSeq===_speakSeq){ _replayWho=null; try{ applyVoiceFace(); }catch(e){} }
     /* ✨ «끝까지 읽은» 대화 차례의 낭독만 알린다 — 다시 듣기(btn)·중간에 끊긴 낭독(_speakSeq 가 오름)은 제외 */
