@@ -1173,7 +1173,8 @@ body:has(#warmThought:not([hidden])) #log .msg.ai:not(:has(~ .msg.ai)) .who::aft
 <script src="/js/warmup-guide.js?v=12"></script>
 <script src="/js/speech-preferences.js?v=3"></script>
 <script src="/js/speech-rate-request.js?v=2"></script>
-<script src="/js/ai-situations.js?v=3"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
+<script src="/js/ai-situations.js?v=3"></script>
+<script src="/js/situation-resume.js?v=1"></script><!-- 🎯 상황별 말하기 표(?sit=) — 정본은 그 파일 하나 -->
 <script>
 /* ── 1. URL 파라미터 / 저장값에서 설정 읽기 ─────────────────────── */
 var Q = new URLSearchParams(location.search);
@@ -1422,6 +1423,7 @@ try{ document.getElementById('inp').addEventListener('input', function(){ if(!_i
 
 /* ── 3. 메시지 렌더 ─────────────────────────────────────────────── */
 var log = document.getElementById('log');
+var _situationMessages=[], _situationRestoring=false;
 function addMsg(text, who){
   var d = document.createElement('div');
   d.className = 'msg ' + who;
@@ -1477,6 +1479,12 @@ function addMsg(text, who){
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   if(window.MangoWarmupGuide) MangoWarmupGuide.onMessage(text,who);
   if(typeof window!=='undefined' && window.MangoWarmupFlow) MangoWarmupFlow.onMessage(text,who);
+  if(_situationRestoring) return d;
+  if(situationActive() && !Q.get('room') && !Q.get('session') && window.MangoSituationResume && (who==='me'||who==='ai')){
+    _situationMessages.push({who:who,text:String(text||'').slice(0,8000)});
+    _situationMessages=_situationMessages.slice(-48);
+    MangoSituationResume.save(SITUATION.id,SESSION_ID,_situationMessages);
+  }
   /* 🪞 (2026-08-12 강사 Shas 1번) 「학생이 입력한 글이 강사 화면에 보이지 않는다」
      웜업은 «학생 ↔ AI» 대화다(강사와의 채팅이 아니다). 그래서 강사에게 안 보이는 게
      당연했지만, 강사는 학생이 잘 하고 있는지 확인할 길이 아예 없었다.
@@ -3222,7 +3230,8 @@ function _synthSpeak(text, btn, onDone){
     if(_enVoice) u.voice=_enVoice;
     var utteranceSeq=_speakSeq, mouthTimer, finished=false, pose=0;
     // Device speech has no audio element; a paused server clip must not drive its mouth.
-    var poses=['medium','wide','medium','closed'];
+    // Device speech has no phoneme timing; avoid repeated exaggerated wide-open poses.
+    var poses=['medium','closed','medium','closed'];
     function moveMouth(){
       if(finished || utteranceSeq!==_speakSeq){ clearInterval(mouthTimer); return; }
       try{ window.MangoAvatar && MangoAvatar.mouth(poses[pose++ % poses.length]); }catch(e){}
@@ -3231,7 +3240,7 @@ function _synthSpeak(text, btn, onDone){
       if(finished || utteranceSeq!==_speakSeq)return;
       warmThought(false); _speechEverStarted=true; _latMark();
       moveMouth();
-      mouthTimer=setInterval(moveMouth, 150);
+      mouthTimer=setInterval(moveMouth, 180);
     };
     u.onend=u.onerror=function(){
       clearInterval(mouthTimer);
@@ -4526,6 +4535,17 @@ function updateTopicChip(){
    그러면 연령·수준을 고르기 전에 이미 엉뚱한 눈높이로 말이 나가 되돌릴 수 없다.
    → 이제 시작 버튼(startWarmup)이 부른다. 설정을 건너뛰려면 ?setup=0 을 붙인다. */
 async function initGreeting(){
+  if(situationActive() && !Q.get('room') && !Q.get('session') && window.MangoSituationResume){
+    var saved=MangoSituationResume.read();
+    if(saved && saved.sit===SITUATION.id && saved.sid===SESSION_ID){
+      _situationMessages=saved.messages;
+      _situationRestoring=true;
+      try{saved.messages.forEach(function(m){addMsg(m.text,m.who);});}finally{_situationRestoring=false;}
+      addMsg(wuT('이전 대화를 이어왔어요. 준비되면 마이크를 눌러 주세요.','Your conversation is restored. Tap the microphone when ready.'),'sys');
+      return;
+    }
+    addMsg(wuT('AI 질문을 듣고 마이크를 눌러 말해 보세요. 다 말하면 마이크를 다시 누르거나 보내기를 누르세요. 같은 탭에서 30분 안에 돌아오면 대화를 이어갈 수 있어요.','Listen to the AI, then tap the microphone to speak. Tap it again or Send when done. Return in this tab within 30 minutes to continue.'),'sys');
+  }
   var epoch=_warmEpoch;
   await warmupRatePreference.ready;
   if(epoch!==_warmEpoch || _warmPaused) return;
@@ -4664,6 +4684,7 @@ function newWarmupChat(){
   var ms=document.getElementById('m-session'); if(ms) ms.textContent=SESSION_ID.slice(0,22);
   ansCardClear();
   log.innerHTML='';
+  _situationMessages=[];
   var ip=document.getElementById('inp'); if(ip) ip.value='';   // 옛 질문에 쓰던 답이 새 대화로 넘어가지 않게
   var hp=document.getElementById('wgHelp'); if(hp) hp.hidden=true;
   _combo=0;
@@ -5054,6 +5075,10 @@ function warmupReplyText(d){
 }
 
 async function sendMsg(){
+  if(_warmPaused || sending)return;
+  // Send must finalize audio too: Whisper has no input text until recording stops.
+  if(_whisperOn || (_recognizing && !_micStopWanted)){ toggleMic(); return; }
+  if(_recognizing && (_micBase || _micSess))return;
   await warmupRatePreference.ready;
   if(typeof window!=='undefined' && window.MangoWarmupFlow)MangoWarmupFlow.contextChanged(true);
   if(_warmPaused)return;
@@ -5101,6 +5126,8 @@ async function sendMsg(){
   typing.className = 'typing'; typing.textContent = 'AI 친구가 입력 중…';
   log.appendChild(typing); log.scrollTop = log.scrollHeight;
 
+  var slowNotice=setTimeout(function(){if(epoch===_warmEpoch && sending) document.getElementById('wgState').textContent=wuT('답변이 조금 늦어지고 있어요. 잠시만 기다려 주세요.','The reply is taking longer. Please wait a moment.');},6000);
+  function keepAnswer(){if(!_warmPaused && epoch===_warmEpoch && !inp.value) inp.value=text;}
   try{
     var body = withCtx({ session_id: SESSION_ID, student_input: text });
     if(window.AiSpeakingProgress) Object.assign(body, await window.AiSpeakingProgress.beforeTurn());
@@ -5120,6 +5147,7 @@ async function sendMsg(){
     typing.remove();
     if(_warmPaused || epoch!==_warmEpoch)return;
     if(!r.ok){
+      keepAnswer();
       warmThought(false);
       var errTxt = '';
       try{ var ej = await r.json(); errTxt = ej.detail || ''; }catch(e){}
@@ -5140,10 +5168,12 @@ async function sendMsg(){
       showAnswerChips(d.answer_chips,d.speaking_help);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
     }
   }catch(e){
+    keepAnswer();
     typing.remove();
     if(epoch===_warmEpoch) warmThought(false);
     if(!_warmPaused && epoch===_warmEpoch)addMsg('답변을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.', 'sys');
   }finally{
+    clearTimeout(slowNotice);
     if(epoch===_warmEpoch){
       sending = false; document.getElementById('sendBtn').disabled = false;
       document.getElementById('wgState').textContent=wuT('준비되면 마이크를 누르거나 글로 답해 보세요.','When ready, use the microphone or type your answer.');
