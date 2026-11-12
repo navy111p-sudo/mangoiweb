@@ -8,6 +8,8 @@ on:
       - 'cloudflare-deploy/public/js/mango-avatar.js'
       - 'cloudflare-deploy/public/js/eleader-entry.js'
       - 'cloudflare-deploy/public/js/ai-speaking-*.js'
+      - 'cloudflare-deploy/public/js/situation-resume.js'
+      - 'test-harness/manual/situation-feedback-browser.mjs'
       - 'cloudflare-deploy/public/js/warmup-flow.js'
       - 'cloudflare-deploy/public/js/speaking-growth-view.js'
       - 'cloudflare-deploy/public/parent.html'
@@ -57,11 +59,13 @@ jobs:
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw
         run: |
+          node --test cloudflare-deploy/test/situation-resume.test.cjs
           node --input-type=module <<'JS'
           import { createRequire } from 'node:module';
           const require = createRequire(import.meta.url);
           process.env.MANGOI_CHROME_EXECUTABLE = require(process.env.PW_DIR + '/node_modules/playwright').chromium.executablePath();
           await import('./test-harness/manual/ai-speaking-progress-browser.mjs');
           await import('./test-harness/manual/ai-speaking-observations-browser.mjs');
+          await import('./test-harness/manual/situation-feedback-browser.mjs');
           await import('./test-harness/manual/speaking-growth-report-browser.mjs');
           JS

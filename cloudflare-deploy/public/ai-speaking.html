@@ -102,6 +102,7 @@
     .art{flex:0 0 auto;width:80px;height:80px}
     .art img{display:block;width:100%;height:100%;object-fit:contain}
     /* 🎯 상황 목록 */
+    #situationResume[hidden]{display:none}
     #situations{margin-top:16px;padding:18px;border-radius:26px;background:var(--card);border:1px solid var(--line)}
     #situations h3.title{margin:0 0 4px;font-size:18px;font-weight:900}
     #situations .hint{margin:0 0 6px;color:var(--sub);font-size:13.5px}
@@ -193,6 +194,8 @@
   <p class="lead"><svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.8 6 6.5.7-4.9 4.4 1.4 6.4L12 16.8 6.2 20l1.4-6.4L2.7 9.2l6.5-.7z"/></svg><span data-ko="오늘은 어떤 말하기 행성으로 떠나 볼까요?" data-en="Which speaking planet will you visit today?">오늘은 어떤 말하기 행성으로 떠나 볼까요?</span>
     <button type="button" class="guide-btn" id="guideBtn" aria-haspopup="dialog" aria-controls="guideDlg"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5z"/><path d="M9 7.5h7M9 11h5"/></svg><span data-ko="사용 안내" data-en="How to use">사용 안내</span></button></p>
 
+    <a id="situationResume" class="sit" data-start hidden></a>
+
   <div class="modes">
     <a class="mode" id="textbook-mode" href="/warmup.html" data-start>
       <span class="art" aria-hidden="true"><img src="/img/ai-speaking/planet-textbook.webp" alt="" width="160" height="160" decoding="async"></span>
@@ -217,6 +220,7 @@
   <section id="situations" aria-labelledby="sitTitle">
     <h3 class="title" id="sitTitle" data-ko="🎯 어떤 상황에서 말해 볼까요?" data-en="🎯 Which situation would you like to try?">🎯 어떤 상황에서 말해 볼까요?</h3>
     <p class="hint" data-ko="AI 가 점원·친구·의사가 되어 먼저 말을 걸어요. 수준은 아래 공통 설정을 따라요." data-en="The AI plays the clerk, friend or doctor and speaks first. Your level follows the settings below.">AI 가 점원·친구·의사가 되어 먼저 말을 걸어요. 수준은 아래 공통 설정을 따라요.</p>
+    <p class="hint" data-ko="① 상황 선택 → ② AI 질문 듣기 → ③ 마이크로 답하기. 다 말하면 마이크를 다시 누르거나 보내기를 누르세요." data-en="1. Choose a situation → 2. Listen → 3. Tap the microphone and answer. Tap again or Send when done.">① 상황 선택 → ② AI 질문 듣기 → ③ 마이크로 답하기. 다 말하면 마이크를 다시 누르거나 보내기를 누르세요.</p>
     <div id="sitBody"><p class="hint" data-ko="상황 목록을 불러오지 못했어요. 새로고침해 주세요." data-en="Could not load the list. Please refresh.">상황 목록을 불러오지 못했어요. 새로고침해 주세요.</p></div>
   </section>
 
@@ -292,6 +296,7 @@
   </div>
 </div>
 <script src="/js/ai-situations.js?v=3"></script>
+<script src="/js/situation-resume.js?v=1"></script>
 <script src="/js/ai-speaking-settings.js?v=4"></script>
 <script>
 (function(){
@@ -312,6 +317,11 @@
   }
   function renderSituations(){
     var box = document.getElementById('sitBody'); if(!box || !SIT) return;
+    var resume=document.getElementById('situationResume'), saved=window.MangoSituationResume && MangoSituationResume.read();
+    if(resume){
+      resume.hidden=!saved;
+      if(saved){var scene=SIT.find(saved.sit);resume.href=SIT.url(scene);resume.textContent=T('이전 대화 이어하기 · ','Continue previous conversation · ')+T(scene.ko,scene.en);}
+    }
     box.innerHTML = SIT.steps.map(function(st){
       var items = SIT.list.filter(function(s){ return s.step === st.n; });
       return '<h4 class="sit-g">' + esc(T(st.ko, st.en)) + '</h4><div class="sit-list">' + items.map(function(s){

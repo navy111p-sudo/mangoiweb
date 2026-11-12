@@ -503,7 +503,7 @@ console.log('\n[K] Device speech mouth animation');
   ok('K-1 mouth waits for actual device speech', poses.length === 0);
   utterance.onstart();
   for (const tick of timers) tick();
-  ok('K-2 device speech drives multiple mouth poses', poses.join() === 'medium,wide', poses);
+  ok('K-2 device speech alternates modest opening and rest', poses.join() === 'medium,closed', poses);
   utterance.onend();
   ok('K-3 device speech end stops motion and completes once', !timers.size && stops === 1 && completions === 1);
   start();
