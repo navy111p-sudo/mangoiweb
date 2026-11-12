@@ -289,7 +289,17 @@ for (const pg of PAGES) {
     const said = [];
     let wireErr = '';
     if (c0 > s0 && s0 > 0) {
-      try { runPrefix(html.slice(s0, c0 + pg.call.length), mkScope(said, voice)); } catch (e) { wireErr = String(e && e.message); }
+      try {
+        const prefix=html.slice(s0, c0 + pg.call.length), scope=mkScope(said, voice);
+        let stopped=false;
+        // Recording completes before its transcript calls sendMsg again.
+        scope.toggleMic=()=>{stopped=true;scope._whisperOn=false;scope._recognizing=false;scope._micStopWanted=true;};
+        runPrefix(prefix,scope);
+        if(!isAF && voice){
+          ok('⑥ warmup: 녹음 중 보내기는 먼저 녹음을 끝내고 속도 요청을 아직 처리하지 않는다',stopped && said.length===0);
+          if(stopped)runPrefix(prefix,scope);
+        }
+      } catch (e) { wireErr = String(e && e.message); }
     } else wireErr = 'cut-missing';
     ok(`⑥ ${pg.file}: 보내기를 실제로 돌리면 학생 말(앞뒤 공백 뺀 것)이 그 함수에 «정확히 한 번» 닿는다 — ${voice ? '🎤 음성으로 온 말' : '⌨️ 글로 친 말'}`,
       !wireErr && said.length === 1 && said[0] === typed, { said, wireErr });
