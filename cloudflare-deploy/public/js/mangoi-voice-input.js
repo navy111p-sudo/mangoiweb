@@ -1,14 +1,6 @@
-/*!
- * 🎤 mangoi-voice-input.js — 녹음 → 서버 Whisper 전사 (브라우저 음성인식의 폴백/정확 모드)
- *   인식이 없는 WebView·인앱·구형 iOS 용(2026-07-23). 내력: 작업기록 261105 «녹음말끝»·«미리받아쓰기».
- * ⚠️ 브라우저 음성인식과 **동시에 쓰지 말 것** — 일부 안드로이드는 입력 세션이 하나뿐이라 둘 다 죽는다.
- * ⚠️ 첫 화면(blocking)에 실린다 — 여유가 수십 바이트. 새 판단은 따로 둘 것(본보기 mangoi-voice-early.js).
- *
- * MangoiVoice.supported() · stop()(⏹ 지금까지 녹음분으로 전사) · cancel()(전사 안 함) · post(fd)(기본 전사)
- * MangoiVoice.record({ onState, maxMs, silenceMs, firstMs, lang, onAudio, transcribe, early }) -> Promise<string>
- *   lang: Whisper 언어 힌트('en'|'ko'|'zh'). 안 주면 짧은 영어를 한국어로 오인식한다(2026-07-24).
- *   early(x): 말이 멎으면 x={snap,stop,mime}(snap()=지금까지 녹음분 FormData), 다시 말하면 0.
- * onState(state, info): ready · waiting · speaking · thinking · error(info.reason = unsupported|denied|no_audio|server)
+/*! MangoiVoice: record(opts)->Promise<string>, stop, cancel, busy, supported, post.
+ * Recording fallback; do not run alongside browser SpeechRecognition on Android.
+ * Blocking asset: keep size bounded. History and regression: voice_early_harness.mjs.
  */
 (function () {
   'use strict';
@@ -24,12 +16,14 @@
   }
 
   function post(fd) {
-    return fetch('/api/voice/transcribe', { method: 'POST', body: fd }).then(function (r) { return r.ok ? r.json() : null; });
+    var ac = new AbortController(), timer;
+    return Promise.race([
+      fetch('/api/voice/transcribe', { method: 'POST', body: fd, signal: ac.signal }).then(function (r) { return r.ok ? r.json() : null; }),
+      new Promise(function (_, reject) { timer = setTimeout(function () { ac.abort(); reject(new Error('timeout')); }, 30000); })
+    ]).finally(function () { clearTimeout(timer); });
   }
 
-  /* 🔇 말/조용 판정(2026-11-05) — 고정 문턱(>8)이면 폰 자동음량이 키운 소음이 늘 «말» 이라 20초까지 녹음됐다.
-     최근 3초 소음 바닥(0.2초 칸의 둘째로 작은 값)에 맞춘다. 0(빈 프레임)은 조용이되 바닥 제외.
-     바닥×2~3 은 0.1초 이어지면 말. 1 말·-1 조용·0 애매 */
+  /* Adaptive noise floor; 1 speech, -1 quiet, 0 ambiguous. */
   function endGate() {
     var lows = [], a = 1e9, b = 1e9, t0 = -1, mid = 0;
     return function (p, now) {
@@ -59,11 +53,11 @@
       /* ⏹ 는 권한 대기 중에도 들어야 한다(2026-07-23) — 지금 정의, 준비되면 반영. */
       var session = { canceled: false, wantStop: false, _stopRec: null };
       session.stop = function () { session.wantStop = true; if (session._stopRec) session._stopRec(); };
-      session.cancel = function () { session.canceled = true; session.wantStop = true; if (session._stopRec) session._stopRec(); };
+      session.cancel = function () { session.canceled = true; session.wantStop = true; if (session._stopRec) session._stopRec(); early(0); finish(''); };
       cur = session;
-      var finished = false;
+      var finished = false, uploadTimer;
       function finish(text) {
-        if (finished) return; finished = true;
+        if (finished) return; finished = true; clearTimeout(uploadTimer);
         if (cur === session) cur = null;
         resolve(text || '');
       }
@@ -121,24 +115,32 @@
         };
         mr.onstop = function () {
           stopTracks(stream);
-          if (session.canceled) return finish('');
+          if (session.canceled || finished) return finish('');
           var blob = whole();
           if (!blob.size || blob.size < 1200) { onState('error', { reason: 'no_audio' }); return finish(''); }
           if (typeof opts.onAudio === 'function') { try { opts.onAudio(blob); } catch (e) {} }
           onState('thinking', {});
+          uploadTimer = setTimeout(function () {
+            session.canceled = true; early(0);
+            onState('error', { reason: 'timeout' }); finish('');
+          }, 30000);
           var fd = form(blob);
           var upload = typeof opts.transcribe === 'function'
             ? Promise.resolve().then(function(){ if(session.canceled)return null; return opts.transcribe(fd); })
             : post(fd);
           upload
             .then(function (d) {
-              if (session.canceled) return finish('');
+              if (session.canceled || finished) return finish('');
               if (!d || !d.ok) { onState('error', { reason: 'server' }); return finish(''); }
               finish(String(d.text || '').trim());
             })
-            .catch(function () { onState('error', { reason: 'server' }); finish(''); });
+            .catch(function () { if (!session.canceled && !finished) onState('error', { reason: 'server' }); finish(''); });
         };
 
+        mr.onerror = function () {
+          session.canceled = true; stopRec(); stopTracks(stream); early(0);
+          onState('error', { reason: 'no_audio' }); finish('');
+        };
         try { mr.start(); } catch (e) { stopTracks(stream); onState('error', { reason: 'unsupported' }); return finish(''); }
         if (session.wantStop) { stopRec(); return; }
         onState('waiting', {});
@@ -149,6 +151,7 @@
         try {
           var AC = window.AudioContext || window.webkitAudioContext;
           ac = new AC();
+          if (ac.state === 'suspended') ac.resume().catch(function () {});
           var src = ac.createMediaStreamSource(stream);
           var an = ac.createAnalyser();
           an.fftSize = 1024;
@@ -171,6 +174,7 @@
           raf = requestAnimationFrame(tick);
         } catch (e) {}
       }).catch(function (err) {
+        if (session.canceled || finished) return finish('');
         var denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
         onState('error', { reason: denied ? 'denied' : 'unsupported' });
         finish('');

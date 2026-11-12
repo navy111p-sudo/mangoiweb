@@ -52,7 +52,7 @@ function loadVoiceModule(opts) {
   class FakeFormData { constructor(){ this.f = {}; } append(k, v, name){ this.f[k] = v; this.names = this.names || {}; this.names[k] = name; } }
 
   const sandbox = {
-    console,
+    console, AbortController,
     navigator: {
       mediaDevices: opts.noMediaDevices ? undefined : {
         getUserMedia: () => opts.denied

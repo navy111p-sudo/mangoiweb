@@ -52,9 +52,9 @@ async function run(level, sc = {}) {
   class FakeBlob { constructor(parts, o) { this.size = (parts || []).reduce((a, x) => a + (x.size || 0), 0); this.type = (o && o.type) || ''; } }
   class FakeFD { constructor() { this.f = {}; } append(k, v, name) { this.f[k] = v; if (name) this.f[k + '_name'] = name; } }
   const sb = {
-    console, Uint8Array, Math, Promise, Object, String, Number, RegExp, Error,
+    console, AbortController, Uint8Array, Math, Promise, Object, String, Number, RegExp, Error,
     Date: { now: () => clock.t },
-    navigator: { userAgent: sc.ua || '', mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [{ stop() {} }] }) } },
+    navigator: { userAgent: sc.ua || '', mediaDevices: { getUserMedia: () => sc.permissionLat ? new Promise((resolve,reject)=>later(sc.permissionLat,()=>sc.permissionFail ? reject(new Error('denied')) : resolve({getTracks:()=>[{stop(){st.tracksStopped=(st.tracksStopped||0)+1;}}]}))) : Promise.resolve({ getTracks: () => [{ stop() {} }] }) } },
     MediaRecorder: FakeMR, AudioContext: FakeAC, Blob: FakeBlob, FormData: FakeFD,
     fetch: (url, init) => {
       const n = st.uploads.length + 1, size = init.body.f.audio.size;
@@ -62,7 +62,7 @@ async function run(level, sc = {}) {
       return new Promise((res, rej) => later(sc.lat == null ? 800 : sc.lat, () => {
         if (sc.fail && sc.fail(n) === 'throw') return rej(new Error('network'));
         if (sc.fail && sc.fail(n)) return res({ ok: false, json: () => Promise.resolve(null) });
-        res({ ok: true, json: () => Promise.resolve({ ok: true, text: sc.text ? sc.text(size, n) : 'I like pizza.' }) });
+        res({ ok: true, json: () => sc.bodyHang ? new Promise(() => {}) : Promise.resolve({ ok: true, text: sc.text ? sc.text(size, n) : 'I like pizza.' }) });
       }));
     },
     setTimeout: (cb, ms) => later(ms, cb),
@@ -82,8 +82,10 @@ async function run(level, sc = {}) {
   const flush = () => new Promise((r) => setImmediate(r));
   await flush();
   const END = 40000;
-  while (st.doneAt == null && clock.t < END) {
+  while ((st.doneAt == null || sc.drain) && clock.t < END) {
     clock.t += STEP;
+    if (sc.restartAt === clock.t) sb.MangoiVoice.record({onState:s=>(st.nextStates||(st.nextStates=[])).push(s)}).then(t=>{st.nextText=t;});
+    if (sc.cancelAt === clock.t) sb.MangoiVoice.cancel();
     if (sc.stopAt != null && clock.t === sc.stopAt) sb.MangoiVoice.stop();
     for (;;) {
       timers.sort((a, b) => a.at - b.at);
@@ -95,6 +97,7 @@ async function run(level, sc = {}) {
     await flush();
   }
   if (st.doneAt != null) await p.catch(() => {});
+  st.busy = sb.MangoiVoice.busy();
   return st;
 }
 
@@ -188,6 +191,25 @@ const qt = await run(quietTail, { early: true, cfg: {}, stopAt: 6500, opts: { si
   text: (size) => (size < 4000 * BPMS ? 'I like pizza and' : 'I like pizza and chicken.') });
 ok('F-3 미리받기 뒤 한참(1.3초 넘게) 더 녹음됐으면 그 글자를 쓰지 않고 전체를 올린다(작은 목소리를 잃지 않음)', qt.text === 'I like pizza and chicken.' && qt.uploads.length === 2, { text: qt.text, up: qt.uploads.map((u) => u.size) });
 ok('F-4 (짝) 금방 ⏹(미리받기 0.5초 뒤)면 미리 받은 글자를 그대로 쓴다(D-4 와 같은 경우)', man.uploads.length === 1 && man.text === 'I like pizza.', { up: man.uploads.length, text: man.text });
+
+console.log('\n[G] 응답 중단·취소·늦은 응답');
+for (const sc of [{lat:1e9}, {bodyHang:true}, {opts:{transcribe:()=>new Promise(()=>{})}}]) {
+  const r=await run(say([500,2500]),sc);
+  ok('30초 전사 제한: 빈 결과로 종료하고 busy 해제', r.doneAt <= r.stopAt+30100 && r.text==='' && !r.busy, r);
+}
+const canceled=await run(say([500,2500]),{lat:8000,cancelAt:5000,drain:true});
+ok('전사 중 취소는 즉시 끝나며 늦은 성공은 무시', canceled.doneAt===5000 && canceled.text==='' && !canceled.busy, canceled);
+const lateError=await run(say([500,2500]),{lat:8000,cancelAt:5000,drain:true,fail:()=> 'throw'});
+ok('취소 뒤 늦은 실패도 다음 녹음 화면에 오류를 내지 않음', !lateError.states.some(([s])=>s==='error') && !lateError.busy, lateError);
+const custom=await run(say([500,2500]),{cancelAt:5000,opts:{transcribe:()=>new Promise(()=>{})}});
+ok('끝나지 않는 사용자 전사 함수도 취소 가능',custom.doneAt===5000 && !custom.busy,custom);
+
+for(const permissionFail of [false,true]){
+ const r=await run(room,{permissionLat:2000,permissionFail,cancelAt:500,drain:true});
+ ok('권한 대기 중 취소: 늦은 허용/실패 무시 '+permissionFail,r.doneAt===500 && !r.busy && !r.states.some(([s])=>s==='error') && (permissionFail || r.tracksStopped===1),r);
+}
+const again=await run(say([500,2500]),{lat:8000,cancelAt:5000,restartAt:6000,drain:true});
+ok('취소 직후 새 녹음 성공: 지난 세션 결과가 섞이지 않음',again.text==='' && again.nextText==='I like pizza.' && !again.busy,again);
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);
 if (fail) process.exit(1);

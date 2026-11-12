@@ -30,7 +30,18 @@ ok('turbo 결과를 거른다', /if \(ttRaw && isSttRepeatLoop\(ttRaw\)\)/.test(
 ok('구 whisper 폴백도 거른다 (짝)', /if \(isSttRepeatLoop\(baseText\)\)/.test(G));
 ok('거르면 text 를 비워서 돌려준다', (G.match(/text: '', dropped: 'repeat_loop'/g) || []).length === 2);
 const H = readFileSync(P('public/warmup.html'), 'utf8');
-ok('웜업이 «들렸는데 빈 글자» 를 사람에게 말한다', /if\(!said && heard && !errored\) addMsg\(/.test(H));
+const noticeStart = H.indexOf('else if(!said && !errored) addMsg(');
+const noticeEnd = H.indexOf('  if(said && prepositionUnconfirmed)', noticeStart);
+if (noticeStart < 0 || noticeEnd < 0) throw new Error('Missing empty transcript notice');
+const notice = new Function('said', 'heard', 'errored', 'addMsg', 'wuT', H.slice(noticeStart + 5, noticeEnd));
+for (const heard of [true, false]) {
+  const messages = [];
+  notice('', heard, false, text => messages.push(text), (ko, en) => en);
+  ok('빈 전사 안내: audio=' + heard, messages.length === 1 && messages[0].includes(heard ? 'could not transcribe' : 'No microphone audio'));
+  notice('', heard, true, text => messages.push(text), (ko, en) => en);
+  notice('hello', heard, false, text => messages.push(text), (ko, en) => en);
+  ok('이미 안내한 오류와 정상 전사에는 추가 안내 없음: audio=' + heard, messages.length === 1);
+}
 ok('오류 안내와 겹쳐 두 번 말하지 않는다 (짝)', /errored=true; var r = info && info\.reason;/.test(H));
 
 console.log(`\n결과: PASS ${pass} / FAIL ${fail}`);

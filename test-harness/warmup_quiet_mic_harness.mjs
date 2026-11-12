@@ -52,19 +52,17 @@ ok('녹음 파일을 받아 둔다(onAudio)', /onAudio\s*:\s*function\s*\(\s*(\w
 const gi = mv.indexOf('_blobHasVoice(recBlob)');
 const di = mv.indexOf("said=''; addMsg(wuT('🎤 소리가 잘 안 들렸어요");
 ok('버리기 «전» 에 녹음 파일을 다시 잰다', gi > 0 && di > gi);
-const gate = mv.slice(mv.lastIndexOf('if(', gi), gi);
-ok('그 재기는 «판정이 놓친 경우» 에만', /if\(\s*said\s*&&\s*!heard\s*\)/.test(gate));
-ok('true 일 때만 살린다(모르면 예전대로 버림)', /if\(\s*_v\s*===\s*true\s*\)\s*heard\s*=\s*true/.test(mv));
 ok('수동 모드는 판정이 못 봐도 9초에 끊지 않는다', /firstMs\s*:\s*manual\s*\?\s*MIC_MANUAL_IDLE/.test(mv));
 
 // Execute the warmup recorder with a stale early result and the final selected result.
 const spoken=[], messages=[], submitted=[];
 const input={value:''};
-let recheck='unavailable';
+let recheck='unavailable', waveform=true, transcript='I am interested in music.', livePeak=true, checks=0, rejectRecording=false;
 const warm={
   _prepositionRepeatEpoch:null, _warmPaused:false, _warmEpoch:1, _warmVoiceEpoch:0, _whisperOn:false,
   _warmLang:'en', _wuCorrMode:'focused', wuT:(ko,en)=>en,
   MIC_MANUAL_IDLE:30000, MIC_MANUAL_MAX:180000, _micManual:()=>false,
+  _blobHasVoice:async()=>{checks++;return waveform;},
   setMicState(){}, _setListenLabel(){}, _autoHook(){}, ansCardClear(){}, fixCardClear(){},
   addMsg:(text,who)=>messages.push([text,who]), speak:text=>spoken.push(text),
   document:{getElementById:()=>input}, sendMsg:()=>submitted.push(input.value),
@@ -77,9 +75,10 @@ const warm={
   },
   MangoiVoice:{
     supported:()=>true,
-    post:async fd=>({ok:true,text:'I am interested in music.',preposition_recheck:fd.get('stale')?'unavailable':recheck}),
+    post:async fd=>({ok:true,text:transcript,preposition_recheck:fd.get('stale')?'unavailable':recheck}),
     record:async opts=>{
-      opts.onState('speaking',{});
+      if(rejectRecording)throw new Error('recorder failed');
+      if(livePeak)opts.onState('speaking',{});
       return (await opts.transcribe(new Map())).text;
     }
   }
@@ -94,6 +93,23 @@ recheck='unchanged';
 await warm.micViaWhisper();
 ok('최종 전사가 in을 유지하면 이전 미리받기 실패와 상관없이 그대로 전송한다',
    submitted[0]==='I am interested in music.' && spoken.length===1);
+
+for(const peak of [true,false]){
+  livePeak=peak; waveform=false;
+  const sent=submitted.length, before=messages.length, checked=checks;
+  await warm.micViaWhisper();
+  ok('잡음 전사는 실시간 peak 유무와 무관하게 검사 후 차단 '+peak,checks===checked+1 && submitted.length===sent && messages.length===before+1 && !warm._whisperOn);
+}
+waveform=true; livePeak=false;
+const beforeQuiet=submitted.length;
+await warm.micViaWhisper();
+ok('실시간 크기 판정이 놓친 작은 발화는 파일 검사 후 보냄',submitted.length===beforeQuiet+1);
+transcript='';const beforeEmpty=messages.length;
+await warm.micViaWhisper();
+ok('완전 무응답도 안내하고 마이크 상태 해제',messages.length===beforeEmpty+1 && !warm._whisperOn);
+rejectRecording=true;const beforeReject=messages.length;
+await warm.micViaWhisper();
+ok('녹음 예외도 안내하고 재시도 가능한 상태 복구',messages.length===beforeReject+1 && !warm._whisperOn);
 
 // 배선 — A.i 친구하기 micViaWhisper(async) 몸통
 html = fHtml;

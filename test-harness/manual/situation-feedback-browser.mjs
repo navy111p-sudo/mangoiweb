@@ -30,8 +30,17 @@ try{for(const width of [390,768,1366]){
  await page.evaluate(()=>{_speechOn=false;_stopSpeak();});
  await page.evaluate(()=>{
   window.MangoiVoiceEarly=null;
+  // Supply decodable PCM: a speaking event alone must not bypass waveform validation.
+  const sampleRate=16000, count=sampleRate, ab=new ArrayBuffer(44+count*2), dv=new DataView(ab);
+  const tag=(offset,text)=>{for(let i=0;i<text.length;i++)dv.setUint8(offset+i,text.charCodeAt(i));};
+  tag(0,'RIFF');dv.setUint32(4,36+count*2,true);tag(8,'WAVE');tag(12,'fmt ');
+  dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);
+  dv.setUint32(24,sampleRate,true);dv.setUint32(28,sampleRate*2,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);
+  tag(36,'data');dv.setUint32(40,count*2,true);
+  for(let i=3200;i<11200;i++)dv.setInt16(44+i*2,Math.round(8000*Math.sin(2*Math.PI*220*i/sampleRate)),true);
+  const audio=new Blob([ab],{type:'audio/wav'});
   let resolveRecording;
-  window.MangoiVoice={supported:()=>true,record:opts=>{opts.onState('speaking');return new Promise(r=>resolveRecording=r);},stop:()=>{if(resolveRecording){let r=resolveRecording;resolveRecording=null;r('My name is Mina.');}},cancel:()=>{}};
+  window.MangoiVoice={supported:()=>true,record:opts=>{opts.onAudio(audio);opts.onState('speaking');return new Promise(r=>resolveRecording=r);},stop:()=>{if(resolveRecording){let r=resolveRecording;resolveRecording=null;r('My name is Mina.');}},cancel:()=>{}};
   _micPreferWhisper=true;toggleMic();
  });
  assert.equal(await page.locator('#inp').inputValue(),'');
