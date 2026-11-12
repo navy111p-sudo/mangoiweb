@@ -1228,7 +1228,24 @@ function warmupFetch(url, options){
      학부모 화면용으로 기록). 다른 서버(API_BASE)로는 안 보낸다 — 토큰이 남의 서버로 새지 않게. */
   try{ if(!API_BASE && /\/api\/warmup\/chat$/.test(String(url))){ var tk=localStorage.getItem('mango_token');
     if(tk){ options=Object.assign({},options||{}); options.headers=Object.assign({},options.headers||{},{'Authorization':'Bearer '+tk}); } } }catch(e){}
-  return fetch(url,Object.assign({},options||{},{signal:c.signal})).finally(function(){
+  return fetch(url,Object.assign({},options||{},{signal:c.signal})).then(function(r){
+    // fetch resolves at headers. Keep JSON body reads bounded and cancellable too.
+    var readJson=r.json.bind(r);
+    r.json=function(){
+      var bodyTimer, onAbort;
+      _warmControllers.push(c);
+      var deadline=new Promise(function(resolve,reject){
+        onAbort=function(){reject(new Error('warmup response aborted'));};
+        if(c.signal.aborted)onAbort();else c.signal.addEventListener('abort',onAbort,{once:true});
+        bodyTimer=setTimeout(function(){reject(new Error('warmup response timed out'));c.abort();},20000);
+      });
+      return Promise.race([Promise.resolve().then(readJson),deadline]).finally(function(){
+        clearTimeout(bodyTimer);c.signal.removeEventListener('abort',onAbort);
+        var i=_warmControllers.indexOf(c);if(i>=0)_warmControllers.splice(i,1);
+      });
+    };
+    return r;
+  }).finally(function(){
     clearTimeout(timer);var i=_warmControllers.indexOf(c);if(i>=0)_warmControllers.splice(i,1);
   });
 }
@@ -3236,12 +3253,22 @@ function _synthSpeak(text, btn, onDone){
       if(finished || utteranceSeq!==_speakSeq){ clearInterval(mouthTimer); return; }
       try{ window.MangoAvatar && MangoAvatar.mouth(poses[pose++ % poses.length]); }catch(e){}
     }
+    function startMouth(){
+      if(finished || utteranceSeq!==_speakSeq)return;
+      clearInterval(mouthTimer);
+      moveMouth();mouthTimer=setInterval(moveMouth,180);
+    }
     u.onstart=function(){
       if(finished || utteranceSeq!==_speakSeq)return;
       warmThought(false); _speechEverStarted=true; _latMark();
-      moveMouth();
-      mouthTimer=setInterval(moveMouth, 180);
+      startMouth();
     };
+    u.onpause=function(){
+      clearInterval(mouthTimer);
+      if(finished || utteranceSeq!==_speakSeq)return;
+      try{window.MangoAvatar && MangoAvatar.mouth('closed');}catch(e){}
+    };
+    u.onresume=startMouth;
     u.onend=u.onerror=function(){
       clearInterval(mouthTimer);
       if(finished || utteranceSeq!==_speakSeq)return;

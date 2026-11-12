@@ -5,13 +5,13 @@ import {extname} from 'node:path';
 import {requireBrowser} from './_pw.mjs';
 const {chromium,exe}=requireBrowser();
 const pub=new URL('../../cloudflare-deploy/public/',import.meta.url);
-const server=createServer(async(req,res)=>{try{const path=decodeURIComponent(req.url.split('?')[0]);res.setHeader('Content-Type',extname(path)==='.html'?'text/html':extname(path)==='.js'?'application/javascript':extname(path)==='.css'?'text/css':'application/octet-stream');res.end(await readFile(new URL('.'+path,pub)));}catch{res.writeHead(404).end();}});
+const server=createServer(async(req,res)=>{if(req.url.startsWith('/api/warmup/chat')){res.writeHead(200,{'Content-Type':'application/json'});res.write('{"ai_response":');return;}try{const path=decodeURIComponent(req.url.split('?')[0]);res.setHeader('Content-Type',extname(path)==='.html'?'text/html':extname(path)==='.js'?'application/javascript':extname(path)==='.css'?'text/css':'application/octet-stream');res.end(await readFile(new URL('.'+path,pub)));}catch{res.writeHead(404).end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true,executablePath:exe});
 let checks=0;
 try{for(const width of [390,768,1366]){
- const page=await browser.newPage({viewport:{width,height:900}});let fail=false;const requests=[],errors=[];
+ const page=await browser.newPage({viewport:{width,height:900}});let fail=false,stall=false;const requests=[],errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{
   localStorage.setItem('mangoi_ai_screen_mode','full');
@@ -20,6 +20,7 @@ try{for(const width of [390,768,1366]){
  await page.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!==base)return route.abort();if(!u.pathname.startsWith('/api/'))return route.continue();
   if(u.pathname==='/api/warmup/chat'){
    const b=route.request().postDataJSON();requests.push(b);
+   if(stall)return route.continue();
    return route.fulfill({status:fail?503:200,json:{ai_response:'Nice to meet you! What do you like?',fix:null,answer_chips:[]}});
   }
   return route.fulfill({json:{ok:false,items:[]}});
@@ -52,6 +53,25 @@ try{for(const width of [390,768,1366]){
  await page.waitForFunction(()=>!sending);
  assert.equal(await page.locator('#inp').inputValue(),'I like apples.','failed answer remains editable');
  assert.equal(requests.length,2,'no automatic duplicate retry');
+ if(width===390){
+  fail=false;stall=true;
+  await page.clock.install();
+  await page.evaluate(()=>{
+   const fetchWarmup=window.warmupFetch;
+   window.warmupFetch=async function(...args){const r=await fetchWarmup(...args),json=r.json.bind(r);r.json=function(){window.__bodyStarted=true;return json();};return r;};
+  });
+  await page.locator('#sendBtn').click();
+  await page.waitForFunction(()=>window.__bodyStarted===true);
+  await page.clock.runFor(6001);
+  assert.match(await page.locator('#wgState').innerText(),/늦어지고|taking longer/,'slow reply is explained');
+  await page.clock.runFor(14001);
+  await page.waitForFunction(()=>!sending);
+  assert.equal(await page.locator('#sendBtn').isEnabled(),true,'stalled JSON body releases Send');
+  assert.equal(await page.locator('#inp').inputValue(),'I like apples.','timeout preserves the answer');
+  assert.equal(await page.evaluate(()=>_warmControllers.length),0,'timeout releases request ownership');
+  assert.equal(requests.length,3,'timeout does not automatically resend');
+ }
+
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
  await page.evaluate(()=>localStorage.setItem('mango_user',JSON.stringify({user_id:'different-user'})));
  await page.goto(base+'/ai-speaking.html');

@@ -504,6 +504,10 @@ console.log('\n[K] Device speech mouth animation');
   utterance.onstart();
   for (const tick of timers) tick();
   ok('K-2 device speech alternates modest opening and rest', poses.join() === 'medium,closed', poses);
+  utterance.onpause();
+  ok('K-2a paused speech closes the mouth and stops the timer',poses.at(-1)==='closed' && timers.size===0);
+  utterance.onresume();utterance.onresume();
+  ok('K-2b resumed speech owns exactly one animation timer',timers.size===1);
   utterance.onend();
   ok('K-3 device speech end stops motion and completes once', !timers.size && stops === 1 && completions === 1);
   start();
@@ -511,7 +515,7 @@ console.log('\n[K] Device speech mouth animation');
   c._speakSeq++;
   const before = poses.length;
   for (const tick of timers) tick();
-  utterance.onerror();
+  utterance.onpause();utterance.onresume();utterance.onerror();
   ok('K-4 canceled device speech cannot move or stop the next face', !timers.size && poses.length === before &&
     stops === 1 && completions === 1);
 }
