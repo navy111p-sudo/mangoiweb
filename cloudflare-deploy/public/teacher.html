@@ -4487,8 +4487,19 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     dates: function(){ return T('Pick both a start and an end date.','시작일과 종료일을 모두 고르세요.'); },
     order: function(){ return T('The start date is after the end date.','시작일이 종료일보다 늦습니다.'); },
     span:  function(){ return T('You can search up to 3 months at a time.','한 번에 3개월까지 조회할 수 있습니다.'); },
+    identity: function(){ return T('This account has no unique teacher record. Sign in with the teacher account to view its pay.', '이 계정에 연결된 강사를 특정할 수 없습니다. 급여를 조회할 강사 계정으로 로그인해 주세요.'); },
     load:  function(){ return T('Could not load. Check your connection and try again.','불러오지 못했습니다. 연결을 확인하고 다시 조회해 주세요.'); }
   };
+  function payrollTeacherParam(){
+    var me = DATA && DATA.me;
+    if (!me || !me.is_manager) return '';
+    var ids = me.linked_teacher_ids || [];
+    return ids.length === 1 && /^[1-9][0-9]*$/.test(ids[0]) ? '&teacher_id=t' + ids[0] : null;
+  }
+  function getPayrollMonth(ym, teacherParam){
+    var key = ym[0] + '-' + ym[1] + teacherParam;
+    return myGet('fee' + key, '/api/admin/payroll/lessons?year=' + ym[0] + '&month=' + ym[1] + teacherParam);
+  }
   function feeMonths(from, to){
     var y = +from.slice(0,4), m = +from.slice(5,7), ey = +to.slice(0,4), em = +to.slice(5,7), out = [];
     while ((y < ey || (y === ey && m <= em)) && out.length <= FEE_MAX_MONTHS) { out.push([y, m]); if (++m > 12) { m = 1; y++; } }
@@ -4511,11 +4522,12 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     if (!MY.fee) searchFeeSum();
   };
   function searchFeeSum(){
-    var r = MY.feeRange, err = feeRangeError(r), seq = ++feeSeq;
+    var r = MY.feeRange, teacherParam = payrollTeacherParam(), seq = ++feeSeq;
+    var err = feeRangeError(r) || (teacherParam === null ? 'identity' : '');
     if (err) { MY.fee = { err: err }; paintFeeOut(); return; }
     MY.fee = null; paintFeeOut();
     Promise.all(feeMonths(r.from, r.to).map(function(ym){
-      return myGet('fee' + ym[0] + '-' + ym[1], '/api/admin/payroll/lessons?year=' + ym[0] + '&month=' + ym[1]);
+      return getPayrollMonth(ym, teacherParam);
     })).then(function(js){
       if (seq !== feeSeq) return;   // 더 나중에 누른 조회가 이긴다
       if (js.some(function(j){ return !j || j.ok !== true || !Array.isArray(j.lessons); })) throw new Error('invalid_fee_response');
@@ -4606,12 +4618,13 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   }
   function searchPayRange(){
     var r = { from: MY.payRange.from, to: MY.payRange.to }, seq = ++paySeq;
-    var err = feeRangeError(r);
+    var teacherParam = payrollTeacherParam();
+    var err = feeRangeError(r) || (teacherParam === null ? 'identity' : '');
     MY.payPeriod = err ? { err: err } : null;
     paintPay();
     if (err) return;
     Promise.all(feeMonths(r.from, r.to).map(function(ym){
-      return myGet('fee' + ym[0] + '-' + ym[1], '/api/admin/payroll/lessons?year=' + ym[0] + '&month=' + ym[1]);
+      return getPayrollMonth(ym, teacherParam);
     })).then(function(js){
       if (seq !== paySeq) return;
       var lessons = [], s = { finish_count: 0, absent_count: 0, postponed_count: 0,
