@@ -1,0 +1,34 @@
+name: AI writing browser verification
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/public/ai-write.html'
+      - 'cloudflare-deploy/public/js/write-scene-media.js'
+      - 'test-harness/manual/ai-write-request-browser.mjs'
+      - '.github/workflows/ai-write-browser.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: repo-git-v1-${{ github.run_id }}
+          restore-keys: repo-git-v1-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated browser dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/writing-pw" playwright@1.58.2
+          "$RUNNER_TEMP/writing-pw/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify writing requests on phone, tablet and desktop
+        env:
+          PW_DIR: ${{ runner.temp }}/writing-pw
+        run: |
+          export MANGOI_CHROME_EXECUTABLE=$(node -e 'console.log(require(process.env.PW_DIR+"/node_modules/playwright").chromium.executablePath())')
+          node test-harness/manual/ai-write-request-browser.mjs
