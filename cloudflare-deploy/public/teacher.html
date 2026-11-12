@@ -1036,7 +1036,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   </details>
 
   <details class="card mycard" id="c-pay" ontoggle="if(this.open)loadPay()">
-    <summary data-en="Pay &amp; deductions (this month)" data-ko="수업료 정산 (이번 달)">Pay &amp; deductions (this month)</summary>
+    <summary data-en="Pay &amp; deductions (by date)" data-ko="수업료 정산 (기간 선택)">Pay &amp; deductions (by date)</summary>
     <div id="payBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -4456,11 +4456,13 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   //      여기서는 **같은 응답의 나머지 필드**(실지급 예상액·공제 내역)를 마저 보여 줄 뿐이라
   //      강사가 정산을 보려고 화면을 갈아탈 이유가 없어진다.
   window.loadPay = function(){
-    if (MY.pay) { paintPay(); return; }
-    loading('payBody');
-    var d = new Date();
-    myGet('pay', '/api/admin/payroll/lessons?year=' + d.getFullYear() + '&month=' + (d.getMonth()+1))
-      .then(function(j){ MY.pay = j; paintPay(); }).catch(function(){ failed('payBody'); });
+    if (!MY.payRange) {
+      var td = (DATA && DATA.today) || todayKST();
+      MY.payRange = payPresetRange(td, 'month');
+      MY.payPreset = 'month';
+    }
+    paintPay();
+    if (!MY.payPeriod) searchPayRange();
   };
   // 수업 상태 알약 — 건별 명세와 기간별 조회 표가 같이 쓴다(한 곳에서만 고친다).
   function payStatusPill(l){
@@ -4495,6 +4497,10 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
   function feeRangeError(r){
     var re = /^\d{4}-\d{2}-\d{2}$/;
     if (!re.test(r.from || '') || !re.test(r.to || '')) return 'dates';
+    if ([r.from, r.to].some(function(v){
+      var d = new Date(v + 'T00:00:00Z');
+      return !isFinite(d.getTime()) || d.toISOString().slice(0, 10) !== v;
+    })) return 'dates';
     if (r.from > r.to) return 'order';
     if (feeMonths(r.from, r.to).length > FEE_MAX_MONTHS) return 'span';
     return '';
@@ -4579,11 +4585,86 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     el.innerHTML = h;
   }
 
+  // Keep period results separate from MY.pay: background monthly stats must never overwrite a selected payroll period.
+  var paySeq = 0;
+  function payPresetRange(date, preset){
+    var ym = date.slice(0, 7), y = +date.slice(0, 4), m = +date.slice(5, 7);
+    var last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return { from: ym + (preset === 'second' ? '-16' : '-01'),
+      to: ym + '-' + (preset === 'first' ? '15' : last) };
+  }
+  function searchPayRange(){
+    var r = { from: MY.payRange.from, to: MY.payRange.to }, seq = ++paySeq;
+    var err = feeRangeError(r);
+    MY.payPeriod = err ? { err: err } : null;
+    paintPay();
+    if (err) return;
+    Promise.all(feeMonths(r.from, r.to).map(function(ym){
+      return myGet('fee' + ym[0] + '-' + ym[1], '/api/admin/payroll/lessons?year=' + ym[0] + '&month=' + ym[1]);
+    })).then(function(js){
+      if (seq !== paySeq) return;
+      var lessons = [], s = { finish_count: 0, absent_count: 0, postponed_count: 0,
+        no_feedback_count: 0, pay_amount: 0, deduction_total: 0 };
+      js.forEach(function(j){
+        if (!j || j.ok === false || !Array.isArray(j.lessons)) throw new Error('missing lessons');
+        j.lessons.forEach(function(l){
+          if (!l.status || l.status === 'upcoming' || l.date < r.from || l.date > r.to) return;
+          lessons.push(l);
+          if (l.status === 'finish') s.finish_count++;
+          if (l.status === 'student_absent') s.absent_count++;
+          if (l.status === 'postponed') s.postponed_count++;
+          if (l.feedback_ok === false) s.no_feedback_count++;
+          s.pay_amount += Number(l.amount) || 0;
+          s.deduction_total += Number(l.deduction_total) || 0;
+        });
+      });
+      s.final_amount = Math.max(0, s.pay_amount - s.deduction_total);
+      MY.payPeriod = { from: r.from, to: r.to, summary: s, lessons: lessons,
+        teacher: (js[js.length - 1] || {}).teacher || {} };
+      paintPay();
+    }).catch(function(){ if (seq === paySeq) { MY.payPeriod = { err: 'load' }; paintPay(); } });
+  }
+  function paintPayControls(){
+    var r = MY.payRange, from = document.getElementById('pay-from'), to = document.getElementById('pay-to');
+    var draft = from && to ? { from: from.value, to: to.value } : r;
+    var preset = MY.payPreset || 'custom';
+    fill('payBody', '<div class="wk-jump">'
+      + '<span class="fs-pair"><label for="pay-period">' + esc(T('Period','기간')) + '</label><select id="pay-period">'
+      + [['month',T('Full month','한 달 전체')],['first',T('1st–15th','1일~15일')],['second',T('16th–end of month','16일~말일')],['custom',T('Custom dates','직접 선택')]].map(function(o){
+        return '<option value="' + o[0] + '"' + (o[0] === preset ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
+      }).join('') + '</select></span>'
+      + '<span class="fs-pair"><label for="pay-from">' + esc(T('From','시작일')) + '</label><input type="date" id="pay-from" value="' + esc(draft.from) + '"></span>'
+      + '<span class="fs-pair"><label for="pay-to">' + esc(T('To','종료일')) + '</label><input type="date" id="pay-to" value="' + esc(draft.to) + '"></span>'
+      + '<button type="button" id="pay-go">' + esc(T('Search','조회')) + '</button></div>'
+      + '<div id="pay-result" aria-live="polite"></div>');
+    document.getElementById('pay-period').addEventListener('change', function(){
+      MY.payPreset = this.value;
+      if (this.value === 'custom') return;
+      var anchor = document.getElementById('pay-from').value || (DATA && DATA.today) || todayKST();
+      var next = payPresetRange(anchor, this.value);
+      document.getElementById('pay-from').value = next.from;
+      document.getElementById('pay-to').value = next.to;
+    });
+    ['pay-from','pay-to'].forEach(function(id){
+      document.getElementById(id).addEventListener('change', function(){
+        MY.payPreset = 'custom'; document.getElementById('pay-period').value = 'custom';
+      });
+    });
+    document.getElementById('pay-go').addEventListener('click', function(){
+      MY.payRange = { from: document.getElementById('pay-from').value, to: document.getElementById('pay-to').value };
+      searchPayRange();
+    });
+  }
   function paintPay(){
-    var j = MY.pay; if (!j) return;
+    if (!MY.payRange) return;
+    paintPayControls();
+    var j = MY.payPeriod;
+    if (!j) { loading('pay-result'); return; }
+    if (j.err) { fill('pay-result', '<div class="mini neg">' + esc(FEE_ERR[j.err]()) + '</div>'); return; }
     var s = j.summary || {}, rate = (j.teacher && j.teacher.fee_per_10min) || 0;
     var h = '<div class="payhero">'
-      + '<div class="cap">' + esc(T('Estimated pay this month','이번 달 받으실 예상 금액')) + '</div>'
+      + '<div class="cap">' + esc(T('Estimated pay for selected period','선택한 기간의 예상 지급액')) + '</div>'
+      + '<div class="cap">' + esc(j.from + ' ~ ' + j.to) + '</div>'
       + '<div class="big">' + esc(peso(s.final_amount)) + '</div>'
       + '<div class="cap">' + esc(T('Lesson fees','수업료')) + ' ' + esc(peso(s.pay_amount))
       +   ' &minus; ' + esc(T('deductions','공제')) + ' ' + esc(peso(s.deduction_total)) + '</div>'
@@ -4639,7 +4720,8 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
                                        '단위: 페소. 금액 = 그 수업의 공제까지 반영한 순지급.')) + '</div>'
         + '</details>';
     }
-    fill('payBody', h);
+    h += '<div class="mini">' + esc(T('Estimate — final pay is confirmed by your manager.','예상 금액이며 최종 지급액은 매니저가 확정합니다.')) + '</div>';
+    fill('pay-result', h);
   }
 
   // ── ⭐ 학생이 준 내 평가 ──────────────────────────────────────────────────
@@ -4970,7 +5052,7 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
     // 연기 목록은 서버 캐시가 아니라 DATA 에서 매번 만든다 — 펼쳐져 있을 때만 다시 그린다.
     var pp = document.getElementById('c-postpone');
     if (pp && pp.open) window.renderPostponeList();
-    if (MY.pay) paintPay();
+    if (MY.payRange) paintPay();
     if (MY.feeRange) paintFeeSum();
     if (MY.rate) paintRatings();
     if (MY.insight) paintInsight();
@@ -5825,3 +5907,4 @@ html[data-t="dark"] .ml-bad{color:#fcd34d}
 </script>
 </body>
 </html>
+
