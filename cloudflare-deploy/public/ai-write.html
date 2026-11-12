@@ -1851,7 +1851,7 @@
     (function initSentenceCoach() {
       const el = id => document.getElementById(id);
       const box = el('coachSentence');
-      let step = 0, hint = false, lastAdded = '';
+      let step = 0, hint = false;
       const tr = (ko, en) => window.getLang && window.getLang() === 'en' ? en : ko;
       const questions = [
         ['누가 무엇을 하고 있나요? 한 문장을 직접 써 보세요.', 'Who is doing what? Write one sentence yourself.'],
@@ -1919,7 +1919,7 @@
       el('coachNext').onclick = function() { step = (step + 1) % questions.length; refresh(); box.focus(); };
       function replacePractice(value) {
         if (box.value.trim() && box.value !== value && !confirm(tr('연습 중인 문장을 바꿀까요? 아래 내 글은 그대로 유지됩니다.', 'Replace your practice sentence? Your writing below will stay unchanged.'))) return;
-        box.value = value; lastAdded = ''; el('coachStatus').textContent = ''; box.focus();
+        box.value = value; el('coachStatus').textContent = ''; box.focus();
       }
       el('coachUseFrame').onclick = function() { replacePractice(frame()); };
       el('coachFromDraft').onclick = function() {
@@ -1934,10 +1934,10 @@
           el('coachStatus').textContent = tr('빈칸을 모두 채워 영어 문장으로 써 주세요.', 'Fill every blank and write your sentence in English.'); return;
         }
         const draft = el('text');
-        if (value === lastAdded || draft.value.trim().endsWith(value)) { el('coachStatus').textContent = tr('이미 추가한 문장이에요. 내용을 더해 바꿔 보세요.', 'This sentence is already added. Try expanding it.'); return; }
-        const next = draft.value + (draft.value && !/\s$/.test(draft.value) ? '\n' : '') + value;
+        if (draft.value.trim() === value || draft.value.trim().endsWith('\n' + value) || (draft.value.trim().match(/[^.!?]+[.!?]+|[^.!?]+$/g) || []).slice(-1).some(line => line.trim() === value)) { el('coachStatus').textContent = tr('이미 추가한 문장이에요. 내용을 더해 바꿔 보세요.', 'This sentence is already added. Try expanding it.'); return; }
+        const next = draft.value + (draft.value && !/\n$/.test(draft.value) ? '\n' : '') + value;
         if (next.length > 2000) { el('coachStatus').textContent = tr('글이 2,000자를 넘어요. 문장을 조금 줄여 주세요.', 'Your writing would exceed 2,000 characters. Please shorten it.'); return; }
-        draft.value = next; draft.dispatchEvent(new Event('input', { bubbles: true })); lastAdded = value;
+        draft.value = next; draft.dispatchEvent(new Event('input', { bubbles: true }));
         el('coachStatus').textContent = tr('내 글 끝에 추가했어요. 기존 문장은 유지됩니다. 아래에서 읽고 다듬어 보세요.', 'Added to the end. Existing sentences are preserved. Read and revise your writing below.');
       };
       window.addEventListener('mangoi:langchange', function() { el('coachStatus').textContent = ''; refresh(); });
@@ -2001,7 +2001,9 @@
         window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
       } catch (e) { /* EN: scroll is a nicety / KO: 이동이 안 돼도 첨삭 결과는 이미 그려져 있다 */ }
     }
+    let _awSubmitting = false, _awRequestController = null, _awSubmitEpoch = 0;
     async function submitText() {
+      if (_awSubmitting) return; // One correction at a time, including programmatic calls.
       stopDictation();
       awUnlockSound();                       // 🔔 클릭 안에서 소리 칸을 먼저 깨운다(뒤의 await 전)
       const textEl = document.getElementById('text');
@@ -2012,47 +2014,68 @@
       if (_awPrev && awNorm(text) === awNorm(_awPrev.text) &&
           !confirm(awTr('지난번 첨삭과 똑같은 글이에요. 첨삭을 보고 고친 뒤 받으면 점수 변화를 볼 수 있어요.\n그래도 다시 받을까요?',
                         'This is the same text as last time. Fix it using the feedback to see your progress.\nSubmit again anyway?'))) return;
+      const submitted = { text, level: currentLevel, uid: getUid(), topicId: awTopicIdNow(), epoch: _awSubmitEpoch,
+        theme: _goTheme ? Object.assign({}, _goTheme) : null,
+        snap: { qs: goQuestions(), answers: Object.assign({}, _goAnswers), text, level: currentLevel } };
       awDraftSave();                         // 💾 보내기 전에 지금 글을 바로 남긴다(실패해도 글은 남게)
-      _awSubmitSnap = { qs: goQuestions(), answers: Object.assign({}, _goAnswers), text, level: currentLevel };
       const btn = document.getElementById('submitBtn');
-      _lastDraft = text;                     // 📄 한 장 출력의 «내 초안» — 교정 전 원문
-      btn.disabled = true; btn.innerHTML = '⏳ AI 분석 중… (5~15초)';
+      _awSubmitting = true;
+      btn.disabled = true; btn.textContent = awTr('⏳ AI 분석 중…', '⏳ Checking your writing…');
+      const controller = new AbortController();
+      _awRequestController = controller;
+      const deadline = setTimeout(() => controller.abort(), 120000);
       const resultBox = document.getElementById('resultBox');
       resultBox.style.display = 'none';
       let r, d;
       try {
         r = await fetch('/api/ai/write-correct', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
           // token: 로그인 사용자면 포인트/배지 적립, mission_words: 서버가 실사용 검증
           // topic_id: 지금 주제가 선생님 글감·내 주제면 그 번호 — 서버가 쓴 글에 적어 «숙제 제출» 로 센다(제안 6)
-          body: JSON.stringify({ text, level: currentLevel, uid: getUid(), token: getToken(), mission_words: _missionWords, topic_id: awTopicIdNow() })
+          body: JSON.stringify({ text: submitted.text, level: submitted.level, uid: submitted.uid, token: getToken(), mission_words: _missionWords, topic_id: submitted.topicId })
         });
         try {
           d = await r.json();
         } catch(je) {
-          console.error('[AI Write] JSON parse failed:', je, 'status:', r.status);
+          if (controller.signal.aborted) throw je;
+          if (submitted.epoch !== _awSubmitEpoch || getUid() !== submitted.uid) return;
+          console.error('[AI Write] invalid JSON, status:', r.status);
           showErrorBox('서버 응답을 해석할 수 없습니다', 'HTTP ' + r.status + ' — 응답이 JSON 이 아닙니다.\n관리자에게 배포 상태를 확인해주세요.');
           btn.disabled = false; btn.innerHTML = '✨ AI 첨삭 받기';
           return;
         }
-        if (d && d.ok) {
-          awNoteRound(text, Number(d.score) || 0, currentLevel);   // 🔁 몇 차 첨삭인지 · 지난 점수
+        clearTimeout(deadline);
+        if (submitted.epoch !== _awSubmitEpoch || getUid() !== submitted.uid) return; // Do not show a result from another account session.
+        if (r.ok && d && d.ok === true && typeof d.corrected === 'string' && d.corrected.trim() &&
+            typeof d.score === 'number' && Number.isFinite(d.score) && d.score >= 0 && d.score <= 100 &&
+            ['issues', 'upgrades', 'suggestions'].every(k => d[k] == null || (Array.isArray(d[k]) && d[k].every(item => item && typeof item === 'object')))) {
+          _awSubmitSnap = submitted.snap;
+          _lastDraft = submitted.text;
+          _lastResultTheme = submitted.theme;
+          d.level = submitted.level;
+          awNoteRound(text, d.score, submitted.level);   // 🔁 몇 차 첨삭인지 · 지난 점수
           renderResult(d);
           awPlayDoneChime();                 // 🔔 첨삭이 완성되면 소리
           awShowFeedbackResult();            // 🔔 첨삭결과(2번) 칸으로 자동 이동
-          if (d.topic_recorded === true) awMarkHwDone(awTopicIdNow());   // 📅 서버가 «적었다» 고 말할 때만 ✓
-          await loadHistory();
+          if (d.topic_recorded === true) awMarkHwDone(submitted.topicId);   // 📅 서버가 «적었다» 고 말할 때만 ✓
+          void loadHistory(); // History loading must not hold the correction button locked.
         } else {
-          console.error('[AI Write] server error:', d, 'status:', r.status);
-          const err = (d && d.error) || ('HTTP ' + r.status);
+          console.error('[AI Write] response rejected, status:', r.status);
+          const err = (d && d.error) || (r.ok ? 'invalid_correction_response' : ('HTTP ' + r.status));
           const detail = (d && d.detail) || '';
           showErrorBox('AI 첨삭 처리 중 오류', '에러 코드: ' + err + (detail ? '\n상세: ' + detail : ''));
         }
       } catch(e){
-        console.error('[AI Write] fetch failed:', e);
-        showErrorBox('네트워크 오류', e && e.message ? e.message : '인터넷 연결을 확인해주세요.');
+        if (submitted.epoch !== _awSubmitEpoch || getUid() !== submitted.uid) return;
+        console.error('[AI Write] request failed:', controller.signal.aborted ? 'timeout' : 'network');
+        showErrorBox(awTr('첨삭을 완료하지 못했어요', 'Correction not completed'), controller.signal.aborted
+          ? awTr('응답 시간이 길어 대기를 멈췄어요. 작성한 글은 그대로입니다. 지난 기록을 먼저 확인한 뒤 다시 시도해 주세요.', 'The response took too long. Your writing is preserved. Check your history before retrying.')
+          : awTr('연결을 확인해 주세요. 작성한 글은 그대로입니다. 잠시 후 다시 시도해 주세요.', 'Check your connection. Your writing is preserved. Please try again shortly.'));
       } finally {
-        btn.disabled = false; btn.innerHTML = '✨ AI 첨삭 받기';
+        clearTimeout(deadline);
+        _awSubmitting = false;
+        _awRequestController = null;
+        btn.disabled = false; btn.textContent = awTr('✨ AI 첨삭 받기', '✨ Get AI feedback');
       }
     }
     /* 🟡 «어색한 표현 → 원어민 표현» 상자 — 결과 화면·지난 기록 두 곳이 같은 함수를 씁니다(한쪽만 다르게 그리지 않게).
@@ -2116,7 +2139,7 @@
       const rwTarget = pickRewriteTarget(d);
       /* ⭐ 칭찬 먼저(제안 7, 2026-10-26) — 점수·고칠 곳보다 «잘한 점» 을 맨 위에.
          내용은 awPraise(잰 사실만 — 단어 수·목표·미션 단어·고칠 곳·점수)라 AI 가 지어낸 칭찬이 아니다. 작품 카드와 같은 정본. */
-      const praise = awPraise(d, (_awSubmitSnap && _awSubmitSnap.text) || _lastDraft || '', currentLevel).slice(0, 2);
+      const praise = awPraise(d, (_awSubmitSnap && _awSubmitSnap.text) || _lastDraft || '', d.level).slice(0, 2);
       const praiseHtml = `<div class="aw-praise-top" id="awPraiseTop"><div class="t"><span data-ko="⭐ 잘한 점" data-en="⭐ What you did well">⭐ 잘한 점</span></div><ul>${
         praise.map(p => `<li data-ko="${escapeHtml(p.ko)}" data-en="${escapeHtml(p.en)}">${escapeHtml(awTr(p.ko, p.en))}</li>`).join('')}</ul></div>`;
       document.getElementById('resultBox').style.display = '';
@@ -2329,6 +2352,8 @@
 
     // 🔄 리셋 — 새로 작성
     window.resetForm = function(){
+      _awSubmitEpoch++;
+      if (_awRequestController) _awRequestController.abort();
       stopDictation();
       document.getElementById('text').value = '';
       awDraftForget();                       // 💾 새 글 — 저장해 둔 초안도 지운다
@@ -3655,7 +3680,7 @@
     }
     window.openWorkCard = function() {
       if (!_lastResult) { alert(awTr('먼저 AI 첨삭을 받아주세요!', 'Get AI feedback first!')); return; }
-      const w = awWorkFromResult(_lastResult, _lastDraft, _goTheme, currentLevel);
+      const w = awWorkFromResult(_lastResult, _lastDraft, _lastResultTheme, _lastResult.level);
       const items = awWorkSave(w);
       if (!items) { showToast(awTr('⚠️ 이 기기에 저장하지 못했어요 — 카드는 지금 인쇄해 두세요.', "⚠️ Couldn't save on this device — print the card now.")); awOpenWorkView([w], 0); return; }
       showToast(awTr('🏆 내 작품 카드로 저장했어요!', '🏆 Saved as a work card!'));
@@ -3677,6 +3702,7 @@
     /* ═══ 📄 STEP 4 — 한 장 출력 (초안 · AI 첨삭 · 완성본) ═══
        제안서 «출력 및 보관: 초안, AI 첨삭 피드백, 완성본을 한 페이지에 연동 출력».
        ⛔ 인쇄용이라고 높이를 A4 로 못 박지 않는다 — 글 길이에 따라 넘치면 잘려 사라진다. */
+    let _lastResultTheme = null;
     let _lastResult = null;      // 방금 받은 첨삭 결과 (한 장 출력에 씀)
     let _lastDraft = '';         // 그때 제출한 초안
     window.openSheet = function() {
@@ -3685,9 +3711,10 @@
       let userName = '나';
       try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_id)) userName = u.name || u.user_id; } catch(e){}
       const now = new Date().toLocaleDateString('ko-KR');
-      const qs = goQuestions();
+      const qs = _awSubmitSnap ? _awSubmitSnap.qs : [];
+      const savedAnswers = _awSubmitSnap ? _awSubmitSnap.answers : {};
       const memoRows = qs.map(q => {
-        const a = String(_goAnswers[q.k] || '').trim();
+        const a = String(savedAnswers[q.k] || '').trim();
         return a ? `<div class="sh-row"><span class="sh-q">${escapeHtml(q.ko)}</span><br>${escapeHtml(a)}</div>` : '';
       }).filter(Boolean).join('');
       const issueRows = (d.issues || []).map(i =>
@@ -3703,7 +3730,7 @@
         </div>
         <div class="sh-paper">
           <div class="sh-h1">✍️ ${escapeHtml(userName)}의 영작 한 장 정리</div>
-          <div class="sh-meta">📅 ${escapeHtml(now)} · CEFR ${escapeHtml(d.level || '')} · 점수 ${d.score || 0}점${_goTheme ? ' · 주제: ' + escapeHtml(_goTheme.ko) : ''}</div>
+          <div class="sh-meta">📅 ${escapeHtml(now)} · CEFR ${escapeHtml(d.level || '')} · 점수 ${d.score || 0}점${_lastResultTheme ? ' · 주제: ' + escapeHtml(_lastResultTheme.ko) : ''}</div>
           ${memoRows ? `<div class="sh-sec"><h3>① 브레인스토밍 (그래픽 오가나이저)</h3>${memoRows}</div>` : ''}
           <div class="sh-sec"><h3>② 내 초안 (Draft)</h3><div class="sh-en">${escapeHtml(_lastDraft)}</div></div>
           <div class="sh-sec"><h3>③ AI 첨삭 피드백</h3>
@@ -3804,5 +3831,6 @@
 <script defer src="/js/today-bar.js?v=3"></script><!-- 📅 오늘의 A.i 학습에서 열렸을 때 «돌아가기» 알약 (2026-09-03) -->
 </body>
 </html>
+
 
 
