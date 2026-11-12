@@ -1,0 +1,40 @@
+name: Teacher payroll period browser verification
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-deploy/public/teacher.html'
+      - 'test-harness/teacher_pay_period_harness.mjs'
+      - 'test-harness/manual/teacher-pay-period-browser.mjs'
+      - '.github/workflows/teacher-pay-period-browser.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: .git
+          key: repo-git-v1-${{ github.run_id }}
+          restore-keys: repo-git-v1-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install isolated browser dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/payroll-pw" playwright@1.58.2
+          "$RUNNER_TEMP/payroll-pw/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify payroll periods and existing date summary
+        run: |
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/payroll-pw/node_modules/playwright/index.mjs"
+          export TEACHER_TEST_OUTPUT="$RUNNER_TEMP/payroll-results"
+          node test-harness/teacher_pay_period_harness.mjs
+          node test-harness/manual/teacher-pay-period-browser.mjs
+          node test-harness/manual/teacher-fee-summary-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: teacher-payroll-browser-results
+          path: ${{ runner.temp }}/payroll-results
