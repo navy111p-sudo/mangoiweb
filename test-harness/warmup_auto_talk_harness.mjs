@@ -364,28 +364,31 @@ function bodyOf(src, head) {
 const speakSrc = bodyOf(HTML, 'function speak(text, btn){');
 const stopSrc = bodyOf(HTML, 'function _stopSpeak(keepThought){');
 ok('H-0 전제: speak()·_stopSpeak() 를 오려 냈다', !!speakSrc && !!stopSrc);
-function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = false }) {
+function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = false, deferredPlay = false }) {
   let synthDone = null;
+  let mouthStops = 0, rejectPlay;
   const hooks = [];
-  const audio = { play: () => ({ then: (f) => ({ catch() {} }) }), pause() {} };
+  const audio = { play: () => deferredPlay ? new Promise((resolve, reject) => { rejectPlay = reject; }) : ({ then: (f) => ({ catch() {} }) }), pause() {} };
   const ctx = {
     warmupRatePreference: { loaded: true },
     warmThought() {}, hooks, _warmPaused: false, _speechOn: speechOn, _speakSeq: 0, _ttsAudio: null, _lastAiSpeak: null,
     _speechEverStarted: false, AUDIO_RATE: { 3: 1 }, _rateLevel: 3, ZH_MALE_PITCH: 0.78,
     _ttsCache: { 'emma|hi there': 'blob:x' }, _ttsEng: { 'emma|hi there': 'azure' },
-    window: {}, Audio: function () { return audio; },
+    window: {}, MangoAvatar: { plainStop() { mouthStops++; } }, Audio: function () { return audio; },
     _enMaleRate: (r) => r,   // 2026-10-02 남자 목소리 배속 하한 — 여기선 여자 목소리라 그대로(짝은 warmup_feedback_1002_harness)
     _speechText: (t) => t, isZh: () => synth, _voiceGender: () => (synth ? 'male' : 'female'), _zhMaleVoiceReady: () => synth,
     nextSpeaker: () => 'emma', _zhMaleWanted: () => false, _synthSpeak(t, b, d) { synthDone = d; }, _ttsSpeak() {},
     _autoHook: (e, a) => hooks.push(e),
   };
+  ctx.window.MangoAvatar = ctx.MangoAvatar;
   vm.createContext(ctx);
   try { vm.runInContext(stopSrc + '\n' + speakSrc + '\nspeak("hi there", __btn);', Object.assign(ctx, { __btn: btn })); }
   catch (e) { return { err: String(e && e.message), hooks }; }
   if (interrupt) vm.runInContext('_stopSpeak();', ctx);
+  const stopsBeforeCompletion = mouthStops;
   // 기기 음성은 cancel() 뒤에도 onend 가 «불린다» — 그 경로에서 _speakSeq 비교가 일한다
-  try { if (synth) { synthDone && synthDone(); } else if (audio.onended) audio.onended(); } catch (e) { return { err: String(e.message), hooks }; }
-  return { hooks };
+  try { if (synth) { synthDone && synthDone(); } else if (!deferredPlay && audio.onended) audio.onended(); } catch (e) { return { err: String(e.message), hooks }; }
+  return { hooks, completionMouthStops: mouthStops - stopsBeforeCompletion, ctx, getReject: () => rejectPlay, getStops: () => mouthStops };
 }
 {
   const r1 = runSpeak({});
@@ -396,12 +399,30 @@ function runSpeak({ speechOn = true, btn = null, interrupt = false, synth = fals
   ok('H-3 중간에 끊긴 낭독은 aiDone 을 안 보낸다', !r3.err && !r3.hooks.includes('aiDone'), r3);
   const r3b = runSpeak({ synth: true, interrupt: true });
   ok('H-3b 기기 음성이 멈춤 뒤 onend 를 불러도 aiDone 을 안 보낸다', !r3b.err && r3b.hooks.includes('aiStart') && !r3b.hooks.includes('aiDone'), r3b);
+  ok('H-3b stale completion must not stop the current avatar', r3b.completionMouthStops === 0, r3b);
   const r3c = runSpeak({ synth: true });
   ok('H-3c 기기 음성이 끝까지 읽으면 aiDone(짝)', !r3c.err && r3c.hooks.join(',') === 'aiStart,aiDone', r3c);
+  ok('H-3c current completion stops the avatar', r3c.completionMouthStops === 1, r3c);
   const r4 = runSpeak({ speechOn: false });
   ok('H-4 소리를 꺼 두었으면 곧바로 aiDone', !r4.err && r4.hooks.join(',') === 'aiDone', r4);
   const r5 = runSpeak({ speechOn: false, btn: { classList: { add() {}, remove() {} } } });
   ok('H-5 소리 꺼짐 + 다시 듣기는 아무것도 안 보낸다', !r5.err && r5.hooks.length === 0, r5);
+}
+
+// A canceled Audio.play promise can reject after the same replay button starts a new turn.
+{
+  const btn = makeEl('replay');
+  const r = runSpeak({ btn, deferredPlay: true });
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  const rejectOldPlay = r.getReject();
+  vm.runInContext('speak("hi there", __btn);', r.ctx);
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  const stops = r.getStops();
+  rejectOldPlay(new Error('interrupted old play'));
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  ok('H-6 late rejected audio cannot stop the new mouth', r.getStops() === stops);
+  ok('H-7 late rejected audio cannot clear the new replay indicator', btn.classList.contains('playing'));
+  ok('H-8 late rejected audio cannot finish the new turn', !r.hooks.includes('aiDone'));
 }
 
 console.log('\n[I] warmup.html 배선 (나머지 연결 지점)');
