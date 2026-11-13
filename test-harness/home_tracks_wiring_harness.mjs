@@ -83,7 +83,7 @@ console.log('④ 🔴 key 를 끼워 넣어 카드 census 를 죽이지 않았�
    그 카드에 대해 눈이 먼다. 2026-09-21 에 실제로 밟았다(14장 → 13장). */
 const census = [...about.matchAll(/\{ic:\s*'([^']*)',\s*t:\s*'([^']*)'/g)].map(m => m[2]);
 t('census 가 카드를 14장 이상 잡는다', census.length >= 14, true);
-t('«1:1 / 1:2» 카드가 census 에 들어 있다', census.some(x => /1:1 \/ 1:2/.test(x)), true);
+t('«1:1 수업» 카드가 census 에 들어 있다', census.some(x => /원어민 선생님과 1:1 수업/.test(x)), true);
 t('짝 — 맨 앞은 여전히 영상 카드다(1-3)', /홍보영상/.test(census[0] || ''), true);
 
 console.log('⑤-2 🔴 스타일을 «실제로» 붙이는가 (안 붙이면 화살표·포커스 윤곽선이 통째로 죽는다)');

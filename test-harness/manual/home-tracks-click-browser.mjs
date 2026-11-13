@@ -10,7 +10,7 @@
  * [왜] 2026-09-21 사장님 제보 — 「1번, 2번 모두 눌러도 카드로 들어가지 않아」.
  *      #1046 이 만든 .home-tracks 는 마크업·CSS 뿐이라 클릭 배선이 «아예» 없었다.
  *      목적지는 사장님이 스크린샷으로 지목하셨다:
- *        .ht-live → 「망고아이란?」의 «원어민 선생님과 1:1 / 1:2 수업» 카드(상세)
+ *        .ht-live → 「망고아이란?」의 «원어민 선생님과 1:1 수업» 카드(상세)
  *        .ht-ai   → 「AI와 친구하기」 카드 오버레이
  *
  * ⚠️ 문자열 하니스로는 원리상 못 봅니다 — 함수도 값도 다 «있고» 틀린 것은
@@ -92,7 +92,7 @@ t('.ht-live 안 span 2개', await evalJs(`document.querySelectorAll('.home-track
 t('.ht-ai 글자에 «8» 이 남아 있음', await evalJs(`/8/.test(document.querySelector('.home-tracks .ht-ai').textContent)`), true);
 t('트랙에 data-ko 를 안 달았다(textContent 갈아치움 방지)', await evalJs(`!document.querySelector('.home-tracks .ht-live').hasAttribute('data-ko')`), true);
 
-console.log('\n③ 왼쪽을 누르면 «원어민 1:1 / 1:2 수업» 카드 상세가 열린다');
+console.log('\n③ 왼쪽을 누르면 «원어민 1:1 수업» 카드 상세가 열린다');
 t('누르기 전 — 망고아이란? 오버레이 없음', await evalJs(`!document.getElementById('about-mangoi-ov')`), true);
 await clickSel('.home-tracks .ht-live');
 t('오버레이가 보인다', await evalJs(`(function(){var o=document.getElementById('about-mangoi-ov');return !!o && getComputedStyle(o).display!=='none';})()`), true);
