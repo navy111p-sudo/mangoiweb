@@ -32,6 +32,7 @@
     '1on1-4':  { name: '1:1 4회권',   classes: 4,  base: 60000,  per: 15000 },
     '1on1-8':  { name: '1:1 8회권',   classes: 8,  base: 120000, per: 15000 },
     '1on1-12': { name: '1:1 12회권',  classes: 12, base: 180000, per: 15000 },
+    '1on1-20': { name: '주5회',       classes: 20, base: 300000, per: 15000 },
     '1on1-24': { name: '1:1 24회권',  classes: 24, base: 360000, per: 15000 },
     'group-12':{ name: '그룹 12회권', classes: 12, base: 120000, per: 10000 },
     'business':{ name: '비즈니스',     classes: 4,  base: 70000,  per: 17500 },
@@ -46,9 +47,11 @@
        DEFAULT_CLASS_MINUTES=20, 레벨테스트 배정도 이 값을 쓴다) — 즉 여기 40분은 «화면에만
        남아 있던 옛 표기»였고, 이 수정으로 화면과 실제가 처음으로 일치한다. */
     'trial': { icon: '🎁', name: '무료 체험', detail: '1회 (20분)', price: 0 },
-    '1on1-4': { icon: '📗', name: '1:1 4회권', detail: '맛보기 (40분)', price: 60000 },
-    '1on1-8': { icon: '📘', name: '1:1 8회권', detail: '월 2회/주 (40분)', price: 120000 },
-    '1on1-12': { icon: '📕', name: '1:1 12회권', detail: '월 3회/주 (40분)', price: 180000 },
+    /* 💳 (2026-11-09) 홈 결제창은 주1·2·3·5회 네 개만 판다(20분 기준 = enrollQuoteCalc 기본가). */
+    '1on1-4': { icon: '📗', name: '주1회', detail: '월 4회 · 20분', price: 60000 },
+    '1on1-8': { icon: '📘', name: '주2회', detail: '월 8회 · 20분', price: 120000 },
+    '1on1-12': { icon: '📕', name: '주3회', detail: '월 12회 · 20분', price: 180000 },
+    '1on1-20': { icon: '📚', name: '주5회', detail: '월 20회 · 20분', price: 300000 },
     '1on1-24': { icon: '📚', name: '1:1 24회권', detail: '월 6회/주 (40분)', price: 360000 },
     'group-12': { icon: '👥', name: '그룹 12회권', detail: '2-4명 토론', price: 120000 },
     'business': { icon: '💼', name: '비즈니스 영어', detail: '실전 회의·이메일', price: 70000 },
@@ -361,7 +364,7 @@
 
   /* 1:1 수강권 — 강사·요일·시간이 반드시 필요한 상품군. enroll.html 이 담당한다.
      그룹(group-12)·비즈니스·키즈·시험은 enroll.html 에 대응 상품이 없어 제외. */
-  const ONE_ON_ONE_PROGRAMS = new Set(['1on1-4', '1on1-8', '1on1-12', '1on1-24']);
+  const ONE_ON_ONE_PROGRAMS = new Set(['1on1-4', '1on1-8', '1on1-12', '1on1-20', '1on1-24']);
   function payIsLoggedIn() {
     try {
       const u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
@@ -1712,90 +1715,5 @@ window.closeRulesModal = function() {
   const bg = document.getElementById('rules-modal-bg');
   if (bg) bg.style.display = 'none';
 };
-/* ══════════════════════════════════════════════════════════════════
-   🧭 신규결제 STEP1 — 대상 먼저 고르기 (2026-07-27, 직원 피드백 #13)
-
-   왜: 첫 화면에 상품 카드가 12개 한꺼번에 나와서, 고르기도 전에 지친다는 지적.
-       선택지가 늘수록 결정이 느려지고 '나중에 결정'이 '결정 안 함'이 된다.
-
-   어떻게: 상품 카드와 결제 로직은 **하나도 건드리지 않는다**. data-program 으로
-       분류만 해서 보이기/숨기기만 한다. 그래서 이 블록을 통째로 지워도 원래대로 돌아간다.
-
-   ⚠️ '전체 요금표 보기'를 반드시 남겨 둘 것 — 비교표를 통째로 보려는 학부모가 많고,
-      가격을 숨긴다는 인상을 주면 오히려 역효과다.
-   ══════════════════════════════════════════════════════════════════ */
-(function(){
-  'use strict';
-  var CATS = [
-    { id:'kids',     ko:'키즈 (4~12세)', en:'Kids (4–12)' },
-    { id:'general',  ko:'일반 1:1',      en:'General 1:1' },
-    { id:'group',    ko:'그룹',          en:'Group' },
-    { id:'business', ko:'비즈니스',      en:'Business' },
-    { id:'exam',     ko:'시험 대비',     en:'Test Prep' },
-    { id:'b2b',      ko:'기업 · 학원',   en:'Company / Academy' },
-    { id:'all',      ko:'전체 요금표 보기', en:'See all plans' }
-  ];
-  var MAP = {
-    'kids':'kids', 'business':'business', 'exam':'exam', 'b2b':'b2b', 'group-12':'group',
-    '1on1-4':'general', '1on1-8':'general', '1on1-12':'general', '1on1-24':'general'
-  };
-  // 어떤 대상을 골라도 늘 보이는 카드(무료체험·맞춤상담·규정 안내·AI 콘텐츠 전용)
-  // ai_content 는 나이·목적 카테고리와 무관한 별도 상품이라 특정 대상에 묶지 않는다.
-  var ALWAYS = { 'trial':1, 'other':1, 'ai_content':1 };
-
-  function cardsIn(bar){
-    var pane = bar.closest('#pay-step1') || document;
-    return [].slice.call(pane.querySelectorAll('.product-card'));
-  }
-  function apply(bar, cat){
-    cardsIn(bar).forEach(function(c){
-      var p = c.getAttribute('data-program') || '';
-      var show = !p || ALWAYS[p] || cat === 'all' || MAP[p] === cat;
-      c.style.display = show ? '' : 'none';
-    });
-    [].slice.call(bar.querySelectorAll('button')).forEach(function(b){
-      var on = b.getAttribute('data-cat') === cat;
-      b.style.background = on ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'rgba(255,255,255,.06)';
-      b.style.color      = on ? '#1a0f08' : '#e2e8f0';
-      b.style.borderColor= on ? 'transparent' : 'rgba(148,163,184,.35)';
-      b.style.fontWeight = on ? '800' : '700';
-    });
-    var hint = document.getElementById('pay-cat-hint');
-    if (hint) hint.style.display = cat ? 'none' : '';
-  }
-  function build(){
-    var bar = document.getElementById('pay-cat-bar');
-    if (!bar || bar.dataset.ready) return;
-    bar.dataset.ready = '1';
-    bar.innerHTML = CATS.map(function(c){
-      return '<button type="button" data-cat="'+c.id+'" data-ko="'+c.ko+'" data-en="'+c.en+'"'
-        + ' style="padding:8px 13px;border-radius:99px;border:1px solid rgba(148,163,184,.35);'
-        + 'background:rgba(255,255,255,.06);color:#e2e8f0;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">'
-        + c.ko + '</button>';
-    }).join('');
-    var hint = document.createElement('div');
-    hint.id = 'pay-cat-hint';
-    hint.setAttribute('data-ko','↑ 먼저 대상을 골라 주세요. 그 대상에 맞는 과정만 보여드릴게요.');
-    hint.setAttribute('data-en','↑ Pick who is learning first — we will show only the plans that fit.');
-    hint.style.cssText = 'font-size:12.5px;color:#94a3b8;margin:2px 0 10px';
-    hint.textContent = '↑ 먼저 대상을 골라 주세요. 그 대상에 맞는 과정만 보여드릴게요.';
-    bar.parentNode.insertBefore(hint, bar.nextSibling);
-
-    bar.addEventListener('click', function(e){
-      var b = e.target.closest('button[data-cat]');
-      if (!b) return;
-      apply(bar, b.getAttribute('data-cat'));
-    });
-    apply(bar, '');   // 처음엔 아무 것도 안 고른 상태
-    if (window.applyLang) { try { window.applyLang(); } catch(_){} }
-  }
-
-  // STEP1 이 열릴 때마다 준비 (모달이 나중에 만들어질 수도 있어 payGoStep 을 감싼다)
-  var _prev = window.payGoStep;
-  window.payGoStep = function(step){
-    if (typeof _prev === 'function') _prev.apply(this, arguments);
-    if (step === 1) setTimeout(build, 0);
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
-  else setTimeout(build, 0);
-})();
+/* 🧭 (2026-07-27) «누가 배우시나요?» 대상 카테고리 바는 2026-11-09 사장님 지시로 없앴다 —
+   홈 결제창에 주1·2·3·5회 네 상품만 남아 고를 것이 없다. ⛔ 되살리지 말 것. */

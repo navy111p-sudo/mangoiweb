@@ -194,7 +194,7 @@ document.getElementById('navBack').addEventListener('click', function(){
      거기서 고른 '회차'를 버리지 않고 주 횟수·기간으로 이어받는다. 총 회차 = 주횟수 × 4 × 개월. */
   (function applyProgramFromQuery(){
     var MAP = { '1on1-4': {weekly:1, months:1}, '1on1-8': {weekly:2, months:1},
-                '1on1-12':{weekly:3, months:1}, '1on1-24':{weekly:2, months:3} };
+                '1on1-12':{weekly:3, months:1}, '1on1-20':{weekly:5, months:1}, '1on1-24':{weekly:2, months:3} };
     try {
       var p = new URLSearchParams(location.search).get('program');
       if (p && MAP[p]) { st.weekly = MAP[p].weekly; st.months = MAP[p].months; }

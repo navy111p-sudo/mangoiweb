@@ -35,6 +35,7 @@ const PRICES: Record<string, { name: string; amount: number }> = {
   '1on1-4':  { name: '1:1 4회권',   amount: 60000 },
   '1on1-8':  { name: '1:1 8회권',   amount: 120000 },
   '1on1-12': { name: '1:1 12회권',  amount: 180000 },
+  '1on1-20': { name: '1:1 20회권 (주5회)', amount: 300000 },  // 2026-11-09 홈 결제창 주5회
   '1on1-24': { name: '1:1 24회권',  amount: 360000 },
   'group-12':{ name: '그룹 12회권', amount: 120000 },
   'business':{ name: '비즈니스 영어', amount: 70000 },

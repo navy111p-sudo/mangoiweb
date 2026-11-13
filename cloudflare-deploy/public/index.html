@@ -10446,112 +10446,33 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 
       <!-- ━━━━━━━━━━ STEP 1: 상품 선택 (신규 전용) ━━━━━━━━━━ -->
       <div id="pay-step1" class="pay-step-pane" style="display:none">
-        <h3 style="color:#fff;font-size:16px;margin:0 0 4px;font-weight:700" data-ko="누가 배우시나요?" data-en="Who is learning?">누가 배우시나요?</h3>
-        <!-- 🧭 [2026-07-27] 대상 먼저 고르기 (직원 피드백 #13)
-             첫 화면에 상품 12개가 한꺼번에 나와서 고르기 전에 지치던 문제.
-             선택지가 많을수록 결정이 늦어지고 '나중에'가 '안 함'이 된다(힉의 법칙).
-             ⚠️ 전체 요금표를 없애지는 않았다 — 비교표를 통째로 보고 싶어 하는 학부모가 많고,
-                가격을 숨긴다는 인상을 주면 역효과다. '전체 보기'로 언제든 되돌아갈 수 있다.
-             ⚠️ 상품 카드 자체는 건드리지 않았다(선택·결제 로직이 그대로 붙어 있다).
-                data-program 으로 분류만 해서 보이기/숨기기만 한다. -->
-        <div id="pay-cat-bar" style="display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 14px"></div>
+        <h3 style="color:#fff;font-size:16px;margin:0 0 4px;font-weight:700" data-ko="수업 횟수를 골라 주세요" data-en="Choose classes per week">수업 횟수를 골라 주세요</h3>
+        <!-- 💳 (2026-11-09 사장님 지시) 대상 카테고리(키즈·비즈니스·시험…)와 다른 상품을 모두 빼고
+             주1회 60,000 / 주2회 120,000 / 주3회 180,000 / 주5회 300,000 네 개만 둔다.
+             금액 정본은 src/api-pay.ts PRICES — 1:1 카드는 enroll.html(주횟수·강사·시간 선택)로 이어진다. -->
         <div class="product-grid">
-          <button class="product-card" data-program="trial" data-price="0">
-            <div class="badge-trial">FREE</div>
-            <div class="prod-icon">🎁</div>
-            <div class="prod-name">무료 체험</div>
-            <!-- ⏱️ (2026-08-07, QA 2차 #3) 무료체험 40분 → 20분. 유료 수강권 40분 표기는 유지.
-                 서버 기본 수업길이는 이미 20분(src/class-policy.ts) — 화면만 옛 값이었다. -->
-            <div class="prod-detail">1회 (20분)</div>
-            <div class="prod-price">무료</div>
+          <button class="product-card" data-program="1on1-4" data-price="60000">
+            <div class="prod-name" data-ko="주1회" data-en="Once a week">주1회</div>
+            <div class="prod-detail" data-ko="월 4회 · 20분" data-en="4 classes/month · 20 min">월 4회 · 20분</div>
+            <div class="prod-price">₩60,000<span class="prod-unit">/월</span></div>
           </button>
           <button class="product-card popular" data-program="1on1-8" data-price="120000">
-            <div class="badge-popular">⭐ 인기</div>
-            <div class="prod-icon">📘</div>
-            <div class="prod-name">1:1 8회권</div>
-            <div class="prod-detail">월 2회/주 (40분)</div>
-            <div class="prod-price">₩120,000<span class="prod-unit">/8회</span></div>
-            <div class="prod-perclass">1회당 ₩15,000</div>
-          </button>
-          <button class="product-card best" data-program="1on1-24" data-price="360000">
-            <div class="badge-best">🔥 BEST</div>
-            <div class="prod-icon">📚</div>
-            <div class="prod-name">1:1 24회권</div>
-            <div class="prod-detail">월 6회/주 (40분)</div>
-            <div class="prod-price">₩360,000<span class="prod-unit">/24회</span></div>
-            <div class="prod-perclass">1회당 ₩15,000</div>
-          </button>
-          <button class="product-card" data-program="1on1-4" data-price="60000">
-            <div class="prod-icon">📗</div>
-            <div class="prod-name">1:1 4회권</div>
-            <div class="prod-detail">맛보기 (40분)</div>
-            <div class="prod-price">₩60,000<span class="prod-unit">/4회</span></div>
-            <div class="prod-perclass">1회당 ₩15,000</div>
+            <div class="prod-name" data-ko="주2회" data-en="Twice a week">주2회</div>
+            <div class="prod-detail" data-ko="월 8회 · 20분" data-en="8 classes/month · 20 min">월 8회 · 20분</div>
+            <div class="prod-price">₩120,000<span class="prod-unit">/월</span></div>
           </button>
           <button class="product-card" data-program="1on1-12" data-price="180000">
-            <div class="prod-icon">📕</div>
-            <div class="prod-name">1:1 12회권</div>
-            <div class="prod-detail">월 3회/주 (40분)</div>
-            <div class="prod-price">₩180,000<span class="prod-unit">/12회</span></div>
-            <div class="prod-perclass">1회당 ₩15,000</div>
+            <div class="prod-name" data-ko="주3회" data-en="3 times a week">주3회</div>
+            <div class="prod-detail" data-ko="월 12회 · 20분" data-en="12 classes/month · 20 min">월 12회 · 20분</div>
+            <div class="prod-price">₩180,000<span class="prod-unit">/월</span></div>
           </button>
-          <button class="product-card" data-program="group-12" data-price="120000">
-            <div class="prod-icon">👥</div>
-            <div class="prod-name">그룹 12회권</div>
-            <div class="prod-detail">2-4명 토론</div>
-            <div class="prod-price">₩120,000<span class="prod-unit">/12회</span></div>
-            <div class="prod-perclass">1회당 ₩10,000</div>
-          </button>
-          <button class="product-card" data-program="business" data-price="70000">
-            <div class="prod-icon">💼</div>
-            <div class="prod-name">비즈니스</div>
-            <div class="prod-detail">실전 회의·이메일</div>
-            <div class="prod-price">₩70,000<span class="prod-unit">/4회</span></div>
-            <div class="prod-perclass">1회당 ₩17,500</div>
-          </button>
-          <button class="product-card" data-program="kids" data-price="50000">
-            <div class="prod-icon">👶</div>
-            <div class="prod-name">키즈 영어</div>
-            <div class="prod-detail">놀이형 4-12세</div>
-            <div class="prod-price">₩50,000<span class="prod-unit">/4회</span></div>
-            <div class="prod-perclass">1회당 ₩12,500</div>
-          </button>
-          <button class="product-card" data-program="exam" data-price="80000">
-            <div class="prod-icon">📝</div>
-            <div class="prod-name">시험 영어</div>
-            <div class="prod-detail">TOEIC·OPIc·IELTS</div>
-            <div class="prod-price">₩80,000<span class="prod-unit">/4회</span></div>
-            <div class="prod-perclass">1회당 ₩20,000</div>
-          </button>
-          <!-- 🤖 (2026-09-09) 화상수업 없이 AI 학습도구만 쓰는 1개월 이용권. 서버 가격표
-               src/api-pay.ts PRICES.ai_content 와 이름·금액을 반드시 맞출 것. -->
-          <button class="product-card" data-program="ai_content" data-price="10000">
-            <div class="prod-icon">🤖</div>
-            <div class="prod-name">AI 콘텐츠 전용</div>
-            <div class="prod-detail">화상수업 없이 AI 학습도구만</div>
-            <div class="prod-price">₩10,000<span class="prod-unit">/1개월</span></div>
-          </button>
-          <button class="product-card" data-program="b2b" data-price="0">
-            <div class="badge-best" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">🏫 단체</div>
-            <div class="prod-icon">🏢</div>
-            <div class="prod-name">B2B / 학원</div>
-            <div class="prod-detail">기업·학원 단체 도입</div>
-            <div class="prod-price">맞춤 견적</div>
-            <div class="prod-perclass">상담 후 결정</div>
-          </button>
-          <button class="product-card other" data-program="other" data-price="0">
-            <div class="prod-icon">❓</div>
-            <div class="prod-name">기타 / 상담</div>
-            <div class="prod-detail">맞춤 코스</div>
-            <div class="prod-price">상담 후 결정</div>
-          </button>
-          <button type="button" class="product-card rules-card" onclick="event.stopPropagation();showRulesModal()">
-            <div class="prod-icon">📋</div>
-            <div class="prod-name">결제 및 수강 규정</div>
-            <div class="prod-detail">환불·변경·이수 안내</div>
-            <div class="prod-price" style="font-size:13px;color:#9ee5ff">자세히 보기 →</div>
+          <button class="product-card" data-program="1on1-20" data-price="300000">
+            <div class="prod-name" data-ko="주5회" data-en="5 times a week">주5회</div>
+            <div class="prod-detail" data-ko="월 20회 · 20분" data-en="20 classes/month · 20 min">월 20회 · 20분</div>
+            <div class="prod-price">₩300,000<span class="prod-unit">/월</span></div>
           </button>
         </div>
+        <div style="text-align:center;margin-top:12px"><button type="button" onclick="event.stopPropagation();showRulesModal()" style="background:none;border:0;color:#9ee5ff;font-size:12.5px;cursor:pointer;font-family:inherit;text-decoration:underline" data-ko="결제 및 수강 규정 보기" data-en="Payment &amp; class rules">결제 및 수강 규정 보기</button></div>
       </div>
 
       <!-- ━━━━━━━━━━ STEP 2: 정보 입력 ━━━━━━━━━━ -->
@@ -11123,7 +11044,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   }
 </style>
 
-<script defer src="/js/idx-payment-modal.js?v=16"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
+<script defer src="/js/idx-payment-modal.js?v=17"></script><!-- 분할추출:payment-modal (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 호출부가 150ms×100회 폴링이라 여유 충분, ?pay=1 일 때만 동작 -->
 <script>
 /* 💳 결제 딥링크: /?pay=1 → 결제 모달 자동 오픈 (사이드바·마이페이지에서 진입) */
 (function(){

@@ -81,9 +81,9 @@ const ADMIN_OPTS = [...ADMIN.matchAll(/<option value="([^"]+)">([^<·]*)·\s*([0
 check('④ 관리자 결제링크 상품 목록 (admin/send-pay-link.html)', ADMIN_OPTS.length >= 10, `${ADMIN_OPTS.length}개`);
 
 // ② 홈 결제 카드 — data-program / data-price
-const HOME_CARDS = [...HOME.matchAll(/<button class="product-card"[^>]*data-program="([^"]+)"[^>]*data-price="([0-9]+)"/g)]
+const HOME_CARDS = [...HOME.matchAll(/<button class="product-card[^"]*"[^>]*data-program="([^"]+)"[^>]*data-price="([0-9]+)"/g)]
   .map((m) => ({ key: m[1], amount: Number(m[2]) }));
-check('② 홈 결제 카드 (public/index.html)', HOME_CARDS.length >= 8, `${HOME_CARDS.length}개`);
+check('② 홈 결제 카드 (public/index.html)', HOME_CARDS.length >= 4, `${HOME_CARDS.length}개`);
 
 const ok = PRICES && PROG_INFO && Array.isArray(ADDONS) && ADMIN_OPTS.length && HOME_CARDS.length;
 
@@ -170,14 +170,23 @@ console.log('\n[ F. 2026-09-09 추가분 — AI 콘텐츠 전용(1개월) 이 �
 if (!ok) check('ai_content 배선', false, '전제 실패');
 else {
   check('① 서버 가격표에 ai_content 10,000원', !!PRICES['ai_content'] && PRICES['ai_content'].amount === 10000);
-  check('② 홈 결제 카드에 ai_content', HOME_CARDS.some((c) => c.key === 'ai_content' && c.amount === 10000));
+  /* 💳 (2026-11-09 사장님 지시) 홈 결제창은 주1·2·3·5회 네 개만 판다 — ai_content 는 홈 카드에서 빠졌다
+     (서버·모달·관리자 결제링크에는 그대로 남아 링크로 팔 수 있다). 대상 필터(ALWAYS)도 함께 없어졌다. */
   check('③ 결제 모달 PROG_INFO 에 ai_content', !!PROG_INFO['ai_content'] && PROG_INFO['ai_content'].price === 10000);
   check('④ 관리자 결제링크에 ai_content', ADMIN_OPTS.some((o) => o.key === 'ai_content' && o.amount === 10000));
-  /* 나이·목적 카테고리와 무관한 상품이라 «어떤 대상을 골라도» 보이게 ALWAYS 에 넣었습니다.
-     빠지면 대상 필터에서 카드가 사라져 «있는데 안 보이는» 상품이 됩니다. */
-  const ALWAYS = evalLiteral(literalAfter(MODAL, /var\s+ALWAYS\s*=\s*\{/, '{', '}') || '');
-  check('대상 필터와 무관하게 늘 보인다(ALWAYS)', !!ALWAYS && ALWAYS['ai_content'] === 1,
-    ALWAYS ? JSON.stringify(ALWAYS) : 'ALWAYS 를 못 꺼냄');
+}
+
+console.log('\n[ G. 2026-11-09 — 홈 결제창은 주1·2·3·5회 네 개만 ]');
+if (!ok) check('네 상품', false, '전제 실패');
+else {
+  const want = [['1on1-4', 60000], ['1on1-8', 120000], ['1on1-12', 180000], ['1on1-20', 300000]];
+  check('홈 카드가 정확히 네 개이고 순서·금액이 맞다',
+    JSON.stringify(HOME_CARDS.map((c) => [c.key, c.amount])) === JSON.stringify(want),
+    JSON.stringify(HOME_CARDS.map((c) => [c.key, c.amount])));
+  check('대상 카테고리 바(#pay-cat-bar)가 없다', !/id="pay-cat-bar"/.test(HOME) && !/var\s+CATS\s*=/.test(MODAL));
+  check('주5회(1on1-20)는 enroll.html 로 넘어간다(1:1 상품군)', /ONE_ON_ONE_PROGRAMS = new Set\([^)]*'1on1-20'/.test(MODAL));
+  const ENROLL = R('public/enroll.html');
+  check('enroll.html 이 1on1-20 을 주5회로 이어받는다', /'1on1-20':\{weekly:5, months:1\}/.test(ENROLL));
 }
 
 console.log(`\n${FAIL === 0 ? '🎉' : '💥'} pay_product_catalog_harness — PASS ${PASS} / FAIL ${FAIL}`);
