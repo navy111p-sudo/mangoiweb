@@ -67,7 +67,7 @@
       try { if (typeof isEn === 'function' && isEn() && typeof sweep === 'function') sweep(); } catch(e){}
     };
     try {
-      var pDict = fetch('/js/i18n-dict.json?v=2')
+      var pDict = fetch('/js/i18n-dict.json?v=3')
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(j){ if (j) { DICT = j; if (settled) lateSweep(); } })
         .catch(function(){});

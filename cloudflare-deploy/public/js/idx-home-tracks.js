@@ -4,7 +4,7 @@
  *   고장이 아니라 «기능이 없었던» 것이다. #1046 이 만든 .home-tracks 는 마크업과 CSS
  *   뿐이고 href·onclick 이 한 줄도 없는 «설명 문구» 였다. 사장님이 화면을 보시고
  *   목적지를 직접 정해 주셨다(둘 다 스크린샷으로 지목).
- *     .ht-live (1:1 원어민 화상수업) → 「망고아이란?」의 «원어민 선생님과 1:1 / 1:2 수업» 카드
+ *     .ht-live (1:1 원어민 화상수업) → 「망고아이란?」의 «원어민 선생님과 1:1 수업» 카드
  *     .ht-ai   (11종 A.i 학습)       → 「AI와 친구하기」 카드 오버레이
  *
  * [왜 별도 파일인가] index.html 은 공동 금지구역이고 첫 화면 예산이 걸린다.
@@ -70,7 +70,7 @@
 
   var TRACKS = [
     { sel: '.home-tracks .ht-live', go: openLive,
-      tko: '원어민 1:1 / 1:2 수업 소개 보기', ten: 'About 1:1 / 1:2 live lessons' },
+      tko: '원어민 1:1 수업 소개 보기', ten: 'About 1:1 live lessons' },
     { sel: '.home-tracks .ht-ai', go: openAi,
       tko: 'A.i 학습 도구 전부 보기', ten: 'See all A.i learning tools' }
   ];
