@@ -16,7 +16,7 @@
 //       PW_DIR=/tmp/pw node test-harness/manual/warmup-two-way-browser.mjs
 //
 //   [변이시험 — 되돌리면 실제로 FAIL 난다 (2026-09-16 실측, 기준 0)]
-//     Ⓐ btsSortLevel 의 고정 제거(_warmLevel 로)        → 실패 3
+//     Ⓐ btsSortLevel 의 고정 제거(_warmLevel 로)        → 실패 3 (2026-11-10 이전 기준 — ④ 는 이제 «다시 정렬» 을 봄)
 //     Ⓑ 두 갈래 클릭 처리 제거                           → 실패 3
 //     Ⓒ 중국어에서 두 갈래를 감추지 않음                 → 실패 1
 //     Ⓓ 「지금」 배지를 «갈래» 로 되돌림(거짓말)          → 실패 6
@@ -134,14 +134,18 @@ for (const [w, h, label] of [[390, 844, '휴대폰'], [1280, 800, '노트북'], 
   d = await readState(page);
   ck(`③ [${label}] 고르면 「지금」 이 «교재로» 로 옮겨간다`, d.nowWay === 'book', d.nowWay);
   ck(`③ [${label}] 하단 줄이 교재를 말한다(짝)`, /지금 교재/.test(d.bn), d.bn.slice(0, 40));
+  /* 🔒 교재를 고르면 수준이 그 권에 맞춰 따라 바뀌지만(syncBand) 목록은 «안» 튄다 — 누른 자리 고정. */
+  ck(`③ [${label}] 교재를 골라도 목록이 재정렬되지 않는다(누른 자리 고정)`,
+    JSON.stringify(order0) === JSON.stringify(d.order), [order0, d.order]);
 
-  /* ⛔ 이 절이 이 수리의 핵심이다 — 교재가 수준 «위» 로 올라왔으므로, 고정이 없으면
-     수준을 고를 때마다 위쪽 목록이 눈앞에서 재정렬된다(CLAUDE.md 가 못 박아 둔 자리). */
+  /* 🔄 2026-11-10 사장님 「레벨을 바꾸면 교재 목록도 그 레벨에 맞게」 — 사람이 «수준» 을
+     직접 고르면 목록이 그 수준으로 다시 정렬된다(예전 «고정» 검사를 뒤집음). */
   await page.evaluate(() => { const b = document.querySelector('#wusLevels [data-lvl="8"]'); if (b) b.click(); });
   await page.waitForTimeout(500);
   d = await readState(page);
-  ck(`④ [${label}] ⛔ 수준을 바꿔도 위쪽 목록이 재정렬되지 않는다`,
-    JSON.stringify(order0) === JSON.stringify(d.order), [order0, d.order]);
+  ck(`④ [${label}] 수준을 직접 바꾸면 목록이 그 수준으로 다시 정렬된다`,
+    JSON.stringify(order0) !== JSON.stringify(d.order) && /^adv/.test(String(d.order[0] || '')),
+    [order0, d.order]);
   ck(`④ [${label}] 고른 교재는 그대로 «지금»`, d.nowWay === 'book', d.nowWay);
 
   await tap(page, '#wusTwoWay [data-way="free"]');
