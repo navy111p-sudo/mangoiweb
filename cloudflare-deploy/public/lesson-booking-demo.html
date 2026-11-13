@@ -279,13 +279,6 @@
   <h2 class="title">📝 화상수업 예약</h2>
   <p class="sub">원하는 요일과 시간을 골라 원어민 선생님과의 화상수업을 예약하세요.</p>
 
-  <!-- 1:1 / 그룹 토글 -->
-  <div class="sec-label">👥 수업 형태</div>
-  <div class="type-tabs" id="type-tabs">
-    <button id="type-oneon" class="active" data-type="oneon">1:1 마스터</button>
-    <button id="type-group" data-type="group">그룹 토론</button>
-  </div>
-
   <!-- 선택 방식 (날짜로 / 교사로) -->
   <div class="sec-label">🔍 선택 방식</div>
   <div class="type-tabs" id="mode-tabs">
@@ -364,7 +357,7 @@
 
   // ─── 상태 ───
   var state = {
-    type: 'oneon',          // oneon | group
+    type: 'oneon',          // 개인 신청은 항상 1:1 (수업 형태 선택 제거 2026-11-13)
     mode: 'date',           // date | teacher (선택 방식)
     weeklyTarget: 2,
     currentDay: null,
@@ -728,15 +721,6 @@
     renderFooter();
     showOK('✅ 등록 완료 · ' + startTime + (t ? ' · ' + t.name : ''));
   }
-
-  // 1:1 / 그룹 토글
-  document.querySelectorAll('#type-tabs button').forEach(function(b){
-    b.onclick = function(){
-      document.querySelectorAll('#type-tabs button').forEach(function(x){ x.classList.remove('active'); });
-      b.classList.add('active');
-      state.type = b.getAttribute('data-type');
-    };
-  });
 
   // 선택 방식 토글 (날짜로 / 교사로)
   document.querySelectorAll('#mode-tabs button').forEach(function(b){
