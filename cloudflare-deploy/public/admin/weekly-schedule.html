@@ -1055,6 +1055,44 @@ function offWho(o){
 var viewMode='week';                    // 'week' = 개요 / 'day' = 작업면
 var curDow=(function(){var g=new Date().getDay();return g===0?6:g-1;})();  // 월=0
 var sortMode='name', freeMode=false;
+// Keep each tab's working view in its URL. Refresh still fetches fresh schedule data.
+var scheduleViewRestored=false;
+function saveScheduleView(){
+  try{
+    var u=new URL(location.href);
+    var d=new Date(currentWeekStart);d.setDate(d.getDate()+curDow);
+    u.searchParams.set('wsDate',fmtISO(d));
+    u.searchParams.set('wsView',viewMode);
+    u.searchParams.set('wsQuery',searchQuery);
+    u.searchParams.set('wsCategory',activeCategory);
+    u.searchParams.set('wsSort',sortMode);
+    u.searchParams.set('wsFree',freeMode?'1':'0');
+    if(u.href!==location.href)history.replaceState(history.state,'',u.pathname+u.search+u.hash);
+  }catch(e){}
+}
+function restoreScheduleView(){
+  try{
+    var p=new URLSearchParams(location.search), raw=p.get('wsDate');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(raw||''))return;
+    var d=new Date(raw+'T00:00:00');
+    if(isNaN(d.getTime())||fmtISO(d)!==raw)return;
+    currentWeekStart=startOfWeek(d);curDow=(d.getDay()+6)%7;
+    viewMode=p.get('wsView')==='day'?'day':'week';
+    searchQuery=p.has('wsQuery')?p.get('wsQuery'):searchQuery;
+    var cat=p.get('wsCategory');
+    if(['all','home','office','native','manager'].indexOf(cat)>=0)activeCategory=cat;
+    var sort=p.get('wsSort');
+    if(['name','most','least','util_high','util_low','free'].indexOf(sort)>=0)sortMode=sort;
+    freeMode=p.get('wsFree')==='1';
+    document.getElementById('search-input').value=searchQuery;
+    document.getElementById('sort-select').value=sortMode;
+    document.getElementById('btn-free').classList.toggle('on',freeMode);
+    document.querySelectorAll('.view-toggle button[data-view]').forEach(function(b){
+      b.classList.toggle('active',b.dataset.view===viewMode);
+    });
+    scheduleViewRestored=true;
+  }catch(e){}
+}
 var demoNames=['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린','한지유','조서진','백채원','권유나','황도윤'];
 /* ⏱ (2026-08-12) 스케줄을 10분 단위로 — 그동안 슬롯 키가 «시(hour)» 였다.
    실데이터의 분은 loadData 에서 getHours() 로 통째로 잘려 나갔고(19:20 수업이 19:00 으로 보였다),
@@ -1375,6 +1413,7 @@ function teacherWeekStats(tid){
 }
 
 function render(){
+  saveScheduleView();
   var end=new Date(currentWeekStart);end.setDate(end.getDate()+6);
   var dn=dayNames();
   document.getElementById('week-label').textContent=fmtDate(currentWeekStart)+' ('+dn[0]+') ~ '+fmtDate(end)+' ('+dn[6]+')';
@@ -1911,6 +1950,7 @@ setTimeout(function(){
 var searchTimer=null;
 document.getElementById('search-input').addEventListener('input',function(e){
   clearTimeout(searchTimer);
+  searchQuery=e.target.value;saveScheduleView();
   searchTimer=setTimeout(function(){searchQuery=e.target.value;render();},180);
 });
 
@@ -3827,7 +3867,7 @@ function aiSuggestSlot(){
 window.aiSuggestSlot=aiSuggestSlot;
 
 
-async function reloadAndRender(){await loadData();await loadHolidays();applyLang(currentLang);}
+async function reloadAndRender(){saveScheduleView();await loadData();await loadHolidays();applyLang(currentLang);}
 
 
 // ═══ 풀 상세 모달 + 드래그 편집 ═══
@@ -4376,6 +4416,7 @@ window.editSlotPrompt=editSlotPrompt;
   } catch(_){}
 })();
 
+restoreScheduleView();
 reloadAndRender();
 
 // ═══════════════════════════════════════════════════════════════
@@ -4395,6 +4436,7 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
     if(!raw) return;
     var key = String(raw).trim().toLowerCase();
     if(PRESET_KEYS.indexOf(key) < 0) return;   /* 모르는 값은 조용히 무시 — 옛 링크가 안 깨진다 */
+    if(scheduleViewRestored)return; // A refreshed working view takes precedence over the entry preset.
 
     /* 배지는 문서 흐름 «안» 에 넣는다 — position:fixed 로 띄우면 다른 것을 덮는다
        (「보이는데 안 눌린다」 계열 함정). */
@@ -4434,7 +4476,7 @@ var PRESET_KEYS = ['week','today','teacher','student','free'];
     /* 실제 버튼을 누른다. 렌더가 끝난 뒤라야 버튼이 서 있다. */
     setTimeout(function(){
       try{
-        if(key === 'today'){
+        if(key === 'today' && !scheduleViewRestored){
           var dayBtn = document.querySelector('.view-toggle button[data-view="day"]');
           if(dayBtn) dayBtn.click();
           /* ⚠️ 「끌면 바뀝니다」로 단정하지 말 것 — 2026-09-11 PR #934 로 이 화면은
