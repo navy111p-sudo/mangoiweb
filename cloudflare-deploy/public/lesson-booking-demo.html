@@ -319,7 +319,7 @@
 
   <!-- 시간 선택 -->
   <div class="time-section">
-    <div class="sec-label">⏰ 시간 선택 (최소 20분 자동 블록 + 연속 확장)</div>
+    <div class="sec-label">⏰ 시간 선택 (20분 블록 · 다시 누르면 취소)</div>
     <div class="slot-legend" id="slot-legend">
       <span class="lg-item"><span class="lg-box avail"></span>하양 = <b>수업 가능</b></span>
       <span class="lg-item"><span class="lg-box busy"></span>파랑 = 수업중(예약됨)</span>
@@ -670,9 +670,21 @@
   }
 
   function handleSlotClick(clickedId) {
-    // 🟢 이미 선택된(초록=수업중) 시간은 다시 누르면 작동 안 함
+    // 🟢 이미 고른(초록) 시간을 다시 누르면 → 선택 취소
     if (state.currentSlotIds.indexOf(clickedId) !== -1) {
-      showAlert('🟢 이미 수업중입니다');
+      state.currentSlotIds = [];
+      renderTimes();
+      renderStep();
+      showOK('↩️ 선택을 취소했어요. 다른 시간을 골라 주세요.');
+      return;
+    }
+    // 이미 고른 시간이 있으면 다른 시간은 안 눌림 — 먼저 취소하도록 안내
+    if (state.currentSlotIds.length > 0) {
+      var s0 = Math.min.apply(null, state.currentSlotIds);
+      var s1 = Math.max.apply(null, state.currentSlotIds);
+      var t0 = TIME_SLOTS[s0 - 1].time;
+      var t1 = TIME_SLOTS[s1] ? TIME_SLOTS[s1].time : '23:00';
+      showAlert('⚠️ 이미 ' + t0 + '~' + t1 + ' 을 선택했어요. 다른 시간을 고르려면 초록색 시간을 다시 눌러 취소해 주세요.', 3500);
       return;
     }
     if (clickedId === TIME_SLOTS.length) {
@@ -686,15 +698,7 @@
       showAlert('⚠️ 이미 장바구니에 담긴 시간대입니다.');
       return;
     }
-    if (state.currentSlotIds.length === 0) {
-      state.currentSlotIds = [clickedId, clickedId + 1];
-    } else {
-      var min = Math.min.apply(null, state.currentSlotIds);
-      var max = Math.max.apply(null, state.currentSlotIds);
-      if (clickedId === max + 1) state.currentSlotIds.push(clickedId);
-      else if (clickedId === min - 1) state.currentSlotIds.unshift(clickedId);
-      else state.currentSlotIds = [clickedId, clickedId + 1];
-    }
+    state.currentSlotIds = [clickedId, clickedId + 1];
     renderTimes();
     renderStep();
   }
@@ -797,12 +801,14 @@
     }, 350);
   };
 
-  function showAlert(msg) {
+  var _toastTimer = null;
+  function showAlert(msg, ms) {
     var t = document.getElementById('toast');
     t.style.background = 'linear-gradient(135deg,#EF4444,#DC2626)';
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 2200);
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function(){ t.classList.remove('show'); }, ms || 2200);
   }
 
   function showOK(msg) {
@@ -810,7 +816,8 @@
     t.style.background = 'linear-gradient(135deg,#10B981,#059669)';
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(function(){ t.classList.remove('show'); }, 1500);
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 1500);
   }
 
   // 초기 렌더링
