@@ -50,7 +50,8 @@ jobs:
       - name: Install isolated Chromium
         run: |
           npm install --prefix "$RUNNER_TEMP/speaking-pw" playwright@1.58.2
-          "$RUNNER_TEMP/speaking-pw/node_modules/.bin/playwright" install --with-deps chromium
+          # no --with-deps: apt mirror stalls 10+ min; runner image already has the libs (#2276) / apt 미러가 멈춰 10분+ 지연, 러너에 라이브러리 이미 있음
+          "$RUNNER_TEMP/speaking-pw/node_modules/.bin/playwright" install chromium
       - name: 320 entry and return scenarios (localhost only)
         env:
           PW_DIR: ${{ runner.temp }}/speaking-pw
