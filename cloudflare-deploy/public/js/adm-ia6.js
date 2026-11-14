@@ -476,7 +476,7 @@
           tip: '🗂 강사 출신지역과 수업료 배수 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
         { ko: '탈락률', en: 'Dropout rate', href: '/admin/legacy-lms.html?m=dropout',
           hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
-          tip: '🗂 대리점별 신규·연장·종료·탈락률 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },
+          tip: '🗂 종료 학생 중 미재등록 비율 · 현재 소속별 집계', tipEn: '🗂 Non-renewal among ended students, by current organization' },
         { ko: '출결현황 달력', en: 'Attendance calendar', href: '/admin/legacy-lms.html?m=attend-cal',
           hideFrom: ['teacher', 'franchise', 'branch', 'agency'],
           tip: '🗂 학생별 한 달 출결을 달력으로 (옛 LMS 모양 · 데이터 연결 전)', tipEn: '🗂 Old LMS layout - data not connected yet' },

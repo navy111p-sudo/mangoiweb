@@ -1,3 +1,4 @@
+import { handleDropout } from './dropout-report';
 /** Administrator statistics and KPI routes. Access gates remain in the caller. */
 import type { MangoEnv } from './api-mango';
 import { admCacheHit, admCachePut } from './admin-cache';
@@ -13,6 +14,7 @@ import { kstMonthBounds, kstMidnight, kstDateStr, activeBinds, activeCountSql, o
 export async function handleAdminStatsApi(request: Request, url: URL, env: MangoEnv): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
+  if (method === 'GET' && path === '/api/admin/stats/dropout') return handleDropout(request, url, env);
 
 
     // ════════════════════════════════════════════════════════════

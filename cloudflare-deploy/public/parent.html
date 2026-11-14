@@ -297,7 +297,7 @@ function showKakaoShareDialog(url) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
         <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
           <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"></div>
-          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
+          <div style="font-weight:800;font-size:14px;color:var(--pd-ink)" data-ko="월간 수업 출석" data-en="30-Day Attendance">월간 수업 출석</div>
           <div style="font-size:13px;color:var(--pd-muted);margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When classes were attended">언제 수업 들었는지 한눈에</div>
         </div>
         <div style="background:var(--pd-tint);border:1px solid var(--pd-line-strong);border-radius:12px;padding:14px 12px">
@@ -374,11 +374,12 @@ function showKakaoShareDialog(url) {
 
       <!-- 출석 카드 -->
       <div class="card">
-        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
-        <div class="stat"><span data-ko="출석률" data-en="Attendance rate">출석률</span><span class="v gold" id="pd-att-rate">—</span></div>
-        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span> <span id="pd-att-of" style="font-size:13px;color:var(--pd-muted)"></span></span></div>
-        <div class="stat"><span data-ko="제시간 입장" data-en="On-time">제시간 입장</span><span class="v green"><span id="pd-on-time">0</span> <span data-ko="일" data-en="days">일</span></span></div>
-        <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">—</span></div>
+        <h3 data-ko="이번 달 출석" data-en="This month's classes">이번 달 출석</h3>
+        <div class="stat"><span data-ko="이번 달 수업" data-en="Classes attended / scheduled">이번 달 수업</span><span class="v gold" id="pd-class-count">—</span></div>
+        <div class="stat"><span data-ko="연속 출석" data-en="Attendance streak">연속 출석</span><span class="v green" id="pd-class-streak">—</span></div>
+        <div class="stat"><span data-ko="결석 · 지각" data-en="Absent · late">결석 · 지각</span><span class="v" id="pd-class-absence">—</span></div>
+        <div class="stat"><span data-ko="다음 수업" data-en="Next class">다음 수업</span><span class="v" id="pd-class-next">—</span></div>
+        <div id="pd-class-note" style="font-size:12px;color:var(--pd-muted)"></div>
         <div id="pd-att-grid" style="margin-top:10px"></div>
       </div>
 
@@ -1110,29 +1111,27 @@ function pdRender(d){
     ? '<div style="font-weight:700;color:var(--pd-accent);margin-bottom:4px">최근 거래</div>' + tx.map(t => `<div style="padding:3px 0">${esc(t.reason||t.type)} <b style="color:${t.amount>0?'var(--pd-green)':'var(--pd-red)'}">${t.amount>0?'+':''}${fmt(t.amount)}P</b></div>`).join('')
     : '<div style="color:var(--pd-muted)">거래 내역 없음</div>';
 
-  // 출석
-  const att = d.attendance || {};
-  /* 🔴 (2026-08-30 v4 제안서 02) 예전에는 `(att.on_time_rate||0)+'%'` 였다. 서버가 «잴 수 없음»
-     을 돌려줘도 화면은 **0%** 라고 단정해 「출석했는데 0%」 제보의 절반이 여기서 났다.
-     이제 서버가 null 을 주면 «—» 로 그린다 — 못 잰 것과 0 은 다른 사실이다.
-     (CLAUDE.md 2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」) */
-  const pct = (v) => (v === null || v === undefined) ? '—' : (v + '%');
-  document.getElementById('pd-att-rate').textContent = pct(att.attendance_rate);
-  document.getElementById('pd-att-days').textContent = fmt(att.last_30d_days);
-  document.getElementById('pd-att-of').textContent = att.scheduled_days ? ('/ ' + fmt(att.scheduled_days)) : '';
-  document.getElementById('pd-on-time').textContent = fmt(att.on_time_days);
-  document.getElementById('pd-on-time-rate').textContent = pct(att.on_time_rate);
-  // 30일 그리드
-  const today = new Date();
-  let grid = '<div style="display:grid;grid-template-columns:repeat(15,14px);gap:2px;margin-top:6px">';
-  for (let i = 29; i >= 0; i--) {
-    const dt = new Date(today.getTime() - i * 86400000);
-    const k = dt.toISOString().slice(0,10);
-    const cls = (att.days||[]).includes(k) ? 'present' : '';
-    grid += `<span class="att-dot ${cls}" title="${k}"></span>`;
+  // Authenticated class summaries contain no teacher notes.
+  const T = (ko, en) => window.getLang && getLang() === 'en' ? en : ko;
+  const cls = d.classes;
+  const countText = n => n == null ? '—' : fmt(n) + T('회', ' classes');
+  document.getElementById('pd-class-count').textContent = cls ? cls.completed + ' / ' + countText(cls.scheduled) : '—';
+  document.getElementById('pd-class-streak').textContent = cls ? countText(cls.streak) : '—';
+  document.getElementById('pd-class-absence').textContent = cls ? cls.absent + ' · ' + cls.late : '—';
+  document.getElementById('pd-class-next').textContent = !cls ? '—' : cls.next ? cls.next.date + ' ' + cls.next.start : T('확인된 다음 수업 없음', 'No next class recorded');
+  const notes = [];
+  if (!cls) notes.push(T('출석 정보를 불러오지 못했습니다. 다시 시도해 주세요.', 'Unable to load attendance. Please retry.'));
+  else {
+    if (cls.partial) notes.push(T('일부 기록을 불러오지 못해 집계가 불완전합니다.', 'Some records could not be loaded. Totals are incomplete.'));
+    if (cls.unknown) notes.push(T('출결 미확인 ', 'Unconfirmed attendance: ') + cls.unknown);
+    if (cls.late_unmeasured) notes.push(T('지각 판정 기록 없음 ', 'Lateness unavailable: ') + cls.late_unmeasured);
+    notes.push(T('연속 출석 집계 시작 ', 'Streak counted since ') + cls.streak_since);
+    if (!cls.next) notes.push(T('다음 수업 조회 범위 ', 'Next class search through ') + cls.next_until);
   }
-  grid += '</div>';
-  document.getElementById('pd-att-grid').innerHTML = grid;
+  document.getElementById('pd-class-note').textContent = notes.join(' · ');
+  document.getElementById('pd-att-grid').innerHTML = cls ? cls.days.map(day =>
+    '<span class="att-dot ' + (day.state === 'done' ? 'present' : '') + '" style="display:inline-block;margin:2px" title="' + esc(day.date + ' ' + day.start + ' · ' + day.state) + '"></span>'
+  ).join('') : '';
 
   // 결제
   const pays = (d.payments || []).slice(0, 4);
