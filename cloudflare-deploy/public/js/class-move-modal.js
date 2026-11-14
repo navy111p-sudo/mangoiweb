@@ -249,6 +249,9 @@
                 + T('🔄 앞으로 계속 — 다시 잡은 뒤에', '🔄 From now on — after rebooking') + '</span>'
               : mvBtn('series', T('🔄 변경 <small style="font-weight:500">앞으로 계속</small>', '🔄 Change <small style="font-weight:500">from now on</small>'), false))
       +   (canCancel ? mvBtn('cancel', T('수업 취소', 'Cancel class'), false) : '')
+      +   (canCancel && r.student_uid ? '<a href="/admin/student.html?uid=' + encodeURIComponent(r.student_uid)
+            + '&amp;tab=schedule&amp;makeup=1&amp;lang=' + (_opt.isEn ? 'en' : 'ko') + '#ns-kind" target="_blank" rel="noopener" style="align-self:center;padding:6px;color:#1d4ed8;font-weight:700">'
+            + T('보강수업 추가 ↗', 'Add supplementary class ↗') + '</a>' : '')
       + '</div>'
       /* ⏸ 연기 = «이번 한 번». (2026-09-23 사장님 샘플 C)
          ⏩ (2026-11-02 사장님 「'완전히 연기'라는 건 없애줘. 단순 연기를 하면 당연히 하루씩 수업이 뒤로 밀려야」)
@@ -257,7 +260,7 @@
             ⛔ 되살리지 말 것. 'hold' 경로 코드는 «학원 오늘 수업 한꺼번에 연기» 가 아직 쓴다. */
       + '<div id="tc-mv-sub" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
       /* ⏸ (2026-10-02 사장님 제안) 연기보강 — 이 회를 수업 «끝» 다음 수업일로. 날짜는 서버가 정한다. */
-      +   mvSubBtn('end', T('한 회 뒤로 밀기 (끝에 보강)', 'Push back one class (make up at the end)'), !pp)
+      +   mvSubBtn('end', T('보강수업으로 옮기기 (마지막 회차 뒤)', 'Make-up class (after the last lesson)'), !pp)
       +   mvSubBtn('date', T('지정한 날짜로 연기', 'Postpone to a date'), pp)
       + '</div>'
       + '<div id="tc-mv-when" hidden style="display:none;margin-bottom:10px">'

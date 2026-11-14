@@ -4049,8 +4049,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     var label = c ? T(c.label_en || '', c.label_ko || '') : '';
     if (!label) return '';
     var h = '<span class="tag' + (c.kind === 'moved' || c.kind === 'added' ? '' : ' hot') + '">' + esc(label) + '</span>';
+    var pct = r.postpone_pay_pct;
+    if (c.kind === 'postponed' && typeof pct === 'number') {
+      h += ' <span class="tag">' + esc(pct === 0 ? T('Unpaid', '무급') : T('Paid', '유급') + (pct < 100 ? ' ' + pct + '%' : '')) + '</span>';
+    }
     if (!full) return h;
-    var tail = [c.by || '', c.at_kst || ''].filter(Boolean).join(' · ');
+    var tail = [c.by || '', c.at ? new Date(c.at + 9 * 3600000).toISOString().slice(0, 19).replace('T', ' ') + ' KST' : ''].filter(Boolean).join(' · ');
     return h + (tail ? ' ' + esc(tail) : '') + (c.reason ? ' · ' + esc(c.reason) : '');
   }
   /* 📋 (2026-10-07 사장님) 기본은 «간단히»(시간·이름·아이디·강사). 연기·입장·평가 등은 «자세히» 에 그대로 있다.
@@ -4439,7 +4443,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       for (var i = 0; i < qs.length; i++) qs[i](got);
     };
     var sc = document.createElement('script');
-    sc.src = '/js/class-move-modal.js?v=17';
+    sc.src = '/js/class-move-modal.js?v=18';
     sc.onload = function(){ done(true); };
     sc.onerror = function(){ done(false); };
     document.head.appendChild(sc);
