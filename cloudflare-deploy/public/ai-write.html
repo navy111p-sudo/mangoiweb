@@ -2741,7 +2741,7 @@
            </div>`).join('') + `</div>
          <div class="go-preview" id="goPreview"></div>
          <div class="go-actions">
-           <button class="go-go" id="goApplyBtn" onclick="goApply()">✍️ <span data-ko="이 뼈대로 글쓰기 시작" data-en="Start writing with this outline">이 뼈대로 글쓰기 시작</span></button>
+           <button class="go-go" id="goApplyBtn" onclick="goApply()">✍️ <span data-ko="이 설정으로 글쓰기 시작" data-en="Start writing with these settings">이 설정으로 글쓰기 시작</span></button>
            <button class="go-ghost" onclick="goSkipToWrite()">⏭ <span data-ko="질문 없이 바로 쓰기" data-en="Skip questions, just write">질문 없이 바로 쓰기</span></button>
            <button class="go-ghost" onclick="goClear()">🧹 <span data-ko="메모 지우기" data-en="Clear notes">메모 지우기</span></button>
          </div>`;
@@ -3516,7 +3516,7 @@
       const o = goOutline();
       if (!o.answered) return;
       const ta = document.getElementById('text');
-      if (ta.value.trim() && !confirm('이미 쓴 글이 있어요. 뼈대로 바꿀까요? (지금 쓴 글은 사라져요)')) return;
+      if (ta.value.trim() && !confirm('이미 쓴 글이 있어요. 이 설정으로 바꿀까요? (지금 쓴 글은 사라져요)')) return;
       ta.value = o.text + '\n';
       updateCharCount();
       flowMark(2);

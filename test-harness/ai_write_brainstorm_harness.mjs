@@ -257,7 +257,7 @@ check('한 장 출력에 초안·첨삭·완성본이 모두 들어간다',
 check('인쇄할 때 뒤 화면을 숨긴다', /body\.sheet-open > \*:not\(#sheetModal\)/.test(HTML));
 check('이미 쓴 글은 확인 없이 덮어쓰지 않는다', /goApply[\s\S]{0,600}confirm\(/.test(HTML));
 check('EN 화면에서도 읽히게 새 UI 에 data-en 이 붙어 있다',
-  /class="fs-t" data-ko="[^"]+" data-en="/.test(HTML) && /data-en="Start writing with this outline"/.test(HTML));
+  /class="fs-t" data-ko="[^"]+" data-en="/.test(HTML) && /data-en="Start writing with these settings"/.test(HTML));
 /* ⚠️ 아이콘만 있는 버튼이 아니라 «글자 버튼» 이므로 data-ko/data-en 이 맞다.
    아이콘 버튼에 그 둘을 달면 textContent 가 통째로 갈려 문장이 들어앉는다(CLAUDE.md 2장). */
 check('오가나이저 라벨은 글자 흐름을 flex 로 쪼개지 않는다',
