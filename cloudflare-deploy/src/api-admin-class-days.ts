@@ -20,6 +20,7 @@ import { dropMirroredCafe24, EXEMPT_BY_NAME, cafe24HolidayTeacher } from './clas
 import { writeClassAudit, listClassAudit } from './class-audit';
 import { kstToday } from './schedule-split';
 import { oneWeekEligible, oneWeekMessage, prepareRecurringOneWeek, ONE_WEEK_FALLBACK } from './recurring-one-week';
+import { loadPostponePayRules, postponePayPercent } from './postpone-pay';
 import { planEndMakeup, END_MAKEUP_MARK_SQL } from './end-makeup';
 import { getAdminActor } from './auth-admin';
 import { teacherMoveDenyReason } from './class-teacher-move';
@@ -830,6 +831,26 @@ export async function handleAdminClassDaysApi(request: Request, url: URL, env: M
       const _ctAu = await loadClassChangeAudits(env.DB, _ctMg.map(x => x.schedule_id));
       for (const x of _ctMg) {
         x.change = judgeClassChange(_ctRowById.get(String(x.schedule_id)), _ctAu.bySchedule.get(String(x.schedule_id)), { showActor: _ctSeeContact });
+      }
+
+      const postponed = _ctMg.filter(x => x.change?.kind === 'postponed');
+      if (postponed.length) {
+        try {
+          const [rules, requests] = await Promise.all([
+            loadPostponePayRules(env.DB),
+            env.DB.prepare(`SELECT schedule_id, fee_type FROM schedule_change_requests
+              WHERE orig_date = ? AND status = 'approved' AND request_type != 'change'
+              ORDER BY created_at DESC, id DESC`).bind(dateStr).all<any>(),
+          ]);
+          const fees = new Map<string, string>();
+          for (const r of requests.results || []) {
+            const id = String(r.schedule_id);
+            if (!fees.has(id)) fees.set(id, r.fee_type);
+          }
+          for (const row of postponed) {
+            row.postpone_pay_pct = postponePayPercent(rules, fees.get(String(row.schedule_id)));
+          }
+        } catch (e: any) { console.warn('[classes/today] postpone pay:', e?.message); }
       }
 
       /* ⏸ (2026-11-04 매니저 Mai «Can we add another column state it is cancelled or postponed») 날짜를 정해 연기·변경한 수업은

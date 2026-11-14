@@ -185,8 +185,12 @@
     var head = c.kind === 'cancelled' ? xSmall(lbl, '', 'tc-st-cancelled')
       : (c.kind === 'postponed' || c.kind === 'moved_away') ? xSmall(lbl, '', 'tc-st-postponed')
       : xSmall(lbl, ';color:#1d4ed8;font-weight:700');
-    var who = [c.by || '', c.at_kst || ''].filter(Boolean).map(esc).join(' · ');
-    return head
+    var who = [c.by || '', c.at ? presenceTime(c.at) : ''].filter(Boolean).map(esc).join(' · ');
+    var pct = s.postpone_pay_pct;
+    var pay = c.kind === 'postponed' && typeof pct === 'number'
+      ? ' ' + xSmall(esc(pct === 0 ? T('무급', 'Unpaid') : T('유급', 'Paid') + (pct < 100 ? ' ' + pct + '%' : '')),
+          ';font-weight:700') : '';
+    return head + pay
       + (who ? '<div style="font-size:10.5px;color:#6b7280;white-space:nowrap">' + who + '</div>' : '')
       + (c.reason ? '<div style="font-size:10.5px;color:#475467;max-width:180px;white-space:normal;word-break:keep-all">' + esc(c.reason) + '</div>' : '');
   }
