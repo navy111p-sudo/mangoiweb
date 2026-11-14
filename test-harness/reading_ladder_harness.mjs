@@ -37,8 +37,9 @@ const D = box.window.READING_LADDER;
 ok(!!D && Array.isArray(D.stages) && Array.isArray(D.passages), '데이터를 읽었다(window.READING_LADDER)');
 const P = (D && D.passages) || [];
 const S = (D && D.stages) || [];
-ok(S.length === 4 && S.every((s, i) => s.n === i + 1 && s.name && s.name.ko && s.name.en && s.grade && s.cefr && /^#[0-9a-f]{6}$/i.test(s.color)), '단계는 정확히 4개(1~4) · 이름·학년·CEFR·색이 있다');
-for (let n = 1; n <= 4; n++) ok(P.filter((p) => p.stage === n).length >= 10, `${n}단계 글이 10편 이상 (${P.filter((p) => p.stage === n).length}편)`);
+// 2026-11-12 0단계(첫걸음 이야기 · 영어 처음) 추가 — 단계는 0~4 다섯 개. 엔진은 배열 자리가 아니라 s.n 으로 찾는다.
+ok(S.length === 5 && S.every((s, i) => s.n === i && s.name && s.name.ko && s.name.en && s.grade && s.cefr && /^#[0-9a-f]{6}$/i.test(s.color)), '단계는 정확히 5개(0~4) · 이름·학년·CEFR·색이 있다');
+for (let n = 0; n <= 4; n++) ok(P.filter((p) => p.stage === n).length >= 10, `${n}단계 글이 10편 이상 (${P.filter((p) => p.stage === n).length}편)`);
 ok(new Set(P.map((p) => p.id)).size === P.length, '글 id 가 겹치지 않는다');
 const words = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9' -]+/g, ' ').split(/[\s-]+/).filter(Boolean);
 const hasWord = (text, w) => { const ws = words(text); const t = words(w); return t.length > 0 && t.every((x) => ws.includes(x)); };
@@ -68,8 +69,13 @@ ok(JS_SRC.includes('핵심문장 응용해서 쓰기') && JS_SRC.includes('Keep 
 bulk('보기 4개가 서로 다르다', P, (p) => new Set(p.main.options.map((o) => o.en.toLowerCase())).size === 4 || 'dup');
 const avg = (n) => { const l = P.filter((p) => p.stage === n); return l.reduce((a, p) => a + wc(p), 0) / (l.length || 1); };
 const A = [1, 2, 3, 4].map(avg);
-console.log('     평균 단어 수: ' + A.map((x, i) => (i + 1) + '단계 ' + Math.round(x)).join(' · '));
-ok(A[0] < A[1] && A[1] <= A[2] + 15 && A[2] < A[3], '단계가 올라갈수록 글이 길어진다');
+const A0 = avg(0);
+console.log('     평균 단어 수: 0단계 ' + Math.round(A0) + ' · ' + A.map((x, i) => (i + 1) + '단계 ' + Math.round(x)).join(' · '));
+ok(A0 < A[0] && A[0] < A[1] && A[1] <= A[2] + 15 && A[2] < A[3], '단계가 올라갈수록 글이 길어진다(0단계가 가장 짧다)');
+// 0단계 = 영어를 처음 배우는 학생 — 글 전체가 짧고(40낱말 이하) 문장 하나도 짧다(9낱말 이하). 1단계 평균(약 65낱말)의 절반 아래.
+bulk('0단계 글은 40낱말 이하 · 문장마다 9낱말 이하', P.filter((p) => p.stage === 0), (p) => (wc(p) <= 40 && p.sentences.every((x) => words(x.en).length <= 9)) || wc(p));
+ok(A0 * 2 < A[0], `0단계 평균(${Math.round(A0)})은 1단계 평균(${Math.round(A[0])})의 절반보다 짧다`);
+ok(P.filter((p) => p.stage === 0).every((p) => p.book === false && p.genre === 'story'), '0단계는 이야기 · 그림책이 없으니 book:false(없는 페이지로 보내지 않게)');
 // 2026-10-20 사장님 지시 — 3단계에 소설 시리즈 «마법학교»(s3-39~42)만 이야기로 둔다. 예외는 이 목록 하나뿐(넓히지 말 것).
 const STORY_IN_UPPER = new Set(['s3-39', 's3-40', 's3-41', 's3-42']);
 ok(P.filter((p) => p.stage <= 2).every((p) => p.genre === 'story') && P.filter((p) => p.stage >= 3).every((p) => p.genre === (STORY_IN_UPPER.has(p.id) ? 'story' : 'info')), '1·2단계는 이야기, 3·4단계는 지식 글(예외: 3단계 소설 시리즈 마법학교 4편)');
@@ -357,8 +363,8 @@ if (C && P.length) {
   ok(e.detail() === titleOf(idsOf(1)[0]) && e.items().filter((x) => x.sel).length === 1 && e.items()[0].sel, '기록이 없으면 첫 글이 상세에 뜨고 목록에서 한 줄만 «고름»');
   // 📌 2026-10-19 글을 늘리며(단계당 12편 → 1·2단계 48편 등) 총 편수를 데이터에서 센다 — «48» 로 못 박지 않는다.
   ok(new RegExp('전체 진도</span><b>0 / ' + P.length + '</b>').test(e.overall.innerHTML), `머리글에 전체 진도 0 / ${P.length}`);
-  ok([1, 2, 3, 4].every((n) => (e.html().match(new RegExp('data-act="stage" data-stage="' + n + '"', 'g')) || []).length >= 2), '단계 1~4 를 계단과 드롭다운 두 곳에서 고를 수 있다');
-  ok((e.html().match(/aria-pressed="true"[^>]*title="1단계/g) || []).length === 1 && !/aria-pressed="true"[^>]*title="[234]단계/.test(e.html()), '계단은 지금 단계 하나만 눌림 표시');
+  ok([0, 1, 2, 3, 4].every((n) => (e.html().match(new RegExp('data-act="stage" data-stage="' + n + '"', 'g')) || []).length >= 2), '단계 0~4 를 계단과 드롭다운 두 곳에서 고를 수 있다');
+  ok((e.html().match(/aria-pressed="true"[^>]*title="1단계/g) || []).length === 1 && !/aria-pressed="true"[^>]*title="[0234]단계/.test(e.html()), '계단은 지금 단계 하나만 눌림 표시');
   ok(!/rl-dd-item/.test(e.html()), '1단계에는 그림 동화책 드롭다운이 없다(짝)');
   ok(/data-act="open" data-id="s1-01"[^>]*>[\s\S]{0,400}?읽기 시작/.test(e.html()), '새 글이면 큰 버튼이 «읽기 시작»');
 
@@ -367,6 +373,13 @@ if (C && P.length) {
   ok(sameIds(e.items().map((x) => x.id), idsOf(3)) && e.saved() && e.saved().stage === 3, '3단계를 누르면 3단계 글로 바뀌고 이 기기에 저장된다');
   e.click({ 'data-act': 'stage', 'data-stage': 9 });
   ok(sameIds(e.items().map((x) => x.id), idsOf(3)) && e.saved().stage === 3, '없는 단계(9)는 무시한다(짝)');
+  // ── 0단계(2026-11-12) — 0 은 «거짓» 값이지만 진짜 단계다. 눌러지고·저장되고·그림책 링크 없이 그린다 ──
+  e.click({ 'data-act': 'stage', 'data-stage': 0 });
+  ok(sameIds(e.items().map((x) => x.id), idsOf(0)) && e.saved() && e.saved().stage === 0, `0단계를 누르면 0단계 글 ${idsOf(0).length}편으로 바뀌고 이 기기에 저장된다`);
+  ok(/0단계 첫걸음 이야기/.test(e.html()) && !/href="\/story-s0-/.test(e.html()), '0단계 이름이 보이고 · 없는 그림책 페이지(/story-s0-*)로 보내지 않는다');
+  const e0 = makeEnv({ store: { [RL_KEY]: JSON.stringify({ stage: 0, prog: {} }) } });
+  ok(sameIds(e0.items().map((x) => x.id), idsOf(0)), '저장된 0단계로 다시 열린다(0 을 «없음» 으로 읽지 않는다)');
+  e.click({ 'data-act': 'stage', 'data-stage': 3 });
   // ── 주제 ──
   const tp3 = C.topicsOf(P, 3).sort((x, y) => y.count - x.count)[0];
   e.click({ 'data-act': 'topic', 'data-topic': tp3.key });

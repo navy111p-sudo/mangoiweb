@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    📚 영어 독서 사다리 — 4단계 · 핵심 찾기 반복 (2026-10-18 사장님 지시)
    «적은 단계 + 충분한 글 + 핵심찾기 반복»
+     0단계 첫걸음 이야기(영어 처음·초1~2·Pre-A1, 2026-11-12 사장님 「영어를 처음 배우는 학생에겐 1단계도 어렵다」) →
      1단계 쉬운 이야기(초1~3·A1) → 2단계 조금 긴 이야기(초4~6·A2)
      → 3단계 쉬운 지식 글(초6~중2·A2+/B1) → 4단계 비문학(중3~고1·B1+/B2)
    글은 /js/reading-ladder-data.js 의 window.READING_LADDER 한 곳이 정본.
@@ -210,7 +211,9 @@
   if (booksWrap && window.__storyBooksHtml) booksWrap.hidden = true;
   var PASSAGES = DATA.passages;
   var STAGES = DATA.stages;
-  var MAX_STAGE = STAGES.length;
+  // 단계 번호는 배열 자리가 아니라 s.n 이다(0단계가 맨 앞에 있다 — 2026-11-12).
+  var MIN_STAGE = Math.min.apply(null, STAGES.map(function (s) { return s.n; }));
+  var MAX_STAGE = Math.max.apply(null, STAGES.map(function (s) { return s.n; }));
 
   /* ── 저장(이 기기) — 막혀도 메모리로 계속 ── */
   var state = { stage: 1, prog: {} };
@@ -218,7 +221,7 @@
     var saved = JSON.parse(localStorage.getItem(RLCore.STORE_KEY) || 'null');
     if (saved && typeof saved === 'object') {
       if (saved.prog && typeof saved.prog === 'object') state.prog = saved.prog;
-      if (saved.stage >= 1 && saved.stage <= MAX_STAGE) state.stage = saved.stage;
+      if (saved.stage >= MIN_STAGE && saved.stage <= MAX_STAGE) state.stage = saved.stage;
     }
   } catch (e) {}
   function save() { try { localStorage.setItem(RLCore.STORE_KEY, JSON.stringify(state)); } catch (e) {} }
@@ -229,7 +232,7 @@
   function L(o) { return o ? (lang() === 'en' ? o.en : o.ko) : ''; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function byId(id) { for (var i = 0; i < PASSAGES.length; i++) if (PASSAGES[i].id === id) return PASSAGES[i]; return null; }
-  function stageMeta(n) { return STAGES[n - 1]; }
+  function stageMeta(n) { for (var i = 0; i < STAGES.length; i++) if (STAGES[i].n === n) return STAGES[i]; return STAGES[0]; }
   // 🖼 글마다 같은 내용의 그림 동화책(story-<id>.html)이 있다. 도장 기록은 그 화면과 같은 키를 읽는다.
   var BOOK_STAMPS = ['read', 'key', 'sum', 'words', 'infer', 'write'];
   function bookStamps(id) {
@@ -258,7 +261,7 @@
   var canSpeak = !!window.StoryAudio;
   function stopSpeak() { if (window.StoryAudio) window.StoryAudio.stop(); }
   function speak(text, stage) {
-    if (window.StoryAudio) window.StoryAudio.speak(text, stage <= 1 ? 0.8 : stage === 2 ? 0.88 : 0.95);
+    if (window.StoryAudio) window.StoryAudio.speak(text, stage <= 0 ? 0.72 : stage === 1 ? 0.8 : stage === 2 ? 0.88 : 0.95);
   }
 
   /* ── 화면 상태 ── */
@@ -695,7 +698,7 @@
     var p = view.id ? byId(view.id) : null;
     if (act === 'stage') {
       var n = Number(t.getAttribute('data-stage'));
-      if (n >= 1 && n <= MAX_STAGE && n !== state.stage) { state.stage = n; filt.sel = null; filt.topic = ''; }   // 주제는 단계마다 달라 비운다
+      if (n >= MIN_STAGE && n <= MAX_STAGE && n !== state.stage) { state.stage = n; filt.sel = null; filt.topic = ''; }   // 주제는 단계마다 달라 비운다
       save(); view.mode = 'list'; view.id = null; render(); return;
     }
     if (act === 'topic') { filt.topic = t.getAttribute('data-topic') || ''; render(); return; }
