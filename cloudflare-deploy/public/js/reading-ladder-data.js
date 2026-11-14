@@ -1,9 +1,26 @@
 /* 📚 영어 독서 사다리 — 글 정본 (2026-10-18). 화면: /stories.html · 엔진: /js/reading-ladder.js
-   단계 4개 · 1·2단계 48편 · 3단계 42편(2026-10-20 마법학교 시리즈 소설 1~4권 s3-39~42 추가 · 주제 «소설») · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
+   단계 5개(0~4) · 0단계 20편(2026-11-12 «영어 처음» 학생용 · 그림책 없음 book:false) · 1·2단계 48편 · 3단계 42편(2026-10-20 마법학교 시리즈 소설 1~4권 s3-39~42 추가 · 주제 «소설») · 4단계 42편(2026-10-19 확장 · 2026-10-19 176편 모두 그림 동화책 /story-<id>.html 이 있다 — 그림책이 없는 글이 생기면 book:false 를 달 것). 한 편 = 문장별 영어·우리말 · 핵심 문장 번호(key) · 중심 내용 보기 4개(answer 는 정답 번호 — 화면이 섞음)
    · 오늘의 낱말 3개 · 핵심 한 줄 영작(summary.ko → summary.en, keywords 3개).
    ⚠️ 고치면 이 파일을 부르는 stories.html 의 ?v= 를 올리고 reading_ladder_harness 를 돌리세요. */
 window.READING_LADDER = {
  "stages": [
+  {
+   "n": 0,
+   "color": "#0c8599",
+   "cefr": "Pre-A1",
+   "name": {
+    "ko": "첫걸음 이야기",
+    "en": "First steps"
+   },
+   "grade": {
+    "ko": "영어 처음·초1~2",
+    "en": "Beginners · Grades 1-2"
+   },
+   "desc": {
+    "ko": "아주 짧은 문장 5개 — 쉬운 낱말로 읽고 핵심 한 문장을 찾아요.",
+    "en": "Five very short sentences — read easy words and find the one key sentence."
+   }
+  },
   {
    "n": 1,
    "color": "#2f9e44",
@@ -74,6 +91,1986 @@ window.READING_LADDER = {
   }
  ],
  "passages": [
+  {
+   "stage": 0,
+   "id": "s0-01",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "My Red Ball",
+    "ko": "나의 빨간 공"
+   },
+   "topic": {
+    "en": "Toys",
+    "ko": "장난감"
+   },
+   "bg": {
+    "en": "Balls come in many colors and sizes.",
+    "ko": "공은 색깔도 크기도 여러 가지예요."
+   },
+   "sentences": [
+    {
+     "en": "I have a red ball.",
+     "ko": "나는 빨간 공이 있다."
+    },
+    {
+     "en": "The ball is big and round.",
+     "ko": "공은 크고 동그랗다."
+    },
+    {
+     "en": "I throw the ball up.",
+     "ko": "나는 공을 위로 던진다."
+    },
+    {
+     "en": "My dog runs to the ball.",
+     "ko": "우리 개가 공에게 달려간다."
+    },
+    {
+     "en": "We play with the ball every day.",
+     "ko": "우리는 매일 공을 가지고 논다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows what I do with the red ball.",
+    "ko": "빨간 공으로 무엇을 하는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I play with my red ball every day.",
+      "ko": "나는 매일 빨간 공을 가지고 논다."
+     },
+     {
+      "en": "My dog is very big.",
+      "ko": "우리 개는 아주 크다."
+     },
+     {
+      "en": "I do not like balls.",
+      "ko": "나는 공을 좋아하지 않는다."
+     },
+     {
+      "en": "The ball is blue and small.",
+      "ko": "공은 파랗고 작다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The story is about playing with a red ball.",
+     "ko": "빨간 공을 가지고 노는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "ball",
+     "ko": "공"
+    },
+    {
+     "en": "throw",
+     "ko": "던지다"
+    },
+    {
+     "en": "round",
+     "ko": "동그란"
+    }
+   ],
+   "summary": {
+    "ko": "우리는 매일 연을 가지고 논다.",
+    "en": "We play with the kite every day.",
+    "keywords": [
+     "play",
+     "kite",
+     "day"
+    ],
+    "change": {
+     "from": "ball",
+     "to": "kite",
+     "koFrom": "공을",
+     "koTo": "연을"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-02",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "The Little Cat",
+    "ko": "작은 고양이"
+   },
+   "topic": {
+    "en": "Animals",
+    "ko": "동물"
+   },
+   "bg": {
+    "en": "Cats sleep for many hours every day.",
+    "ko": "고양이는 하루에 아주 오래 잠을 자요."
+   },
+   "sentences": [
+    {
+     "en": "I see a little cat.",
+     "ko": "나는 작은 고양이를 본다."
+    },
+    {
+     "en": "The cat is white.",
+     "ko": "고양이는 하얗다."
+    },
+    {
+     "en": "The cat is hungry.",
+     "ko": "고양이는 배가 고프다."
+    },
+    {
+     "en": "I give the cat some milk.",
+     "ko": "나는 고양이에게 우유를 조금 준다."
+    },
+    {
+     "en": "Now the cat is happy.",
+     "ko": "이제 고양이는 행복하다."
+    }
+   ],
+   "key": 3,
+   "keyWhy": {
+    "en": "This sentence shows how I help the hungry cat.",
+    "ko": "배고픈 고양이를 어떻게 도와주는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I give milk to a hungry cat.",
+      "ko": "나는 배고픈 고양이에게 우유를 준다."
+     },
+     {
+      "en": "The cat is black and big.",
+      "ko": "고양이는 까맣고 크다."
+     },
+     {
+      "en": "I am hungry, so I eat.",
+      "ko": "나는 배가 고파서 밥을 먹는다."
+     },
+     {
+      "en": "The cat runs away from me.",
+      "ko": "고양이가 나에게서 도망간다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "A hungry cat gets milk and becomes happy.",
+     "ko": "배고픈 고양이가 우유를 먹고 행복해지는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "little",
+     "ko": "작은"
+    },
+    {
+     "en": "hungry",
+     "ko": "배고픈"
+    },
+    {
+     "en": "milk",
+     "ko": "우유"
+    }
+   ],
+   "summary": {
+    "ko": "나는 고양이에게 생선을 조금 준다.",
+    "en": "I give the cat some fish.",
+    "keywords": [
+     "give",
+     "cat",
+     "fish"
+    ],
+    "change": {
+     "from": "milk",
+     "to": "fish",
+     "koFrom": "우유를",
+     "koTo": "생선을"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-03",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Rainy Day",
+    "ko": "비 오는 날"
+   },
+   "topic": {
+    "en": "Weather",
+    "ko": "날씨"
+   },
+   "bg": {
+    "en": "Rain helps plants and trees grow.",
+    "ko": "비는 식물과 나무가 자라게 도와줘요."
+   },
+   "sentences": [
+    {
+     "en": "It is a rainy day.",
+     "ko": "비 오는 날이다."
+    },
+    {
+     "en": "I wear my yellow boots.",
+     "ko": "나는 노란 장화를 신는다."
+    },
+    {
+     "en": "I take my big umbrella.",
+     "ko": "나는 큰 우산을 챙긴다."
+    },
+    {
+     "en": "I jump in the puddles.",
+     "ko": "나는 물웅덩이에서 뛴다."
+    },
+    {
+     "en": "I love to play on rainy days!",
+     "ko": "나는 비 오는 날 노는 것이 정말 좋다!"
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows how I feel about rainy days.",
+    "ko": "비 오는 날을 어떻게 느끼는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I have fun on a rainy day.",
+      "ko": "나는 비 오는 날 즐겁게 논다."
+     },
+     {
+      "en": "I do not like the rain.",
+      "ko": "나는 비를 좋아하지 않는다."
+     },
+     {
+      "en": "My boots are red.",
+      "ko": "내 장화는 빨갛다."
+     },
+     {
+      "en": "It is a hot and sunny day.",
+      "ko": "덥고 맑은 날이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child plays happily in the rain.",
+     "ko": "아이가 빗속에서 즐겁게 노는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "rainy",
+     "ko": "비 오는"
+    },
+    {
+     "en": "boots",
+     "ko": "장화"
+    },
+    {
+     "en": "umbrella",
+     "ko": "우산"
+    }
+   ],
+   "summary": {
+    "ko": "나는 눈 오는 날 노는 것이 정말 좋다!",
+    "en": "I love to play on snowy days!",
+    "keywords": [
+     "love",
+     "play",
+     "snowy"
+    ],
+    "change": {
+     "from": "rainy",
+     "to": "snowy",
+     "koFrom": "비 오는",
+     "koTo": "눈 오는"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-04",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "My Family",
+    "ko": "우리 가족"
+   },
+   "topic": {
+    "en": "Family",
+    "ko": "가족"
+   },
+   "bg": {
+    "en": "Families come in all shapes and sizes.",
+    "ko": "가족의 모습은 집집마다 달라요."
+   },
+   "sentences": [
+    {
+     "en": "This is my family.",
+     "ko": "이것은 우리 가족이다."
+    },
+    {
+     "en": "My dad is tall.",
+     "ko": "우리 아빠는 키가 크다."
+    },
+    {
+     "en": "My mom is kind.",
+     "ko": "우리 엄마는 친절하다."
+    },
+    {
+     "en": "My baby sister is small.",
+     "ko": "내 아기 여동생은 작다."
+    },
+    {
+     "en": "I love my family very much.",
+     "ko": "나는 우리 가족을 아주 많이 사랑한다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence tells how I feel about my family.",
+    "ko": "내가 가족을 어떻게 생각하는지 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I love my dad, mom and sister.",
+      "ko": "나는 아빠, 엄마, 여동생을 사랑한다."
+     },
+     {
+      "en": "My dad is short.",
+      "ko": "우리 아빠는 키가 작다."
+     },
+     {
+      "en": "I do not have a sister.",
+      "ko": "나는 여동생이 없다."
+     },
+     {
+      "en": "My mom is a teacher.",
+      "ko": "우리 엄마는 선생님이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child talks about the family and loves them.",
+     "ko": "아이가 가족을 소개하고 사랑한다고 말하는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "family",
+     "ko": "가족"
+    },
+    {
+     "en": "tall",
+     "ko": "키가 큰"
+    },
+    {
+     "en": "kind",
+     "ko": "친절한"
+    }
+   ],
+   "summary": {
+    "ko": "나는 내 친구들을 아주 많이 사랑한다.",
+    "en": "I love my friends very much.",
+    "keywords": [
+     "love",
+     "friends",
+     "very"
+    ],
+    "change": {
+     "from": "family",
+     "to": "friends",
+     "koFrom": "우리 가족을",
+     "koTo": "내 친구들을"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-05",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Breakfast Time",
+    "ko": "아침 먹는 시간"
+   },
+   "topic": {
+    "en": "Food",
+    "ko": "음식"
+   },
+   "bg": {
+    "en": "Breakfast gives you energy for the morning.",
+    "ko": "아침밥은 오전에 힘을 내게 해 줘요."
+   },
+   "sentences": [
+    {
+     "en": "It is seven o'clock.",
+     "ko": "7시이다."
+    },
+    {
+     "en": "I am very hungry.",
+     "ko": "나는 아주 배가 고프다."
+    },
+    {
+     "en": "Mom makes eggs and toast.",
+     "ko": "엄마가 달걀과 토스트를 만든다."
+    },
+    {
+     "en": "I drink a glass of milk.",
+     "ko": "나는 우유 한 잔을 마신다."
+    },
+    {
+     "en": "I eat a good breakfast every morning.",
+     "ko": "나는 매일 아침 든든한 아침밥을 먹는다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence tells the main idea: eating breakfast.",
+    "ko": "아침밥을 먹는다는 중심 생각을 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I eat breakfast every morning.",
+      "ko": "나는 매일 아침밥을 먹는다."
+     },
+     {
+      "en": "I do not eat in the morning.",
+      "ko": "나는 아침에 아무것도 먹지 않는다."
+     },
+     {
+      "en": "Dad makes pizza for dinner.",
+      "ko": "아빠가 저녁으로 피자를 만든다."
+     },
+     {
+      "en": "I drink orange juice at night.",
+      "ko": "나는 밤에 오렌지 주스를 마신다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child eats a good breakfast in the morning.",
+     "ko": "아이가 아침에 든든하게 아침밥을 먹는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "breakfast",
+     "ko": "아침밥"
+    },
+    {
+     "en": "hungry",
+     "ko": "배고픈"
+    },
+    {
+     "en": "toast",
+     "ko": "토스트"
+    }
+   ],
+   "summary": {
+    "ko": "나는 매일 아침 푸짐한 아침밥을 먹는다.",
+    "en": "I eat a big breakfast every morning.",
+    "keywords": [
+     "eat",
+     "big",
+     "breakfast"
+    ],
+    "change": {
+     "from": "good",
+     "to": "big",
+     "koFrom": "든든한",
+     "koTo": "푸짐한"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-06",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "At the Park",
+    "ko": "공원에서"
+   },
+   "topic": {
+    "en": "Play",
+    "ko": "놀이"
+   },
+   "bg": {
+    "en": "Parks are good places to run and play.",
+    "ko": "공원은 뛰고 놀기 좋은 곳이에요."
+   },
+   "sentences": [
+    {
+     "en": "I go to the park.",
+     "ko": "나는 공원에 간다."
+    },
+    {
+     "en": "I see my friend Tom.",
+     "ko": "나는 친구 톰을 본다."
+    },
+    {
+     "en": "We go down the slide.",
+     "ko": "우리는 미끄럼틀을 탄다."
+    },
+    {
+     "en": "We run on the green grass.",
+     "ko": "우리는 초록 잔디 위를 달린다."
+    },
+    {
+     "en": "I have fun with Tom at the park.",
+     "ko": "나는 공원에서 톰과 즐겁게 논다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence sums up the whole story.",
+    "ko": "이야기 전체를 한 번에 정리해 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I play with my friend at the park.",
+      "ko": "나는 공원에서 친구와 논다."
+     },
+     {
+      "en": "I stay home and sleep.",
+      "ko": "나는 집에서 잠을 잔다."
+     },
+     {
+      "en": "Tom is sad at school.",
+      "ko": "톰은 학교에서 슬프다."
+     },
+     {
+      "en": "The grass is brown.",
+      "ko": "잔디는 갈색이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "Two friends play together at the park.",
+     "ko": "두 친구가 공원에서 함께 노는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "park",
+     "ko": "공원"
+    },
+    {
+     "en": "slide",
+     "ko": "미끄럼틀"
+    },
+    {
+     "en": "grass",
+     "ko": "잔디"
+    }
+   ],
+   "summary": {
+    "ko": "나는 공원에서 미아와 즐겁게 논다.",
+    "en": "I have fun with Mia at the park.",
+    "keywords": [
+     "fun",
+     "Mia",
+     "park"
+    ],
+    "change": {
+     "from": "Tom",
+     "to": "Mia",
+     "koFrom": "톰과",
+     "koTo": "미아와"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-07",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "The Big Fish",
+    "ko": "큰 물고기"
+   },
+   "topic": {
+    "en": "Sea",
+    "ko": "바다"
+   },
+   "bg": {
+    "en": "Many kinds of fish live in the sea.",
+    "ko": "바다에는 여러 종류의 물고기가 살아요."
+   },
+   "sentences": [
+    {
+     "en": "A big fish lives in the sea.",
+     "ko": "큰 물고기가 바다에 산다."
+    },
+    {
+     "en": "It has blue fins.",
+     "ko": "그 물고기는 파란 지느러미가 있다."
+    },
+    {
+     "en": "It can swim very fast.",
+     "ko": "그 물고기는 아주 빨리 헤엄칠 수 있다."
+    },
+    {
+     "en": "A small fish is lost.",
+     "ko": "작은 물고기가 길을 잃었다."
+    },
+    {
+     "en": "The big fish helps the small fish go home.",
+     "ko": "큰 물고기가 작은 물고기가 집에 가도록 도와준다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows the most important thing the big fish does.",
+    "ko": "큰 물고기가 하는 가장 중요한 일을 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "A big fish helps a lost small fish.",
+      "ko": "큰 물고기가 길 잃은 작은 물고기를 돕는다."
+     },
+     {
+      "en": "The big fish eats the small fish.",
+      "ko": "큰 물고기가 작은 물고기를 먹는다."
+     },
+     {
+      "en": "Fish live in trees.",
+      "ko": "물고기는 나무에 산다."
+     },
+     {
+      "en": "The small fish has red fins.",
+      "ko": "작은 물고기는 빨간 지느러미가 있다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The big fish is kind and helps the lost fish.",
+     "ko": "큰 물고기가 길 잃은 물고기를 친절하게 도와주는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "fish",
+     "ko": "물고기"
+    },
+    {
+     "en": "swim",
+     "ko": "헤엄치다"
+    },
+    {
+     "en": "lost",
+     "ko": "길을 잃은"
+    }
+   ],
+   "summary": {
+    "ko": "착한 물고기가 작은 물고기가 집에 가도록 도와준다.",
+    "en": "The kind fish helps the small fish go home.",
+    "keywords": [
+     "kind",
+     "helps",
+     "home"
+    ],
+    "change": {
+     "from": "big",
+     "to": "kind",
+     "koFrom": "큰",
+     "koTo": "착한"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-08",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "My New Shoes",
+    "ko": "새 신발"
+   },
+   "topic": {
+    "en": "Clothes",
+    "ko": "옷"
+   },
+   "bg": {
+    "en": "Good shoes help keep your feet safe.",
+    "ko": "좋은 신발은 발을 안전하게 지켜 줘요."
+   },
+   "sentences": [
+    {
+     "en": "I have new shoes.",
+     "ko": "나는 새 신발이 생겼다."
+    },
+    {
+     "en": "They are pink and white.",
+     "ko": "신발은 분홍색과 흰색이다."
+    },
+    {
+     "en": "I put them on.",
+     "ko": "나는 신발을 신는다."
+    },
+    {
+     "en": "I can run so fast!",
+     "ko": "나는 아주 빨리 달릴 수 있다!"
+    },
+    {
+     "en": "I am happy with my new shoes.",
+     "ko": "나는 새 신발이 마음에 들어 기쁘다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows how the child feels about the new shoes.",
+    "ko": "아이가 새 신발에 대해 어떻게 느끼는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The child is happy with new shoes.",
+      "ko": "아이는 새 신발이 생겨 기쁘다."
+     },
+     {
+      "en": "The shoes are too small.",
+      "ko": "신발이 너무 작다."
+     },
+     {
+      "en": "The child cannot run.",
+      "ko": "아이는 달릴 수 없다."
+     },
+     {
+      "en": "The shoes are black.",
+      "ko": "신발은 까만색이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child gets new shoes and feels happy.",
+     "ko": "아이가 새 신발을 신고 기뻐하는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "shoes",
+     "ko": "신발"
+    },
+    {
+     "en": "pink",
+     "ko": "분홍색"
+    },
+    {
+     "en": "fast",
+     "ko": "빠르게"
+    }
+   ],
+   "summary": {
+    "ko": "나는 새 모자가 마음에 들어 기쁘다.",
+    "en": "I am happy with my new hat.",
+    "keywords": [
+     "happy",
+     "new",
+     "hat"
+    ],
+    "change": {
+     "from": "shoes",
+     "to": "hat",
+     "koFrom": "신발이",
+     "koTo": "모자가"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-09",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Brush Your Teeth",
+    "ko": "이를 닦아요"
+   },
+   "topic": {
+    "en": "Health",
+    "ko": "건강"
+   },
+   "bg": {
+    "en": "Brushing your teeth keeps them strong and clean.",
+    "ko": "이를 닦으면 이가 튼튼하고 깨끗해져요."
+   },
+   "sentences": [
+    {
+     "en": "I eat a sweet cake.",
+     "ko": "나는 달콤한 케이크를 먹는다."
+    },
+    {
+     "en": "Then I go to the bathroom.",
+     "ko": "그다음 나는 화장실에 간다."
+    },
+    {
+     "en": "I get my toothbrush.",
+     "ko": "나는 칫솔을 꺼낸다."
+    },
+    {
+     "en": "I brush my teeth well.",
+     "ko": "나는 이를 잘 닦는다."
+    },
+    {
+     "en": "I brush my teeth after every meal.",
+     "ko": "나는 밥을 먹을 때마다 이를 닦는다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence tells the good habit in the story.",
+    "ko": "이야기 속 좋은 습관을 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I brush my teeth after I eat.",
+      "ko": "나는 먹고 나서 이를 닦는다."
+     },
+     {
+      "en": "I eat cake every day.",
+      "ko": "나는 매일 케이크를 먹는다."
+     },
+     {
+      "en": "I do not like my toothbrush.",
+      "ko": "나는 칫솔이 싫다."
+     },
+     {
+      "en": "I sleep in the bathroom.",
+      "ko": "나는 화장실에서 잔다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child brushes the teeth after eating.",
+     "ko": "아이가 먹고 나서 이를 닦는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "teeth",
+     "ko": "이(치아)"
+    },
+    {
+     "en": "brush",
+     "ko": "닦다"
+    },
+    {
+     "en": "sweet",
+     "ko": "달콤한"
+    }
+   ],
+   "summary": {
+    "ko": "나는 간식을 먹을 때마다 이를 닦는다.",
+    "en": "I brush my teeth after every snack.",
+    "keywords": [
+     "brush",
+     "teeth",
+     "snack"
+    ],
+    "change": {
+     "from": "meal",
+     "to": "snack",
+     "koFrom": "밥을",
+     "koTo": "간식을"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-10",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "The Sleepy Bear",
+    "ko": "졸린 곰"
+   },
+   "topic": {
+    "en": "Animals",
+    "ko": "동물"
+   },
+   "bg": {
+    "en": "Some bears sleep all winter long.",
+    "ko": "어떤 곰은 겨울 내내 잠을 자요."
+   },
+   "sentences": [
+    {
+     "en": "It is cold and snowy.",
+     "ko": "춥고 눈이 온다."
+    },
+    {
+     "en": "A brown bear is sleepy.",
+     "ko": "갈색 곰이 졸리다."
+    },
+    {
+     "en": "He goes into his cave.",
+     "ko": "곰은 동굴 안으로 들어간다."
+    },
+    {
+     "en": "He sleeps all winter long.",
+     "ko": "곰은 겨울 내내 잠을 잔다."
+    },
+    {
+     "en": "In spring, the bear wakes up.",
+     "ko": "봄이 되면 곰이 깨어난다."
+    }
+   ],
+   "key": 3,
+   "keyWhy": {
+    "en": "This sentence tells the big thing the bear does.",
+    "ko": "곰이 하는 가장 큰 일을 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "A bear sleeps in a cave all winter.",
+      "ko": "곰이 겨울 내내 동굴에서 잔다."
+     },
+     {
+      "en": "The bear plays in the snow all day.",
+      "ko": "곰이 하루 종일 눈에서 논다."
+     },
+     {
+      "en": "The bear is white and small.",
+      "ko": "곰은 하얗고 작다."
+     },
+     {
+      "en": "It is hot in winter.",
+      "ko": "겨울에는 덥다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "A sleepy bear sleeps in its cave all winter.",
+     "ko": "졸린 곰이 겨울 내내 동굴에서 자는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "bear",
+     "ko": "곰"
+    },
+    {
+     "en": "cave",
+     "ko": "동굴"
+    },
+    {
+     "en": "winter",
+     "ko": "겨울"
+    }
+   ],
+   "summary": {
+    "ko": "곰은 밤 내내 잠을 잔다.",
+    "en": "He sleeps all night long.",
+    "keywords": [
+     "sleeps",
+     "night",
+     "long"
+    ],
+    "change": {
+     "from": "winter",
+     "to": "night",
+     "koFrom": "겨울",
+     "koTo": "밤"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-11",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "I Can Draw",
+    "ko": "나는 그림을 그려요"
+   },
+   "topic": {
+    "en": "Art",
+    "ko": "미술"
+   },
+   "bg": {
+    "en": "Drawing is a fun way to show your ideas.",
+    "ko": "그림 그리기는 생각을 보여 주는 재미있는 방법이에요."
+   },
+   "sentences": [
+    {
+     "en": "I have some crayons.",
+     "ko": "나는 크레용이 몇 개 있다."
+    },
+    {
+     "en": "I draw a big sun.",
+     "ko": "나는 큰 해를 그린다."
+    },
+    {
+     "en": "I draw a green tree.",
+     "ko": "나는 초록 나무를 그린다."
+    },
+    {
+     "en": "I draw my house too.",
+     "ko": "나는 우리 집도 그린다."
+    },
+    {
+     "en": "I give my picture to my grandma.",
+     "ko": "나는 내 그림을 할머니께 드린다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows why the child draws the picture.",
+    "ko": "아이가 그림을 그린 까닭을 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I draw a picture for my grandma.",
+      "ko": "나는 할머니께 드릴 그림을 그린다."
+     },
+     {
+      "en": "I do not have any crayons.",
+      "ko": "나는 크레용이 하나도 없다."
+     },
+     {
+      "en": "Grandma draws a big sun.",
+      "ko": "할머니가 큰 해를 그린다."
+     },
+     {
+      "en": "The tree is blue.",
+      "ko": "나무는 파랗다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child draws a picture and gives it to grandma.",
+     "ko": "아이가 그림을 그려서 할머니께 드리는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "draw",
+     "ko": "그리다"
+    },
+    {
+     "en": "crayons",
+     "ko": "크레용"
+    },
+    {
+     "en": "picture",
+     "ko": "그림"
+    }
+   ],
+   "summary": {
+    "ko": "나는 내 그림을 선생님께 드린다.",
+    "en": "I give my picture to my teacher.",
+    "keywords": [
+     "give",
+     "picture",
+     "teacher"
+    ],
+    "change": {
+     "from": "grandma",
+     "to": "teacher",
+     "koFrom": "할머니께",
+     "koTo": "선생님께"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-12",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "The Lost Toy Car",
+    "ko": "잃어버린 장난감 자동차"
+   },
+   "topic": {
+    "en": "Toys",
+    "ko": "장난감"
+   },
+   "bg": {
+    "en": "Putting toys away helps you find them later.",
+    "ko": "장난감을 제자리에 두면 나중에 찾기 쉬워요."
+   },
+   "sentences": [
+    {
+     "en": "Where is my toy car?",
+     "ko": "내 장난감 자동차는 어디 있을까?"
+    },
+    {
+     "en": "It is not on the bed.",
+     "ko": "침대 위에 없다."
+    },
+    {
+     "en": "It is not in the box.",
+     "ko": "상자 안에 없다."
+    },
+    {
+     "en": "I look under the sofa.",
+     "ko": "나는 소파 밑을 본다."
+    },
+    {
+     "en": "I find my toy car under the sofa!",
+     "ko": "나는 소파 밑에서 장난감 자동차를 찾는다!"
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence tells how the story ends.",
+    "ko": "이야기가 어떻게 끝나는지 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The child looks for a toy car and finds it.",
+      "ko": "아이가 장난감 자동차를 찾아다니다가 찾는다."
+     },
+     {
+      "en": "The toy car is on the bed.",
+      "ko": "장난감 자동차는 침대 위에 있다."
+     },
+     {
+      "en": "The child gets a new toy car.",
+      "ko": "아이가 새 장난감 자동차를 받는다."
+     },
+     {
+      "en": "The sofa is very big.",
+      "ko": "소파가 아주 크다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child looks everywhere and finds the lost toy car.",
+     "ko": "아이가 여기저기 찾다가 잃어버린 자동차를 찾는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "toy",
+     "ko": "장난감"
+    },
+    {
+     "en": "under",
+     "ko": "~ 밑에"
+    },
+    {
+     "en": "find",
+     "ko": "찾다"
+    }
+   ],
+   "summary": {
+    "ko": "나는 식탁 밑에서 장난감 자동차를 찾는다!",
+    "en": "I find my toy car under the table!",
+    "keywords": [
+     "find",
+     "car",
+     "table"
+    ],
+    "change": {
+     "from": "sofa",
+     "to": "table",
+     "koFrom": "소파",
+     "koTo": "식탁"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-13",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "My Little Seed",
+    "ko": "나의 작은 씨앗"
+   },
+   "topic": {
+    "en": "Plants",
+    "ko": "식물"
+   },
+   "bg": {
+    "en": "Plants need sun and water to grow.",
+    "ko": "식물이 자라려면 햇빛과 물이 필요해요."
+   },
+   "sentences": [
+    {
+     "en": "I plant a little seed.",
+     "ko": "나는 작은 씨앗을 심는다."
+    },
+    {
+     "en": "I give it water every day.",
+     "ko": "나는 매일 씨앗에 물을 준다."
+    },
+    {
+     "en": "The sun is warm.",
+     "ko": "햇빛이 따뜻하다."
+    },
+    {
+     "en": "Soon I see a green leaf.",
+     "ko": "곧 초록 잎이 보인다."
+    },
+    {
+     "en": "My little seed grows into a big flower.",
+     "ko": "내 작은 씨앗이 큰 꽃으로 자란다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows what happens to the seed.",
+    "ko": "씨앗이 어떻게 되는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "A small seed grows into a flower.",
+      "ko": "작은 씨앗이 꽃으로 자란다."
+     },
+     {
+      "en": "The seed does not get water.",
+      "ko": "씨앗은 물을 받지 못한다."
+     },
+     {
+      "en": "The sun is cold.",
+      "ko": "햇빛이 차갑다."
+     },
+     {
+      "en": "I eat the seed.",
+      "ko": "나는 씨앗을 먹는다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "With water and sun, the seed becomes a flower.",
+     "ko": "물과 햇빛을 받아 씨앗이 꽃이 되는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "seed",
+     "ko": "씨앗"
+    },
+    {
+     "en": "plant",
+     "ko": "심다"
+    },
+    {
+     "en": "leaf",
+     "ko": "잎"
+    }
+   ],
+   "summary": {
+    "ko": "내 작은 씨앗이 큰 나무로 자란다.",
+    "en": "My little seed grows into a big tree.",
+    "keywords": [
+     "seed",
+     "grows",
+     "tree"
+    ],
+    "change": {
+     "from": "flower",
+     "to": "tree",
+     "koFrom": "꽃으로",
+     "koTo": "나무로"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-14",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Snow Day",
+    "ko": "눈 오는 날"
+   },
+   "topic": {
+    "en": "Weather",
+    "ko": "날씨"
+   },
+   "bg": {
+    "en": "Snow is made of tiny pieces of ice.",
+    "ko": "눈은 아주 작은 얼음 조각으로 되어 있어요."
+   },
+   "sentences": [
+    {
+     "en": "Look, it is snowing!",
+     "ko": "봐, 눈이 온다!"
+    },
+    {
+     "en": "Everything is white.",
+     "ko": "온 세상이 하얗다."
+    },
+    {
+     "en": "I put on my warm hat.",
+     "ko": "나는 따뜻한 모자를 쓴다."
+    },
+    {
+     "en": "My brother and I go outside.",
+     "ko": "남동생과 나는 밖으로 나간다."
+    },
+    {
+     "en": "We make a big snowman together.",
+     "ko": "우리는 함께 큰 눈사람을 만든다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows the fun thing the children do.",
+    "ko": "아이들이 하는 즐거운 일을 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "Two children make a snowman in the snow.",
+      "ko": "두 아이가 눈 속에서 눈사람을 만든다."
+     },
+     {
+      "en": "It is a hot summer day.",
+      "ko": "더운 여름날이다."
+     },
+     {
+      "en": "The children stay inside all day.",
+      "ko": "아이들은 하루 종일 안에 있다."
+     },
+     {
+      "en": "My hat is very small.",
+      "ko": "내 모자는 아주 작다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "On a snowy day, the children make a snowman.",
+     "ko": "눈 오는 날 아이들이 눈사람을 만드는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "warm",
+     "ko": "따뜻한"
+    },
+    {
+     "en": "outside",
+     "ko": "밖으로"
+    },
+    {
+     "en": "snowman",
+     "ko": "눈사람"
+    }
+   ],
+   "summary": {
+    "ko": "우리는 함께 큰 성을 만든다.",
+    "en": "We make a big castle together.",
+    "keywords": [
+     "make",
+     "castle",
+     "together"
+    ],
+    "change": {
+     "from": "snowman",
+     "to": "castle",
+     "koFrom": "눈사람을",
+     "koTo": "성을"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-15",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Happy Birthday",
+    "ko": "생일 축하해"
+   },
+   "topic": {
+    "en": "Special days",
+    "ko": "특별한 날"
+   },
+   "bg": {
+    "en": "Many people eat cake and sing on their birthday.",
+    "ko": "많은 사람들이 생일에 케이크를 먹고 노래를 불러요."
+   },
+   "sentences": [
+    {
+     "en": "Today is my birthday.",
+     "ko": "오늘은 내 생일이다."
+    },
+    {
+     "en": "I am seven years old.",
+     "ko": "나는 일곱 살이다."
+    },
+    {
+     "en": "My friends come to my house.",
+     "ko": "친구들이 우리 집에 온다."
+    },
+    {
+     "en": "We sing and eat cake.",
+     "ko": "우리는 노래하고 케이크를 먹는다."
+    },
+    {
+     "en": "This is my best birthday ever!",
+     "ko": "이번이 내 최고의 생일이다!"
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows how the child feels on the birthday.",
+    "ko": "생일에 아이가 어떤 기분인지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The child has a great birthday with friends.",
+      "ko": "아이가 친구들과 아주 즐거운 생일을 보낸다."
+     },
+     {
+      "en": "The child is sad on the birthday.",
+      "ko": "아이는 생일에 슬프다."
+     },
+     {
+      "en": "No friends come to the house.",
+      "ko": "친구가 아무도 오지 않는다."
+     },
+     {
+      "en": "The child is ten years old.",
+      "ko": "아이는 열 살이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child has a happy birthday party with friends.",
+     "ko": "아이가 친구들과 즐거운 생일 파티를 하는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "birthday",
+     "ko": "생일"
+    },
+    {
+     "en": "sing",
+     "ko": "노래하다"
+    },
+    {
+     "en": "best",
+     "ko": "최고의"
+    }
+   ],
+   "summary": {
+    "ko": "이번이 내 최고의 날이다!",
+    "en": "This is my best day ever!",
+    "keywords": [
+     "best",
+     "day",
+     "ever"
+    ],
+    "change": {
+     "from": "birthday",
+     "to": "day",
+     "koFrom": "생일",
+     "koTo": "날"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-16",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "The Busy Bee",
+    "ko": "바쁜 꿀벌"
+   },
+   "topic": {
+    "en": "Insects",
+    "ko": "곤충"
+   },
+   "bg": {
+    "en": "Bees carry pollen from flower to flower.",
+    "ko": "꿀벌은 꽃가루를 이 꽃에서 저 꽃으로 옮겨요."
+   },
+   "sentences": [
+    {
+     "en": "A little bee flies in the sun.",
+     "ko": "작은 꿀벌이 햇빛 속을 난다."
+    },
+    {
+     "en": "It goes from flower to flower.",
+     "ko": "꿀벌은 이 꽃에서 저 꽃으로 날아간다."
+    },
+    {
+     "en": "It drinks sweet nectar.",
+     "ko": "꿀벌은 달콤한 꽃꿀을 마신다."
+    },
+    {
+     "en": "Then it flies back to the hive.",
+     "ko": "그다음 꿀벌은 벌집으로 날아간다."
+    },
+    {
+     "en": "The busy bee makes honey all day.",
+     "ko": "바쁜 꿀벌은 하루 종일 꿀을 만든다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence tells the main job of the bee.",
+    "ko": "꿀벌이 하는 가장 중요한 일을 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "A bee works hard to make honey.",
+      "ko": "꿀벌이 꿀을 만들려고 열심히 일한다."
+     },
+     {
+      "en": "The bee sleeps all day.",
+      "ko": "꿀벌은 하루 종일 잔다."
+     },
+     {
+      "en": "The bee eats a fish.",
+      "ko": "꿀벌이 물고기를 먹는다."
+     },
+     {
+      "en": "Flowers can fly.",
+      "ko": "꽃은 날 수 있다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The bee visits flowers and makes honey.",
+     "ko": "꿀벌이 꽃을 찾아다니며 꿀을 만드는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "bee",
+     "ko": "꿀벌"
+    },
+    {
+     "en": "honey",
+     "ko": "꿀"
+    },
+    {
+     "en": "flower",
+     "ko": "꽃"
+    }
+   ],
+   "summary": {
+    "ko": "작은 꿀벌은 하루 종일 꿀을 만든다.",
+    "en": "The little bee makes honey all day.",
+    "keywords": [
+     "little",
+     "makes",
+     "honey"
+    ],
+    "change": {
+     "from": "busy",
+     "to": "little",
+     "koFrom": "바쁜",
+     "koTo": "작은"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-17",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Bath Time",
+    "ko": "목욕 시간"
+   },
+   "topic": {
+    "en": "Daily life",
+    "ko": "생활"
+   },
+   "bg": {
+    "en": "Taking a bath keeps your body clean.",
+    "ko": "목욕을 하면 몸이 깨끗해져요."
+   },
+   "sentences": [
+    {
+     "en": "I play in the mud.",
+     "ko": "나는 진흙에서 논다."
+    },
+    {
+     "en": "Now I am very dirty.",
+     "ko": "이제 나는 아주 더럽다."
+    },
+    {
+     "en": "Dad fills the bathtub.",
+     "ko": "아빠가 욕조에 물을 채운다."
+    },
+    {
+     "en": "I wash with soap and bubbles.",
+     "ko": "나는 비누와 거품으로 씻는다."
+    },
+    {
+     "en": "After my bath, I am clean and happy.",
+     "ko": "목욕을 하고 나면 나는 깨끗하고 행복하다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows how the child changes after the bath.",
+    "ko": "목욕 뒤에 아이가 어떻게 바뀌는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "A dirty child takes a bath and gets clean.",
+      "ko": "더러워진 아이가 목욕을 해서 깨끗해진다."
+     },
+     {
+      "en": "The child does not like water.",
+      "ko": "아이는 물을 싫어한다."
+     },
+     {
+      "en": "Dad plays in the mud.",
+      "ko": "아빠가 진흙에서 논다."
+     },
+     {
+      "en": "The child stays dirty all day.",
+      "ko": "아이는 하루 종일 더러운 채로 있다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child gets dirty, takes a bath and becomes clean.",
+     "ko": "더러워진 아이가 목욕을 하고 깨끗해지는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "dirty",
+     "ko": "더러운"
+    },
+    {
+     "en": "wash",
+     "ko": "씻다"
+    },
+    {
+     "en": "clean",
+     "ko": "깨끗한"
+    }
+   ],
+   "summary": {
+    "ko": "목욕을 하고 나면 나는 깨끗하고 따뜻하다.",
+    "en": "After my bath, I am clean and warm.",
+    "keywords": [
+     "bath",
+     "clean",
+     "warm"
+    ],
+    "change": {
+     "from": "happy",
+     "to": "warm",
+     "koFrom": "행복하다",
+     "koTo": "따뜻하다"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-18",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "My Pet Rabbit",
+    "ko": "나의 토끼"
+   },
+   "topic": {
+    "en": "Animals",
+    "ko": "동물"
+   },
+   "bg": {
+    "en": "Rabbits like to eat carrots, grass and hay.",
+    "ko": "토끼는 당근, 풀, 건초를 즐겨 먹어요."
+   },
+   "sentences": [
+    {
+     "en": "I have a pet rabbit.",
+     "ko": "나는 애완 토끼가 있다."
+    },
+    {
+     "en": "Her name is Bunny.",
+     "ko": "토끼의 이름은 버니이다."
+    },
+    {
+     "en": "She has long ears.",
+     "ko": "버니는 귀가 길다."
+    },
+    {
+     "en": "She hops and hops.",
+     "ko": "버니는 깡충깡충 뛴다."
+    },
+    {
+     "en": "Every day, I feed Bunny some carrots.",
+     "ko": "나는 매일 버니에게 당근을 준다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows how I take care of my rabbit.",
+    "ko": "내가 토끼를 어떻게 돌보는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "I have a rabbit and take care of her.",
+      "ko": "나는 토끼를 기르고 돌봐 준다."
+     },
+     {
+      "en": "The rabbit has short ears.",
+      "ko": "토끼는 귀가 짧다."
+     },
+     {
+      "en": "I have a pet dog named Bunny.",
+      "ko": "나는 버니라는 강아지를 기른다."
+     },
+     {
+      "en": "The rabbit does not eat.",
+      "ko": "토끼는 아무것도 먹지 않는다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child has a pet rabbit and feeds her every day.",
+     "ko": "아이가 토끼를 기르며 매일 먹이를 주는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "rabbit",
+     "ko": "토끼"
+    },
+    {
+     "en": "ears",
+     "ko": "귀"
+    },
+    {
+     "en": "feed",
+     "ko": "먹이를 주다"
+    }
+   ],
+   "summary": {
+    "ko": "나는 매일 버니에게 풀을 준다.",
+    "en": "Every day, I feed Bunny some grass.",
+    "keywords": [
+     "feed",
+     "Bunny",
+     "grass"
+    ],
+    "change": {
+     "from": "carrots",
+     "to": "grass",
+     "koFrom": "당근을",
+     "koTo": "풀을"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-19",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Going to School",
+    "ko": "학교에 가요"
+   },
+   "topic": {
+    "en": "School",
+    "ko": "학교"
+   },
+   "bg": {
+    "en": "Many children walk or take a bus to school.",
+    "ko": "많은 아이들이 걸어가거나 버스를 타고 학교에 가요."
+   },
+   "sentences": [
+    {
+     "en": "I wake up at eight.",
+     "ko": "나는 8시에 일어난다."
+    },
+    {
+     "en": "I put on my school bag.",
+     "ko": "나는 책가방을 멘다."
+    },
+    {
+     "en": "I walk to school with my mom.",
+     "ko": "나는 엄마와 함께 걸어서 학교에 간다."
+    },
+    {
+     "en": "I say hello to my teacher.",
+     "ko": "나는 선생님께 인사한다."
+    },
+    {
+     "en": "I like to learn new things at school.",
+     "ko": "나는 학교에서 새로운 것을 배우는 것이 좋다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence tells how the child feels about school.",
+    "ko": "아이가 학교를 어떻게 생각하는지 알려 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The child goes to school and likes learning.",
+      "ko": "아이는 학교에 가서 배우는 것을 좋아한다."
+     },
+     {
+      "en": "The child stays in bed all day.",
+      "ko": "아이는 하루 종일 침대에 있다."
+     },
+     {
+      "en": "The child does not like the teacher.",
+      "ko": "아이는 선생님을 좋아하지 않는다."
+     },
+     {
+      "en": "The child takes a train to school.",
+      "ko": "아이는 기차를 타고 학교에 간다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child goes to school and enjoys learning.",
+     "ko": "아이가 학교에 가서 즐겁게 배우는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "school",
+     "ko": "학교"
+    },
+    {
+     "en": "walk",
+     "ko": "걷다"
+    },
+    {
+     "en": "learn",
+     "ko": "배우다"
+    }
+   ],
+   "summary": {
+    "ko": "나는 집에서 새로운 것을 배우는 것이 좋다.",
+    "en": "I like to learn new things at home.",
+    "keywords": [
+     "learn",
+     "new",
+     "home"
+    ],
+    "change": {
+     "from": "school",
+     "to": "home",
+     "koFrom": "학교에서",
+     "koTo": "집에서"
+    }
+   }
+  },
+  {
+   "stage": 0,
+   "id": "s0-20",
+   "genre": "story",
+   "book": false,
+   "title": {
+    "en": "Good Night",
+    "ko": "잘 자요"
+   },
+   "topic": {
+    "en": "Daily life",
+    "ko": "생활"
+   },
+   "bg": {
+    "en": "Children need about ten hours of sleep each night.",
+    "ko": "어린이는 밤마다 열 시간쯤 자야 해요."
+   },
+   "sentences": [
+    {
+     "en": "It is dark outside.",
+     "ko": "밖이 어둡다."
+    },
+    {
+     "en": "I put on my pajamas.",
+     "ko": "나는 잠옷을 입는다."
+    },
+    {
+     "en": "Mom reads me a story.",
+     "ko": "엄마가 나에게 이야기를 읽어 준다."
+    },
+    {
+     "en": "I hug my teddy bear.",
+     "ko": "나는 곰 인형을 꼭 안는다."
+    },
+    {
+     "en": "I close my eyes and go to sleep.",
+     "ko": "나는 눈을 감고 잠이 든다."
+    }
+   ],
+   "key": 4,
+   "keyWhy": {
+    "en": "This sentence shows how the night ends.",
+    "ko": "밤이 어떻게 끝나는지 보여 주는 문장이에요."
+   },
+   "main": {
+    "options": [
+     {
+      "en": "The child gets ready for bed and sleeps.",
+      "ko": "아이가 잘 준비를 하고 잠이 든다."
+     },
+     {
+      "en": "The child plays outside at night.",
+      "ko": "아이가 밤에 밖에서 논다."
+     },
+     {
+      "en": "The child reads a story to Mom.",
+      "ko": "아이가 엄마에게 이야기를 읽어 준다."
+     },
+     {
+      "en": "It is a bright, sunny morning.",
+      "ko": "밝고 맑은 아침이다."
+     }
+    ],
+    "answer": 0,
+    "why": {
+     "en": "The child gets ready for bed and falls asleep.",
+     "ko": "아이가 잘 준비를 하고 잠드는 이야기예요."
+    }
+   },
+   "words": [
+    {
+     "en": "dark",
+     "ko": "어두운"
+    },
+    {
+     "en": "pajamas",
+     "ko": "잠옷"
+    },
+    {
+     "en": "sleep",
+     "ko": "자다"
+    }
+   ],
+   "summary": {
+    "ko": "나는 책을 덮고 잠이 든다.",
+    "en": "I close my book and go to sleep.",
+    "keywords": [
+     "close",
+     "book",
+     "sleep"
+    ],
+    "change": {
+     "from": "eyes",
+     "to": "book",
+     "koFrom": "눈을 감고",
+     "koTo": "책을 덮고"
+    }
+   }
+  },
   {
    "stage": 1,
    "id": "s1-01",
