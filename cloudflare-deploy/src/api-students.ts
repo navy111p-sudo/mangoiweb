@@ -17,6 +17,7 @@ import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗
 import { createHandoff, redeemHandoff, HANDOFF_TTL_SEC } from './class-entry-handoff';   // 🚪 수업 입장 주소 옮기기(2026-10-16)
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
+import { readParentClasses } from './parent-classes';
 import { summarizeAttendance } from './attendance-truth';
 import { dropStudentCafe24Duplicates } from './student-cafe24-duplicates';
 import { ATTENDANCE_BY_UID, ATTENDANCE_BY_UID_NOCASE, attUidBinds } from './attendance-uid';
@@ -123,6 +124,10 @@ export async function handleStudentsApi(
       ).bind(...attUidBinds(childUid), sinceMs).all();
       const attSummary = summarizeAttendance((attRows.results || []) as any[]);
 
+      let classes: any = null;
+      try { classes = await readParentClasses(env, childUid); }
+      catch (e: any) { console.warn('[parent-classes] read failed:', e?.message); }
+
       // 결제내역 (최근 6개)
       const pays = await env.DB.prepare(`SELECT id, paid_at, period_start, period_end, amount_krw, method, memo, status FROM student_payments WHERE user_id = ? ORDER BY paid_at DESC LIMIT 6`).bind(childUid).all();
 
@@ -155,6 +160,7 @@ export async function handleStudentsApi(
         },
         evaluations: evals.results || [],
         attendance: attSummary,
+        classes,
         payments: pays.results || [],
         warmup,
         speaking_growth:speakingGrowth,

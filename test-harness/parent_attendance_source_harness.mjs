@@ -135,10 +135,10 @@ if (parentHtml) {
   const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/<!--[\s\S]*?-->/g, '');
   const parentCode = strip(parentHtml);
   ok('🔴 화면이 null 을 «—» 로 그린다(0% 라고 단정하지 않는다)',
-     /\(v === null \|\| v === undefined\) \? '—'/.test(parentCode));
+     /cls \? cls.completed/.test(parentCode) && /: '—'/.test(parentCode));
   ok('🔴 옛 «(att.on_time_rate||0)+\'%\'» 패턴 미복귀',
      !/on_time_rate\s*\|\|\s*0\)\s*\+\s*'%'/.test(parentCode));
-  ok('출석률 칸이 화면에 있다', /id="pd-att-rate"/.test(parentHtml));
+  ok('월간 수업 횟수 칸이 화면에 있다', /id="pd-class-count"/.test(parentHtml));
 }
 
 // ── 4) 쓰기측 정합 — api-mango.ts 가 수업시간 내 입장을 status='attended' 로 쓰는가 ──
